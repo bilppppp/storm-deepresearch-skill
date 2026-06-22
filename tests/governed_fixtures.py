@@ -287,15 +287,21 @@ def valid_adapter_record(index: int = 1) -> dict[str, object]:
     }
 
 
-def valid_paragraph_map_record() -> dict[str, object]:
+def valid_paragraph_map_record(
+    *,
+    paragraph_type: str = "factual",
+    claim_ids: list[str] | None = None,
+    source_ids: list[str] | None = None,
+    citation_keys: list[str] | None = None,
+) -> dict[str, object]:
     return {
         "schema_version": "2.0",
         "paragraph_sha256": "2" * 64,
-        "paragraph_type": "factual",
-        "claim_ids": ["C001"],
-        "source_ids": ["S001"],
-        "citation_keys": ["nist-2026-report"],
-        "text_locator": "section:key-findings/paragraph:1",
+        "paragraph_type": paragraph_type,
+        "claim_ids": ["C001"] if claim_ids is None else claim_ids,
+        "source_ids": ["S001"] if source_ids is None else source_ids,
+        "citation_keys": ["nist-2026-report"] if citation_keys is None else citation_keys,
+        "text_locator": "paragraph:1",
     }
 
 

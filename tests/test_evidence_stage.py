@@ -16,6 +16,7 @@ from tests.governed_fixtures import (
     valid_source_plan,
     valid_uncertainty_ledger_v2,
 )
+from scripts.report_traceability import citation_index, extract_paragraphs
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,6 +57,55 @@ class EvidenceStageTests(unittest.TestCase):
             ):
                 self.assertTrue((research / name).is_file(), name)
             self.assertTrue((run / "state/generations/g0001/receipts/30-evidence.json").is_file())
+
+    def test_draft_requires_evidence_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.retrieved_run(workspace)
+            draft = workspace / "draft.md"
+            mapping = workspace / "paragraph-map.jsonl"
+            draft.write_text("# Incomplete\n", encoding="utf-8")
+            mapping.write_text("", encoding="utf-8")
+            result = self.invoke(
+                "draft", str(run), "--draft-md", str(draft),
+                "--paragraph-map-jsonl", str(mapping),
+            )
+            self.assertEqual(result.returncode, 8, result.stdout + result.stderr)
+            self.assertIn("missing evidence receipt", result.stderr)
+
+    def test_draft_rejects_handwritten_references(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.evidenced_run(workspace)
+            draft, mapping = self.write_draft_inputs(run, workspace)
+            draft.write_text(
+                draft.read_text(encoding="utf-8") + "\n## References\n\n[^invented]: invented\n",
+                encoding="utf-8",
+            )
+            result = self.invoke(
+                "draft", str(run), "--draft-md", str(draft),
+                "--paragraph-map-jsonl", str(mapping),
+            )
+            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+            self.assertIn("hand-written References", result.stderr)
+            self.assertFalse((run / "state/generations/g0001/receipts/40-draft.json").exists())
+
+    def test_draft_generates_references_and_commits_traceability(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.evidenced_run(workspace)
+            draft, mapping = self.write_draft_inputs(run, workspace)
+            result = self.invoke(
+                "draft", str(run), "--draft-md", str(draft),
+                "--paragraph-map-jsonl", str(mapping),
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            artifact_root = run / "work/generations/g0001/artifacts"
+            report = artifact_root / "drafts/report-v1.md"
+            self.assertIn("## References", report.read_text(encoding="utf-8"))
+            self.assertTrue((artifact_root / "research/paragraph-map.jsonl").is_file())
+            self.assertTrue((artifact_root / "research/citation-index.json").is_file())
+            self.assertTrue((run / "state/generations/g0001/receipts/40-draft.json").is_file())
 
     def invoke_evidence(
         self, run: Path, inputs: tuple[Path, Path, Path, Path]
@@ -129,6 +179,49 @@ class EvidenceStageTests(unittest.TestCase):
         result = self.invoke("ingest", str(run), "--input-jsonl", str(retrieval))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return run
+
+    def evidenced_run(self, workspace: Path) -> Path:
+        run = self.retrieved_run(workspace)
+        inputs = self.write_evidence_inputs(run, workspace)
+        result = self.invoke_evidence(run, inputs)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return run
+
+    def write_draft_inputs(self, run: Path, workspace: Path) -> tuple[Path, Path]:
+        research = run / "work/generations/g0001/artifacts/research"
+        sources = [json.loads(line) for line in (research / "source-register.jsonl").read_text(encoding="utf-8").splitlines()]
+        claims = [json.loads(line) for line in (research / "claim-evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()]
+        key_by_source = {
+            str(source["source_id"]): key for key, source in citation_index(sources).items()
+        }
+        blocks = ["# Governed Research Dossier"]
+        for index, claim in enumerate(claims, start=1):
+            source_id = str(claim["supporting_source_ids"][0])
+            key = key_by_source[source_id]
+            details = " ".join(f"bounded-detail-{index}-{word}" for word in range(1, 300))
+            blocks.extend([
+                f"## Evidence Section {index}",
+                f"{claim['claim_text']} {details} [^{key}]",
+            ])
+        draft_text = "\n\n".join(blocks) + "\n"
+        paragraphs = extract_paragraphs(draft_text)
+        records = []
+        for paragraph, claim in zip(paragraphs, claims, strict=True):
+            source_id = str(claim["supporting_source_ids"][0])
+            records.append({
+                "schema_version": "2.0",
+                "paragraph_sha256": paragraph.sha256,
+                "paragraph_type": "factual" if claim["claim_type"] == "fact" else claim["claim_type"],
+                "claim_ids": [claim["claim_id"]],
+                "source_ids": [source_id],
+                "citation_keys": [key_by_source[source_id]],
+                "text_locator": paragraph.locator,
+            })
+        draft = workspace / "draft.md"
+        mapping = workspace / "paragraph-map.jsonl"
+        draft.write_text(draft_text, encoding="utf-8")
+        mapping.write_text("".join(json.dumps(item) + "\n" for item in records), encoding="utf-8")
+        return draft, mapping
 
     def planned_run(self, workspace: Path) -> Path:
         result = self.invoke(

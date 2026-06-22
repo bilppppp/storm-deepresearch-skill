@@ -43,6 +43,13 @@ from scripts.run_state import (
     latest_generation,
     verify_stage_precondition,
 )
+from scripts.report_traceability import (
+    body_length,
+    citation_index,
+    generate_references,
+    has_handwritten_references,
+    validate_report_traceability,
+)
 from scripts.source_evidence import SourceEvidenceError, resolve_snapshot
 from scripts.validate_evidence import validate_claim_closure
 
@@ -66,6 +73,10 @@ class RetrievalGateError(ValueError):
 
 class EvidenceGateError(ValueError):
     """Raised when Claims and outline do not form a closed evidence set."""
+
+
+class DraftGateError(ValueError):
+    """Raised when a draft cannot be traced to governed Claims and citations."""
 
 
 def infer_language(topic: str, question: str, requested: str) -> str:
@@ -580,6 +591,113 @@ def command_evidence(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _promote_draft_artifacts(
+    layout: RunLayout,
+    generation: int,
+    report: str,
+    paragraph_map: list[dict[str, object]],
+    citations: dict[str, dict[str, object]],
+) -> list[Path]:
+    staging = package_child(
+        layout.root, f"work/.staging/g{generation:04d}/draft-{uuid.uuid4().hex}"
+    )
+    (staging / "drafts").mkdir(parents=True, exist_ok=False)
+    (staging / "research").mkdir()
+    atomic_write_text(staging / "drafts/report-v1.md", report)
+    atomic_write_text(staging / "research/paragraph-map.jsonl", _jsonl_text(paragraph_map))
+    atomic_write_json(staging / "research/citation-index.json", {
+        "schema_version": "2.0",
+        "citations": {
+            key: str(source.get("source_id")) for key, source in citations.items()
+        },
+    })
+    destinations = [
+        layout.artifact(generation, "drafts/report-v1.md"),
+        layout.artifact(generation, "research/paragraph-map.jsonl"),
+        layout.artifact(generation, "research/citation-index.json"),
+    ]
+    sources = [
+        staging / "drafts/report-v1.md",
+        staging / "research/paragraph-map.jsonl",
+        staging / "research/citation-index.json",
+    ]
+    for source, destination in zip(sources, destinations, strict=True):
+        atomic_promote(source, destination)
+    (staging / "drafts").rmdir()
+    (staging / "research").rmdir()
+    staging.rmdir()
+    return destinations
+
+
+def _refresh_current_draft_view(
+    layout: RunLayout,
+    report: str,
+    paragraph_map: list[dict[str, object]],
+    citations: dict[str, dict[str, object]],
+) -> None:
+    atomic_write_text(package_child(layout.root, "current/drafts/report-v1.md"), report)
+    research = package_child(layout.root, "current/research")
+    atomic_write_text(research / "paragraph-map.jsonl", _jsonl_text(paragraph_map))
+    atomic_write_json(research / "citation-index.json", {
+        "schema_version": "2.0",
+        "citations": {
+            key: str(source.get("source_id")) for key, source in citations.items()
+        },
+    })
+
+
+def command_draft(args: argparse.Namespace) -> int:
+    layout = RunLayout(args.run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        raise StagePreconditionError("run has no generation")
+    package_hash = compute_skill_package_hash(ROOT)
+    verify_stage_precondition(layout, generation, Stage.DRAFT, package_hash)
+    brief = verify_current_brief_view(layout, generation)
+    draft_text = args.draft_md.read_text(encoding="utf-8")
+    if has_handwritten_references(draft_text):
+        raise DraftGateError("draft contains a hand-written References body")
+    paragraph_map = load_jsonl(args.paragraph_map_jsonl)
+    claim_path = layout.artifact(generation, "research/claim-evidence-ledger.jsonl")
+    source_path = layout.artifact(generation, "research/source-register.jsonl")
+    outline_path = layout.artifact(generation, "research/report-outline.json")
+    claims = load_jsonl(claim_path)
+    sources = load_jsonl(source_path)
+    report = generate_references(draft_text, sources)
+    errors = validate_report_traceability(report, paragraph_map, claims, sources)
+    length_contract = brief.get("length_contract") if isinstance(brief.get("length_contract"), dict) else {}
+    unit = str(length_contract.get("unit", "words"))
+    measured = body_length(report, unit)
+    minimum = int(length_contract.get("minimum", 1))
+    maximum = int(length_contract.get("maximum", 0))
+    if measured < minimum or measured > maximum:
+        errors.append(
+            f"draft body length {measured} {unit} is outside {minimum}-{maximum}"
+        )
+    if errors:
+        raise DraftGateError("; ".join(dict.fromkeys(errors)))
+    citations = citation_index(sources)
+    outputs = _promote_draft_artifacts(
+        layout, generation, report, paragraph_map, citations
+    )
+    commit_stage_receipt(
+        layout,
+        generation=generation,
+        stage=Stage.DRAFT,
+        package_hash=package_hash,
+        validator_hash=sha256_file(Path(__file__)),
+        input_artifacts={
+            "artifacts/research/claim-evidence-ledger.jsonl": sha256_file(claim_path),
+            "artifacts/research/source-register.jsonl": sha256_file(source_path),
+            "artifacts/research/report-outline.json": sha256_file(outline_path),
+        },
+        output_paths=outputs,
+    )
+    _refresh_current_draft_view(layout, report, paragraph_map, citations)
+    print(f"Drafted {layout.root}")
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -627,6 +745,12 @@ def build_parser() -> argparse.ArgumentParser:
     evidence.add_argument("--uncertainties", type=Path, required=True)
     evidence.add_argument("--report-outline", type=Path, required=True)
     evidence.set_defaults(handler=command_evidence)
+
+    draft = subparsers.add_parser("draft", help="Validate and commit a traceable report draft.")
+    draft.add_argument("run_dir", type=Path)
+    draft.add_argument("--draft-md", type=Path, required=True)
+    draft.add_argument("--paragraph-map-jsonl", type=Path, required=True)
+    draft.set_defaults(handler=command_draft)
     return parser
 
 
@@ -637,7 +761,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (StagePreconditionError, ReceiptError) as exc:
         print(f"Stage failed: {exc}", file=sys.stderr)
         return EXIT_STAGE
-    except (RetrievalGateError, EvidenceGateError) as exc:
+    except (RetrievalGateError, EvidenceGateError, DraftGateError) as exc:
         print(f"Evidence failed: {exc}", file=sys.stderr)
         return EXIT_EVIDENCE
     except (CLIContractError, ContractError, OutputPathError, OSError) as exc:
