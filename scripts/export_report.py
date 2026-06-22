@@ -10,8 +10,16 @@ import re
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+
+from pypdf import PdfReader
+
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.harness_io import atomic_write_json, atomic_write_text, sha256_file
 
 try:
     from .output_paths import OutputPathError, package_child, resolve_package_dir
@@ -24,6 +32,18 @@ EXIT_DEPENDENCY = 3
 EXIT_EXPORT = 6
 EXIT_SAFETY = 7
 DEFAULT_CHROME = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+
+
+class RenderError(RuntimeError):
+    """Raised when a required governed render artifact cannot be produced."""
+
+
+@dataclass(frozen=True)
+class RenderResult:
+    html_path: Path
+    pdf_path: Path | None
+    manifest_path: Path
+    pdf_renderer: str
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -143,6 +163,92 @@ def create_pdf(html_path: Path, pdf_path: Path, renderer: str, chrome: Path) -> 
         except Exception as exc:
             errors.append(str(exc))
     raise RuntimeError("; ".join(errors) or "no PDF renderer available")
+
+
+def markdown_title(markdown: str) -> str:
+    match = re.search(r"(?m)^#\s+(.+?)\s*$", markdown)
+    if not match:
+        raise RenderError("canonical Markdown is missing an H1 title")
+    return match.group(1).strip()
+
+
+def export_report(
+    source_md: Path,
+    staging_root: Path,
+    *,
+    title: str,
+    template_path: Path,
+    pandoc: str,
+    chrome: Path,
+    require_pdf: bool,
+    pdf_renderer: str = "auto",
+) -> RenderResult:
+    if staging_root.exists() or staging_root.is_symlink():
+        raise RenderError(f"render staging path already exists: {staging_root}")
+    staging_root.mkdir(parents=True, exist_ok=False)
+    exports = staging_root / "exports"
+    validation = staging_root / "validation"
+    exports.mkdir()
+    validation.mkdir()
+    markdown = source_md.read_text(encoding="utf-8")
+    if markdown_title(markdown) != title:
+        raise RenderError("render title does not match canonical Markdown H1")
+    if "## References" not in markdown:
+        raise RenderError("canonical Markdown is missing generated References")
+    fragment, pandoc_version = pandoc_fragment(source_md, pandoc)
+    generated_at = datetime.now(timezone.utc).isoformat()
+    html_text = render_template(template_path, {
+        "title": title,
+        "body_html": fragment,
+        "toc_html": toc_from_fragment(fragment),
+        "generated_at": generated_at,
+        "content_sha256": sha256_bytes(markdown.encode("utf-8")),
+    })
+    if f"<title>{html.escape(title)}</title>" not in html_text or "References" not in html_text:
+        raise RenderError("Markdown and HTML title or References drift")
+    html_path = exports / "report.html"
+    atomic_write_text(html_path, html_text)
+    pdf_path = exports / "report.pdf"
+    renderer = "none"
+    if require_pdf and pdf_renderer == "none":
+        raise RenderError("required PDF cannot use the none renderer")
+    if require_pdf or pdf_renderer != "none":
+        try:
+            renderer = create_pdf(html_path, pdf_path, pdf_renderer, chrome)
+        except Exception as exc:
+            raise RenderError(f"PDF rendering failed: {exc}") from exc
+    page_count = 0
+    if pdf_path.is_file():
+        if not pdf_path.read_bytes().startswith(b"%PDF-"):
+            raise RenderError("generated PDF is unreadable")
+        try:
+            page_count = len(PdfReader(pdf_path).pages)
+        except Exception as exc:
+            raise RenderError(f"generated PDF is unreadable: {exc}") from exc
+        if page_count < 1:
+            raise RenderError("generated PDF has no pages")
+    if require_pdf and not pdf_path.is_file():
+        raise RenderError("required PDF was not generated")
+    manifest_path = validation / "render-manifest.json"
+    atomic_write_json(manifest_path, {
+        "schema_version": "2.0",
+        "title": title,
+        "generated_at": generated_at,
+        "source_file": source_md.name,
+        "report_md_sha256": sha256_file(source_md),
+        "report_html_sha256": sha256_file(html_path),
+        "report_pdf_sha256": sha256_file(pdf_path) if pdf_path.is_file() else None,
+        "pandoc_version": pandoc_version,
+        "pdf_renderer": renderer,
+        "pdf_page_count": page_count,
+        "section_fingerprints": markdown_sections(markdown),
+    })
+    return RenderResult(
+        html_path=html_path,
+        pdf_path=pdf_path if pdf_path.is_file() else None,
+        manifest_path=manifest_path,
+        pdf_renderer=renderer,
+    )
 
 
 def main() -> int:

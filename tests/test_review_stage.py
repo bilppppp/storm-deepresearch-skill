@@ -64,6 +64,13 @@ class ReviewStageTests(unittest.TestCase):
         helper = evidence_stage_helpers.EvidenceStageTests(methodName="runTest")
         return helper.drafted_run(workspace)
 
+    def reviewed_run(self, workspace: Path) -> Path:
+        run = self.drafted_run(workspace)
+        inputs = self.write_review_inputs(run, workspace)
+        result = self.invoke_review(run, inputs)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return run
+
     def write_review_inputs(
         self, run: Path, workspace: Path
     ) -> tuple[Path, Path, Path, Path, Path]:

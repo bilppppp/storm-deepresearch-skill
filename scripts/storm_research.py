@@ -23,6 +23,7 @@ from scripts.contract_io import (
     validate_source_plan,
 )
 from scripts.harness_io import (
+    atomic_copy_file,
     atomic_promote,
     atomic_write_text,
     atomic_write_json,
@@ -31,6 +32,7 @@ from scripts.harness_io import (
     compute_skill_package_hash,
     sha256_file,
 )
+from scripts.export_report import DEFAULT_CHROME, RenderError, export_report, markdown_title
 from scripts.normalize_retrieval import normalize_retrieval_records
 from scripts.merge_claim_ledger import merge_claim_records
 from scripts.output_paths import OutputPathError, package_child, select_new_output_dir
@@ -64,6 +66,7 @@ ROOT = Path(__file__).resolve().parents[1]
 EXIT_OK = 0
 EXIT_CONTRACT = 4
 EXIT_EVIDENCE = 5
+EXIT_EXPORT = 6
 EXIT_STAGE = 8
 
 
@@ -85,6 +88,10 @@ class DraftGateError(ValueError):
 
 class ReviewGateError(ValueError):
     """Raised when independent semantic review is incomplete or non-passing."""
+
+
+class RenderStageError(ValueError):
+    """Raised when canonical formats cannot be rendered without downgrade."""
 
 
 def infer_language(topic: str, question: str, requested: str) -> str:
@@ -892,6 +899,78 @@ def command_review(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def command_render(args: argparse.Namespace) -> int:
+    layout = RunLayout(args.run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        raise StagePreconditionError("run has no generation")
+    package_hash = compute_skill_package_hash(ROOT)
+    verify_stage_precondition(layout, generation, Stage.RENDER, package_hash)
+    brief = verify_current_brief_view(layout, generation)
+    report_path = layout.artifact(generation, "report.md")
+    report = report_path.read_text(encoding="utf-8")
+    staging = package_child(
+        layout.root, f"work/.staging/g{generation:04d}/render-{uuid.uuid4().hex}"
+    )
+    try:
+        result = export_report(
+            report_path,
+            staging,
+            title=markdown_title(report),
+            template_path=args.template,
+            pandoc=args.pandoc,
+            chrome=args.chrome,
+            require_pdf=brief.get("output_mode") == "full",
+            pdf_renderer=args.pdf_renderer,
+        )
+    except (OSError, RenderError, RuntimeError) as exc:
+        raise RenderStageError(str(exc)) from exc
+    exports_destination = layout.artifact(generation, "exports")
+    validation_destination = layout.artifact(generation, "validation")
+    atomic_promote(staging / "exports", exports_destination)
+    atomic_promote(staging / "validation", validation_destination)
+    staging.rmdir()
+    html_path = exports_destination / result.html_path.name
+    pdf_path = exports_destination / "report.pdf"
+    manifest_path = validation_destination / result.manifest_path.name
+    outputs = [html_path, manifest_path]
+    if pdf_path.is_file():
+        outputs.append(pdf_path)
+    reviewed_map = layout.artifact(generation, "research/reviewed-paragraph-map.jsonl")
+    peer_review = layout.artifact(generation, "research/peer-review.json")
+    commit_stage_receipt(
+        layout,
+        generation=generation,
+        stage=Stage.RENDER,
+        package_hash=package_hash,
+        validator_hash=sha256_file(Path(__file__)),
+        input_artifacts={
+            "artifacts/report.md": sha256_file(report_path),
+            "artifacts/research/reviewed-paragraph-map.jsonl": sha256_file(reviewed_map),
+            "artifacts/research/peer-review.json": sha256_file(peer_review),
+        },
+        output_paths=outputs,
+    )
+    current_exports = package_child(layout.root, "current/exports")
+    current_validation = package_child(layout.root, "current/validation")
+    current_exports.mkdir(parents=True, exist_ok=True)
+    current_validation.mkdir(parents=True, exist_ok=True)
+    for source, destination in (
+        (html_path, current_exports / "report.html"),
+        (manifest_path, current_validation / "render-manifest.json"),
+    ):
+        if destination.exists():
+            destination.unlink()
+        atomic_copy_file(source, destination)
+    if pdf_path.is_file():
+        destination = current_exports / "report.pdf"
+        if destination.exists():
+            destination.unlink()
+        atomic_copy_file(pdf_path, destination)
+    print(f"Rendered {layout.root} with {result.pdf_renderer}")
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -954,6 +1033,14 @@ def build_parser() -> argparse.ArgumentParser:
     review.add_argument("--revised-paragraph-map-jsonl", type=Path, required=True)
     review.add_argument("--revision-map", type=Path, required=True)
     review.set_defaults(handler=command_review)
+
+    render = subparsers.add_parser("render", help="Render canonical Markdown to governed formats.")
+    render.add_argument("run_dir", type=Path)
+    render.add_argument("--template", type=Path, default=ROOT / "templates/report.html.j2")
+    render.add_argument("--pandoc", default="pandoc")
+    render.add_argument("--pdf-renderer", choices=("auto", "weasyprint", "chromium", "none"), default="auto")
+    render.add_argument("--chrome", type=Path, default=DEFAULT_CHROME)
+    render.set_defaults(handler=command_render)
     return parser
 
 
@@ -967,6 +1054,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (RetrievalGateError, EvidenceGateError, DraftGateError, ReviewGateError) as exc:
         print(f"Evidence failed: {exc}", file=sys.stderr)
         return EXIT_EVIDENCE
+    except RenderStageError as exc:
+        print(f"Render failed: {exc}", file=sys.stderr)
+        return EXIT_EXPORT
     except (CLIContractError, ContractError, OutputPathError, OSError) as exc:
         print(f"Contract failed: {exc}", file=sys.stderr)
         return EXIT_CONTRACT
