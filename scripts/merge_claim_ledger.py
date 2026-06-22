@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
-"""Merge full claim records without deleting existing ledger entries."""
+"""Validate and merge full Claim records without committing run authority."""
 from __future__ import annotations
 
 import argparse
-import json
-import os
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any
 
-try:
-    from .contract_io import ContractError, load_jsonl, validate_claim_record
-    from .output_paths import OutputPathError, package_child, resolve_package_dir
-except ImportError:
-    from contract_io import ContractError, load_jsonl, validate_claim_record
-    from output_paths import OutputPathError, package_child, resolve_package_dir
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.contract_io import ContractError, load_jsonl, validate_claim_record
+from scripts.harness_io import atomic_write_text, canonical_json_bytes
+
+
+SCRIPT_INTERFACE = "internal-worker-cli"
+SCRIPT_INTERFACE_REASON = "Returns a merged Claim set; only storm_research may commit stage receipts."
 
 
 def merge_claim_records(
-    existing_claims: list[dict[str, Any]],
-    incoming_claims: list[dict[str, Any]],
+    existing_claims: list[dict[str, Any]], incoming_claims: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     output: list[dict[str, Any]] = []
     index_by_id: dict[str, int] = {}
@@ -47,38 +46,27 @@ def merge_claim_records(
     return output
 
 
-def atomic_write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, delete=False) as handle:
-        temporary = Path(handle.name)
-        for record in records:
-            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
-        handle.flush()
-        os.fsync(handle.fileno())
-    try:
-        os.replace(temporary, path)
-    except Exception:
-        temporary.unlink(missing_ok=True)
-        raise
+def _jsonl(records: list[dict[str, Any]]) -> str:
+    return b"".join(canonical_json_bytes(record) for record in records).decode("utf-8")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("input_jsonl", type=Path, help="Full new or revised claim records.")
-    parser.add_argument("--package", type=Path, required=True)
+    parser.add_argument("input_jsonl", type=Path, help="Full new or revised Claim records.")
+    parser.add_argument("--existing-jsonl", type=Path)
+    parser.add_argument("--output-jsonl", type=Path, required=True)
     args = parser.parse_args()
     try:
-        package = resolve_package_dir(args.package)
-        ledger = package_child(package, "research/claim-evidence-ledger.jsonl")
-        if not ledger.is_file():
-            raise ValueError("claim ledger is missing; initialize the research package first")
         incoming = load_jsonl(args.input_jsonl)
-        existing = load_jsonl(ledger)
+        existing = load_jsonl(args.existing_jsonl) if args.existing_jsonl else []
         merged = merge_claim_records(existing, incoming)
-        atomic_write_jsonl(ledger, merged)
-    except (ContractError, OSError, OutputPathError, ValueError) as exc:
+        if args.output_jsonl.exists() or args.output_jsonl.is_symlink():
+            raise ValueError(f"output already exists: {args.output_jsonl}")
+        atomic_write_text(args.output_jsonl, _jsonl(merged))
+    except (ContractError, OSError, ValueError) as exc:
         print(f"Claim ledger merge failed: {exc}", file=sys.stderr)
         return 4
-    print(f"Merged {len(merged)} claim records into {ledger}")
+    print(f"Merged {len(merged)} Claim records into {args.output_jsonl}")
     return 0
 
 

@@ -83,18 +83,6 @@ def valid_research_plan_v2() -> dict[str, object]:
         }
         for index in range(1, 11)
     ]
-    sections = [
-        {
-            "section_id": f"SEC{index:02d}",
-            "title": f"Evidence section {index}",
-            "purpose": "Synthesize scoped evidence without overclaiming.",
-            "target_units": 700,
-            "question_ids": [f"Q{index:03d}"],
-            "claim_ids": [],
-            "required_elements": ["claim", "evidence", "limitation"],
-        }
-        for index in range(1, 7)
-    ]
     return {
         "schema_version": "2.0",
         "status": "planned",
@@ -103,14 +91,6 @@ def valid_research_plan_v2() -> dict[str, object]:
         "source_priorities": ["primary official evidence", "independent scholarship"],
         "stopping_conditions": ["Every material question has an evidence disposition"],
         "retrieval_budget": {"max_queries": 30, "max_sources": 50},
-        "report_outline": {
-            "status": "planned",
-            "unit": "words",
-            "minimum": 3500,
-            "target": 5000,
-            "maximum": 7000,
-            "sections": sections,
-        },
     }
 
 
@@ -136,6 +116,115 @@ def valid_source_plan(question_count: int = 10) -> dict[str, object]:
         "stopping_conditions": ["Every material question has inspectable evidence"],
         "exclusions": ["Search snippets as strong evidence"],
     }
+
+
+def valid_source_v2(index: int = 1) -> dict[str, object]:
+    digit = format(index % 16, "x")
+    return {
+        "source_id": f"S{index:03d}",
+        "title": f"Official source {index}",
+        "author_or_org": "NIST",
+        "canonical_url": f"https://www.nist.gov/test-fixtures/research-report-{index}",
+        "file_ref": None,
+        "published_at": "2026-05-01",
+        "publication_date_status": "known",
+        "retrieved_at": "2026-06-23T00:00:00Z",
+        "source_type": "official",
+        "primary_class": "primary",
+        "reliability_tier": "A",
+        "freshness_status": "current",
+        "reliability_notes": "First-party source with inspectable full text.",
+        "content_hash": digit * 64,
+    }
+
+
+def valid_retrieval_manifest_v2(index: int = 1) -> dict[str, object]:
+    manifest = valid_retrieval_evidence()
+    digit = format(index % 16, "x")
+    manifest.update({
+        "source_id": f"S{index:03d}",
+        "query_id": f"Q{index:03d}",
+        "canonical_url": f"https://www.nist.gov/test-fixtures/research-report-{index}",
+        "final_url": f"https://www.nist.gov/test-fixtures/research-report-{index}",
+        "snapshot_ref": f"source-{index}.txt",
+        "snapshot_sha256": digit * 64,
+        "normalized_text_sha256": "a" * 64,
+        "excerpt_sha256": "b" * 64,
+        "excerpt": f"Directly inspectable evidence excerpt {index}.",
+    })
+    return manifest
+
+
+def valid_claim_v2(
+    index: int = 1,
+    *,
+    claim_type: str = "fact",
+    status: str = "supported",
+    source_index: int | None = None,
+) -> dict[str, object]:
+    source_index = source_index or min(index, 10)
+    source_id = f"S{source_index:03d}"
+    premise_ids = [] if claim_type == "fact" else ["C001"]
+    return {
+        "schema_version": "2.0",
+        "claim_id": f"C{index:03d}",
+        "claim_text": f"Governed material claim {index} is supported within scope.",
+        "claim_type": claim_type,
+        "material": True,
+        "premise_claim_ids": premise_ids,
+        "supporting_source_ids": [source_id],
+        "contradicting_source_ids": [],
+        "evidence_locators": [{
+            "source_id": source_id,
+            "locator": "p:1",
+            "excerpt": f"Directly inspectable evidence excerpt {source_index}.",
+            "snapshot_sha256": format(source_index % 16, "x") * 64,
+        }],
+        "evidence_strength": "strong",
+        "confidence": "high",
+        "freshness_required": True,
+        "reasoning_note": "The supported premise and scoped evidence justify this step." if claim_type != "fact" else "",
+        "conditions": ["The documented scope remains applicable"] if claim_type == "recommendation" else [],
+        "tradeoffs": ["Higher assurance requires more review time"] if claim_type == "recommendation" else [],
+        "limitation": "The evidence does not establish claims outside the stated scope.",
+        "change_condition": "A revised authoritative source or contrary evidence.",
+        "status": status,
+    }
+
+
+def valid_report_outline_v2() -> dict[str, object]:
+    sections = []
+    for index in range(1, 7):
+        claim_ids = [f"C{index * 2 - 1:03d}", f"C{index * 2:03d}"]
+        question_ids = [f"Q{index:03d}"]
+        if index == 6:
+            question_ids.extend(["Q007", "Q008", "Q009", "Q010"])
+        sections.append({
+            "section_id": f"SEC{index:02d}",
+            "title": f"Evidence section {index}",
+            "purpose": "Synthesize supported and bounded claims.",
+            "target_units": 700,
+            "question_ids": question_ids,
+            "claim_ids": claim_ids,
+            "required_elements": ["claim", "evidence", "limitation"],
+        })
+    return {
+        "schema_version": "2.0",
+        "status": "complete",
+        "unit": "words",
+        "minimum": 3500,
+        "target": 5000,
+        "maximum": 7000,
+        "sections": sections,
+    }
+
+
+def valid_contradiction_ledger_v2() -> dict[str, object]:
+    return {"schema_version": "2.0", "conflicts": []}
+
+
+def valid_uncertainty_ledger_v2() -> dict[str, object]:
+    return {"schema_version": "2.0", "uncertainties": []}
 
 
 def valid_retrieval_evidence() -> dict[str, object]:

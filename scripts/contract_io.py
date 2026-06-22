@@ -25,12 +25,12 @@ BRIEF_FIELDS = {
 }
 RESEARCH_PLAN_FIELDS = {
     "schema_version", "status", "perspectives", "questions", "source_priorities",
-    "stopping_conditions", "retrieval_budget", "report_outline",
+    "stopping_conditions", "retrieval_budget",
 }
 QUESTION_FIELDS = {
     "question_id", "perspective", "text", "status", "claim_ids", "disposition_note",
 }
-OUTLINE_FIELDS = {"status", "unit", "minimum", "target", "maximum", "sections"}
+OUTLINE_FIELDS = {"schema_version", "status", "unit", "minimum", "target", "maximum", "sections"}
 OUTLINE_SECTION_FIELDS = {
     "section_id", "title", "purpose", "target_units", "question_ids", "claim_ids",
     "required_elements",
@@ -45,9 +45,9 @@ SOURCE_FIELDS = {
     "reliability_tier", "freshness_status", "reliability_notes", "content_hash",
 }
 CLAIM_FIELDS = {
-    "claim_id", "claim_text", "claim_type", "material", "supporting_source_ids",
+    "schema_version", "claim_id", "claim_text", "claim_type", "material", "premise_claim_ids", "supporting_source_ids",
     "contradicting_source_ids", "evidence_locators", "evidence_strength", "confidence",
-    "freshness_required", "reasoning_note", "tradeoffs", "limitation", "change_condition", "status",
+    "freshness_required", "reasoning_note", "conditions", "tradeoffs", "limitation", "change_condition", "status",
 }
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 STAGES = {"init", "plan", "retrieval", "evidence", "draft", "review", "render", "validation", "release"}
@@ -245,7 +245,6 @@ def validate_research_plan(
 
     questions = data.get("questions")
     question_ids: set[str] = set()
-    answered_ids: set[str] = set()
     if not isinstance(questions, list):
         errors.append("questions must be an array")
         questions = []
@@ -274,19 +273,23 @@ def validate_research_plan(
             if claim_id not in known_claim_ids:
                 errors.append(f"question {question_id} references unknown claim_id {claim_id}")
         if status == "answered":
-            answered_ids.add(question_id)
             if not claim_ids:
                 errors.append(f"answered question {question_id} requires claim_ids")
         if status in {"unresolved", "out_of_scope"} and not str(question.get("disposition_note", "")).strip():
             errors.append(f"question {question_id} requires a disposition_note")
 
-    outline = data.get("report_outline")
-    used_question_ids: set[str] = set()
-    if not isinstance(outline, dict):
-        errors.append("report_outline must be an object")
-        return errors
-    errors.extend(f"report_outline: {item}" for item in _unknown_fields(outline, OUTLINE_FIELDS))
-    errors.extend(f"report_outline: {item}" for item in _missing_fields(outline, OUTLINE_FIELDS))
+    return errors
+
+
+def validate_report_outline(
+    outline: dict[str, Any],
+    brief: dict[str, Any],
+    known_question_ids: set[str],
+    known_claim_ids: set[str],
+) -> list[str]:
+    errors = _unknown_fields(outline, OUTLINE_FIELDS) + _missing_fields(outline, OUTLINE_FIELDS)
+    if outline.get("schema_version") != "2.0":
+        errors.append("report_outline.schema_version must be 2.0")
     if outline.get("status") not in {"initialized", "planned", "complete"}:
         errors.append("report_outline.status is invalid")
     length_contract = brief.get("length_contract", {}) if isinstance(brief.get("length_contract"), dict) else {}
@@ -319,9 +322,8 @@ def validate_research_plan(
             errors.append(f"outline section {section_id}: question_ids must contain stable question IDs")
             section_question_ids = []
         for question_id in section_question_ids:
-            if question_id not in question_ids:
+            if question_id not in known_question_ids:
                 errors.append(f"outline section {section_id} references unknown question_id {question_id}")
-            used_question_ids.add(question_id)
         section_claim_ids = section.get("claim_ids")
         if not isinstance(section_claim_ids, list) or not all(re.fullmatch(r"C\d{3}", str(item)) for item in section_claim_ids):
             errors.append(f"outline section {section_id}: claim_ids must contain stable claim IDs")
@@ -332,8 +334,6 @@ def validate_research_plan(
         elements = section.get("required_elements")
         if not isinstance(elements, list) or len(set(elements)) < 3 or not set(elements) <= REQUIRED_ELEMENTS:
             errors.append(f"outline section {section_id}: required_elements must contain at least three valid elements")
-    for question_id in sorted(answered_ids - used_question_ids):
-        errors.append(f"answered question {question_id} is not used by report_outline")
     return errors
 
 
@@ -606,13 +606,19 @@ def validate_release_manifest(data: dict[str, Any]) -> list[str]:
 
 def validate_claim_record(data: dict[str, Any]) -> list[str]:
     errors = _unknown_fields(data, CLAIM_FIELDS) + _missing_fields(data, CLAIM_FIELDS)
+    if data.get("schema_version") != "2.0":
+        errors.append("claim schema_version must be 2.0")
     if not re.fullmatch(r"C\d{3}", str(data.get("claim_id", ""))):
         errors.append("claim_id must match C followed by three digits")
     claim_type = data.get("claim_type")
+    premises = data.get("premise_claim_ids")
     support = data.get("supporting_source_ids")
     contradict = data.get("contradicting_source_ids")
     if claim_type not in {"fact", "inference", "recommendation"}:
         errors.append("claim_type is invalid")
+    if not isinstance(premises, list) or not all(re.fullmatch(r"C\d{3}", str(item)) for item in premises):
+        errors.append("premise_claim_ids must contain stable claim IDs")
+        premises = []
     if not isinstance(support, list) or not all(re.fullmatch(r"S\d{3}", str(item)) for item in support):
         errors.append("supporting_source_ids must contain stable source IDs")
         support = []
@@ -620,10 +626,15 @@ def validate_claim_record(data: dict[str, Any]) -> list[str]:
         errors.append("contradicting_source_ids must contain stable source IDs")
     if claim_type == "fact" and not support and data.get("status") not in {"unsupported", "out_of_scope"}:
         errors.append("fact requires supporting evidence")
+    if claim_type in {"inference", "recommendation"} and not premises:
+        errors.append(f"{claim_type} requires supported premise claims")
     if claim_type in {"inference", "recommendation"} and not str(data.get("reasoning_note", "")).strip():
         errors.append(f"{claim_type} requires a reasoning_note")
-    if claim_type == "recommendation" and not data.get("tradeoffs"):
-        errors.append("recommendation requires tradeoffs")
+    if claim_type == "recommendation":
+        if not data.get("conditions"):
+            errors.append("recommendation requires conditions")
+        if not data.get("tradeoffs"):
+            errors.append("recommendation requires tradeoffs")
     if data.get("status") not in {"supported", "qualified", "contested", "unsupported", "out_of_scope"}:
         errors.append("status is invalid")
     if data.get("evidence_strength") not in {"strong", "medium", "weak", "unknown"}:
@@ -634,8 +645,24 @@ def validate_claim_record(data: dict[str, Any]) -> list[str]:
         errors.append("material must be boolean")
     if not isinstance(data.get("freshness_required"), bool):
         errors.append("freshness_required must be boolean")
-    if not isinstance(data.get("evidence_locators"), list):
+    locators = data.get("evidence_locators")
+    if not isinstance(locators, list):
         errors.append("evidence_locators must be an array")
+    else:
+        locator_fields = {"source_id", "locator", "excerpt", "snapshot_sha256"}
+        for index, locator in enumerate(locators, start=1):
+            if not isinstance(locator, dict) or set(locator) != locator_fields:
+                errors.append(f"evidence locator {index} has invalid fields")
+                continue
+            if not re.fullmatch(r"S\d{3}", str(locator.get("source_id", ""))):
+                errors.append(f"evidence locator {index} has invalid source_id")
+            if not str(locator.get("locator", "")).strip() or not str(locator.get("excerpt", "")).strip():
+                errors.append(f"evidence locator {index} requires locator and excerpt")
+            if not _is_sha256(locator.get("snapshot_sha256")):
+                errors.append(f"evidence locator {index} requires snapshot_sha256")
+    for field in ("conditions", "tradeoffs"):
+        if not isinstance(data.get(field), list) or not all(isinstance(item, str) and item.strip() for item in data.get(field, [])):
+            errors.append(f"{field} must be an array of non-empty strings")
     return errors
 
 

@@ -81,6 +81,7 @@ class ContractTests(unittest.TestCase):
             "source-record",
             "claim-evidence-record",
             "report-claim-map",
+            "report-outline",
             "validation-report",
         )
         for name in names:
@@ -119,7 +120,7 @@ class ContractTests(unittest.TestCase):
         }
         self.assertIn("length_contract must satisfy minimum <= target <= maximum", validate_brief(brief))
 
-    def test_research_plan_rejects_unmapped_answered_question(self) -> None:
+    def test_research_plan_rejects_answered_question_without_claims(self) -> None:
         brief = valid_brief()
         plan = valid_research_plan()
         plan["questions"].append({
@@ -127,11 +128,11 @@ class ContractTests(unittest.TestCase):
             "perspective": "skeptic",
             "text": "What could falsify the finding?",
             "status": "answered",
-            "claim_ids": ["C001"],
+            "claim_ids": [],
             "disposition_note": "Used to test the conclusion.",
         })
-        errors = validate_research_plan(plan, brief, {"C001"})
-        self.assertIn("answered question Q002 is not used by report_outline", errors)
+        errors = validate_research_plan(plan, brief, set())
+        self.assertIn("answered question Q002 requires claim_ids", errors)
 
     def test_fact_without_support_is_rejected(self) -> None:
         record = valid_claim()
@@ -194,22 +195,6 @@ def valid_research_plan() -> dict[str, object]:
         "source_priorities": ["official"],
         "stopping_conditions": ["material claim closure reaches 100%"],
         "retrieval_budget": {"max_queries": 20, "max_sources": 40},
-        "report_outline": {
-            "status": "complete",
-            "unit": "words",
-            "minimum": 3500,
-            "target": 5000,
-            "maximum": 7000,
-            "sections": [{
-                "section_id": "SEC01",
-                "title": "Key Findings",
-                "purpose": "Explain the supported finding.",
-                "target_units": 1200,
-                "question_ids": ["Q001"],
-                "claim_ids": ["C001"],
-                "required_elements": ["claim", "mechanism", "evidence", "limitation"],
-            }],
-        },
     }
 
 

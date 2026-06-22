@@ -1,15 +1,23 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "claim-evidence-record.schema.json",
-  "title": "Claim Evidence Record",
+  "title": "Governed Claim Evidence Record",
   "type": "object",
   "additionalProperties": false,
-  "required": ["claim_id", "claim_text", "claim_type", "material", "supporting_source_ids", "contradicting_source_ids", "evidence_locators", "evidence_strength", "confidence", "freshness_required", "reasoning_note", "tradeoffs", "limitation", "change_condition", "status"],
+  "required": [
+    "schema_version", "claim_id", "claim_text", "claim_type", "material",
+    "premise_claim_ids", "supporting_source_ids", "contradicting_source_ids",
+    "evidence_locators", "evidence_strength", "confidence", "freshness_required",
+    "reasoning_note", "conditions", "tradeoffs", "limitation", "change_condition",
+    "status"
+  ],
   "properties": {
+    "schema_version": {"const": "2.0"},
     "claim_id": {"type": "string", "pattern": "^C[0-9]{3}$"},
     "claim_text": {"type": "string", "minLength": 1},
     "claim_type": {"enum": ["fact", "inference", "recommendation"]},
     "material": {"type": "boolean"},
+    "premise_claim_ids": {"type": "array", "items": {"type": "string", "pattern": "^C[0-9]{3}$"}, "uniqueItems": true},
     "supporting_source_ids": {"type": "array", "items": {"type": "string", "pattern": "^S[0-9]{3}$"}, "uniqueItems": true},
     "contradicting_source_ids": {"type": "array", "items": {"type": "string", "pattern": "^S[0-9]{3}$"}, "uniqueItems": true},
     "evidence_locators": {
@@ -17,11 +25,12 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["source_id", "locator", "excerpt"],
+        "required": ["source_id", "locator", "excerpt", "snapshot_sha256"],
         "properties": {
           "source_id": {"type": "string", "pattern": "^S[0-9]{3}$"},
           "locator": {"type": "string", "minLength": 1},
-          "excerpt": {"type": "string", "minLength": 1}
+          "excerpt": {"type": "string", "minLength": 1},
+          "snapshot_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
         }
       }
     },
@@ -29,9 +38,30 @@
     "confidence": {"enum": ["high", "medium", "low"]},
     "freshness_required": {"type": "boolean"},
     "reasoning_note": {"type": "string"},
-    "tradeoffs": {"type": "array", "items": {"type": "string"}},
+    "conditions": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "tradeoffs": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "limitation": {"type": "string"},
     "change_condition": {"type": "string"},
     "status": {"enum": ["supported", "qualified", "contested", "unsupported", "out_of_scope"]}
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"claim_type": {"enum": ["inference", "recommendation"]}}},
+      "then": {
+        "properties": {
+          "premise_claim_ids": {"minItems": 1},
+          "reasoning_note": {"minLength": 1}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"claim_type": {"const": "recommendation"}}},
+      "then": {
+        "properties": {
+          "conditions": {"minItems": 1},
+          "tradeoffs": {"minItems": 1}
+        }
+      }
+    }
+  ]
 }

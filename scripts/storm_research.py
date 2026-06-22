@@ -18,6 +18,7 @@ from scripts.contract_io import (
     load_json,
     load_jsonl,
     validate_brief,
+    validate_report_outline,
     validate_research_plan,
     validate_source_plan,
 )
@@ -30,6 +31,7 @@ from scripts.harness_io import (
     sha256_file,
 )
 from scripts.normalize_retrieval import normalize_retrieval_records
+from scripts.merge_claim_ledger import merge_claim_records
 from scripts.output_paths import OutputPathError, package_child, select_new_output_dir
 from scripts.run_state import (
     ReceiptError,
@@ -42,6 +44,7 @@ from scripts.run_state import (
     verify_stage_precondition,
 )
 from scripts.source_evidence import SourceEvidenceError, resolve_snapshot
+from scripts.validate_evidence import validate_claim_closure
 
 
 SCRIPT_INTERFACE = "cli"
@@ -59,6 +62,10 @@ class CLIContractError(ValueError):
 
 class RetrievalGateError(ValueError):
     """Raised when captured retrieval evidence cannot close the plan."""
+
+
+class EvidenceGateError(ValueError):
+    """Raised when Claims and outline do not form a closed evidence set."""
 
 
 def infer_language(topic: str, question: str, requested: str) -> str:
@@ -264,14 +271,10 @@ def validate_plan_bundle(
             errors.append(f"source question {item.get('query_id')} references unknown source classes")
     if brief.get("depth_level") == "full_dossier":
         perspectives = plan.get("perspectives") if isinstance(plan.get("perspectives"), list) else []
-        outline = plan.get("report_outline") if isinstance(plan.get("report_outline"), dict) else {}
-        sections = outline.get("sections") if isinstance(outline.get("sections"), list) else []
         if len(set(perspectives)) < 5:
             errors.append("full_dossier requires at least five perspectives")
         if len(questions) < 10:
             errors.append("full_dossier requires at least ten research questions")
-        if len(sections) < 6:
-            errors.append("full_dossier requires at least six planned sections")
     validate_or_raise(errors)
 
 
@@ -427,6 +430,156 @@ def command_ingest(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _validate_contradictions(
+    payload: dict[str, object], claims: list[dict[str, object]]
+) -> list[str]:
+    errors: list[str] = []
+    if set(payload) != {"schema_version", "conflicts"} or payload.get("schema_version") != "2.0":
+        return ["contradiction ledger has invalid top-level contract"]
+    conflicts = payload.get("conflicts")
+    if not isinstance(conflicts, list):
+        return ["contradiction ledger conflicts must be an array"]
+    conflict_claim_ids: set[str] = set()
+    fields = {"conflict_id", "claim_id", "source_ids", "analysis", "resolution_status", "change_condition"}
+    for index, conflict in enumerate(conflicts, start=1):
+        if not isinstance(conflict, dict) or set(conflict) != fields:
+            errors.append(f"contradiction {index} has invalid fields")
+            continue
+        claim_id = str(conflict.get("claim_id", ""))
+        conflict_claim_ids.add(claim_id)
+        if not str(conflict.get("analysis", "")).strip():
+            errors.append(f"contradiction {index} requires analysis")
+        if not isinstance(conflict.get("source_ids"), list) or len(conflict["source_ids"]) < 2:
+            errors.append(f"contradiction {index} requires opposing source IDs")
+    for claim in claims:
+        if claim.get("status") == "contested" and claim.get("claim_id") not in conflict_claim_ids:
+            errors.append(f"contested claim {claim.get('claim_id')} is missing from contradiction ledger")
+    return errors
+
+
+def _validate_uncertainties(payload: dict[str, object]) -> list[str]:
+    if set(payload) != {"schema_version", "uncertainties"} or payload.get("schema_version") != "2.0":
+        return ["uncertainty ledger has invalid top-level contract"]
+    records = payload.get("uncertainties")
+    if not isinstance(records, list):
+        return ["uncertainty ledger uncertainties must be an array"]
+    fields = {"uncertainty_id", "claim_id", "description", "impact", "next_evidence"}
+    errors = []
+    for index, record in enumerate(records, start=1):
+        if not isinstance(record, dict) or set(record) != fields:
+            errors.append(f"uncertainty {index} has invalid fields")
+        elif not all(str(record.get(field, "")).strip() for field in ("uncertainty_id", "description", "impact", "next_evidence")):
+            errors.append(f"uncertainty {index} has empty required fields")
+    return errors
+
+
+def _promote_evidence_artifacts(
+    layout: RunLayout,
+    generation: int,
+    claims: list[dict[str, object]],
+    contradictions: dict[str, object],
+    uncertainties: dict[str, object],
+    outline: dict[str, object],
+) -> list[Path]:
+    staging = package_child(
+        layout.root, f"work/.staging/g{generation:04d}/evidence-{uuid.uuid4().hex}"
+    )
+    staging.mkdir(parents=True, exist_ok=False)
+    staged = {
+        "claim-evidence-ledger.jsonl": _jsonl_text(claims),
+        "contradiction-ledger.json": None,
+        "uncertainty-ledger.json": None,
+        "report-outline.json": None,
+    }
+    atomic_write_text(staging / "claim-evidence-ledger.jsonl", staged["claim-evidence-ledger.jsonl"] or "")
+    atomic_write_json(staging / "contradiction-ledger.json", contradictions)
+    atomic_write_json(staging / "uncertainty-ledger.json", uncertainties)
+    atomic_write_json(staging / "report-outline.json", outline)
+    outputs: list[Path] = []
+    for name in staged:
+        destination = layout.artifact(generation, f"research/{name}")
+        atomic_promote(staging / name, destination)
+        outputs.append(destination)
+    staging.rmdir()
+    return outputs
+
+
+def _refresh_current_evidence_view(
+    layout: RunLayout,
+    claims: list[dict[str, object]],
+    contradictions: dict[str, object],
+    uncertainties: dict[str, object],
+    outline: dict[str, object],
+) -> None:
+    root = package_child(layout.root, "current/research")
+    atomic_write_text(root / "claim-evidence-ledger.jsonl", _jsonl_text(claims))
+    atomic_write_json(root / "contradiction-ledger.json", contradictions)
+    atomic_write_json(root / "uncertainty-ledger.json", uncertainties)
+    atomic_write_json(root / "report-outline.json", outline)
+
+
+def command_evidence(args: argparse.Namespace) -> int:
+    layout = RunLayout(args.run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        raise StagePreconditionError("run has no generation")
+    package_hash = compute_skill_package_hash(ROOT)
+    verify_stage_precondition(layout, generation, Stage.EVIDENCE, package_hash)
+    brief = verify_current_brief_view(layout, generation)
+    try:
+        incoming_claims = load_jsonl(args.claims)
+        claims = merge_claim_records([], incoming_claims)
+        contradictions = load_json(args.contradictions)
+        uncertainties = load_json(args.uncertainties)
+        outline = load_json(args.report_outline)
+    except (ContractError, ValueError) as exc:
+        raise EvidenceGateError(str(exc)) from exc
+    research_plan_path = layout.artifact(generation, "research/research-plan.json")
+    source_path = layout.artifact(generation, "research/source-register.jsonl")
+    manifest_path = layout.artifact(generation, "research/retrieval-manifest.jsonl")
+    research_plan = load_json(research_plan_path)
+    sources = load_jsonl(source_path)
+    manifests = load_jsonl(manifest_path)
+    question_ids = {
+        str(item.get("question_id"))
+        for item in research_plan.get("questions", [])
+        if isinstance(item, dict)
+    }
+    claim_ids = {str(item.get("claim_id")) for item in claims}
+    errors = validate_report_outline(outline, brief, question_ids, claim_ids)
+    errors.extend(validate_claim_closure(claims, sources, outline, manifests))
+    errors.extend(_validate_contradictions(contradictions, claims))
+    errors.extend(_validate_uncertainties(uncertainties))
+    if brief.get("depth_level") == "full_dossier":
+        material_claims = [claim for claim in claims if claim.get("material")]
+        sections = outline.get("sections") if isinstance(outline.get("sections"), list) else []
+        if len(material_claims) < 12:
+            errors.append("full_dossier requires at least twelve material claims")
+        if len(sections) < 6:
+            errors.append("full_dossier requires at least six evidence-planned sections")
+    if errors:
+        raise EvidenceGateError("; ".join(dict.fromkeys(errors)))
+    outputs = _promote_evidence_artifacts(
+        layout, generation, claims, contradictions, uncertainties, outline
+    )
+    commit_stage_receipt(
+        layout,
+        generation=generation,
+        stage=Stage.EVIDENCE,
+        package_hash=package_hash,
+        validator_hash=sha256_file(Path(__file__)),
+        input_artifacts={
+            "artifacts/research/research-plan.json": sha256_file(research_plan_path),
+            "artifacts/research/source-register.jsonl": sha256_file(source_path),
+            "artifacts/research/retrieval-manifest.jsonl": sha256_file(manifest_path),
+        },
+        output_paths=outputs,
+    )
+    _refresh_current_evidence_view(layout, claims, contradictions, uncertainties, outline)
+    print(f"Closed {len(claims)} Claims in {layout.root}")
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -466,6 +619,14 @@ def build_parser() -> argparse.ArgumentParser:
     ingest.add_argument("run_dir", type=Path)
     ingest.add_argument("--input-jsonl", type=Path, required=True)
     ingest.set_defaults(handler=command_ingest)
+
+    evidence = subparsers.add_parser("evidence", help="Validate and commit Claims and report outline.")
+    evidence.add_argument("run_dir", type=Path)
+    evidence.add_argument("--claims", type=Path, required=True)
+    evidence.add_argument("--contradictions", type=Path, required=True)
+    evidence.add_argument("--uncertainties", type=Path, required=True)
+    evidence.add_argument("--report-outline", type=Path, required=True)
+    evidence.set_defaults(handler=command_evidence)
     return parser
 
 
@@ -476,8 +637,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (StagePreconditionError, ReceiptError) as exc:
         print(f"Stage failed: {exc}", file=sys.stderr)
         return EXIT_STAGE
-    except RetrievalGateError as exc:
-        print(f"Retrieval failed: {exc}", file=sys.stderr)
+    except (RetrievalGateError, EvidenceGateError) as exc:
+        print(f"Evidence failed: {exc}", file=sys.stderr)
         return EXIT_EVIDENCE
     except (CLIContractError, ContractError, OutputPathError, OSError) as exc:
         print(f"Contract failed: {exc}", file=sys.stderr)
