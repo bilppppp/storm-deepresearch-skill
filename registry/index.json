@@ -1,0 +1,22 @@
+{
+  "schema_version": "2.0",
+  "generated_at": "2026-06-22",
+  "package_count": 1,
+  "packages": [
+    {
+      "name": "storm-deepresearch-skill",
+      "version": "0.4.0",
+      "maturity": "library",
+      "owner": "陈旭",
+      "targets": [
+        "openai",
+        "claude",
+        "agent-skills",
+        "vscode",
+        "generic"
+      ],
+      "package_metadata": "registry/packages/storm-deepresearch-skill.json",
+      "package_sha256": "a466c3583b90fb464ccba989c0fa3edf37c48d1546c6b374c8a0fc1e6a5f5808"
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0",
+  "title": "From Four STORM Prompts to Evidence-Governed Deep Research",
+  "generated_at": "2026-06-21T04:15:48.638250+00:00",
+  "source_file": "report.md",
+  "report_md_sha256": "598a7fdfc16997066768e8f8bf1d359e2231b43a5667a3cee17e6d1b00bf3377",
+  "report_html_sha256": "220348d34731642db5944172c1032167e8a7a4322785e4dd9ba200b073ab4d5f",
+  "report_pdf_sha256": "69513f17b4bf863446626196727d228e3a3f46612c8558cd4539f8321f7e0624",
+  "pandoc_version": "pandoc 3.8.3",
+  "pdf_renderer": "weasyprint",
+  "section_fingerprints": [
+    {
+      "title": "Executive Summary",
+      "sha256": "56474ad977d13386e560b3f8c56ce7739fe02a0abc4439248883e92b829e2e4e"
+    },
+    {
+      "title": "Research Question and Scope",
+      "sha256": "1bd49cb27a7cca51ad7b39e3d0fda26f94a902af6bd33f93d9cfc60e078a7128"
+    },
+    {
+      "title": "Method and Source Base",
+      "sha256": "bc184fb442d99508145e78a567a7dec6cd1aa8b8961598208d25df90b76b0b41"
+    },
+    {
+      "title": "Key Findings",
+      "sha256": "82913839abcaa9d1f293ad7248debe22c872d601051748eca8f7efb4d8add54c"
+    },
+    {
+      "title": "What STORM Actually Proves",
+      "sha256": "3eee0f4a0919eac2d8efee11ff84e9456aa1bc8ea954b35d7d749e12414bdbae"
+    },
+    {
+      "title": "Why Four Prompts Are Not Enough",
+      "sha256": "d237ecfbe515cbf921b8e00e0e877c5e46016bacabd5db22d92c66bfe35c5687"
+    },
+    {
+      "title": "Recommended Library Architecture",
+      "sha256": "e3c2af5e56af71ee52db6fc901bf4917910dca7bc7373d3829720df25b5c04f5"
+    },
+    {
+      "title": "Contradictions and Uncertainties",
+      "sha256": "407cabf4c909ed50716c9ece494ecb32a3692236567be1413e175a82a9471a3b"
+    },
+    {
+      "title": "Implications and Recommendations",
+      "sha256": "05533f70c515b83c684b59df3978611b89e14c2e9a1e457e7a883229713e77cf"
+    },
+    {
+      "title": "What Would Change These Conclusions",
+      "sha256": "03f08e509674180f51da5930be46f2f74baebb0a95502d592e9bddf4bf533947"
+    },
+    {
+      "title": "Limitations",
+      "sha256": "c9c8bbf1861b4f870b5ffaa0a19bef57eb98a0c9bba7fb48b9499615ad3bfe5b"
+    },
+    {
+      "title": "References",
+      "sha256": "06921c5b17b7254f6019522d52a33007396d1369fb8ba1264b54c2edddd4ee41"
+    }
+  ]
+}

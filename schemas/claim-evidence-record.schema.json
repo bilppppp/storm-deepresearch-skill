@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "claim-evidence-record.schema.json",
+  "title": "Claim Evidence Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["claim_id", "claim_text", "claim_type", "material", "supporting_source_ids", "contradicting_source_ids", "evidence_locators", "evidence_strength", "confidence", "freshness_required", "reasoning_note", "tradeoffs", "limitation", "change_condition", "status"],
+  "properties": {
+    "claim_id": {"type": "string", "pattern": "^C[0-9]{3}$"},
+    "claim_text": {"type": "string", "minLength": 1},
+    "claim_type": {"enum": ["fact", "inference", "recommendation"]},
+    "material": {"type": "boolean"},
+    "supporting_source_ids": {"type": "array", "items": {"type": "string", "pattern": "^S[0-9]{3}$"}, "uniqueItems": true},
+    "contradicting_source_ids": {"type": "array", "items": {"type": "string", "pattern": "^S[0-9]{3}$"}, "uniqueItems": true},
+    "evidence_locators": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "locator", "excerpt"],
+        "properties": {
+          "source_id": {"type": "string", "pattern": "^S[0-9]{3}$"},
+          "locator": {"type": "string", "minLength": 1},
+          "excerpt": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "evidence_strength": {"enum": ["strong", "medium", "weak", "unknown"]},
+    "confidence": {"enum": ["high", "medium", "low"]},
+    "freshness_required": {"type": "boolean"},
+    "reasoning_note": {"type": "string"},
+    "tradeoffs": {"type": "array", "items": {"type": "string"}},
+    "limitation": {"type": "string"},
+    "change_condition": {"type": "string"},
+    "status": {"enum": ["supported", "qualified", "contested", "unsupported", "out_of_scope"]}
+  }
+}

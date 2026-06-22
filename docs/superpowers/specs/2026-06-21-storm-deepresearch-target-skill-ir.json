@@ -1,0 +1,145 @@
+{
+  "schema_version": "2.0.0",
+  "name": "storm-deepresearch-skill",
+  "title": "STORM DeepResearch Library",
+  "job_to_be_done": "Transform a research topic, question, URL set, or document pack into an auditable multi-perspective research package whose factual claims are traceable to retrieved evidence and whose Markdown, HTML, and PDF outputs remain content-consistent.",
+  "trigger_surface": {
+    "description": "Use for source-grounded deep research that needs multi-perspective question generation, explicit claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Do not use for quick lookup, unsupported role-play, or requests that only need a short answer.",
+    "should_trigger": [
+      "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
+      "Use supplied papers and URLs as the starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
+      "Compare competing technical, policy, market, or academic claims and explain what evidence would change the conclusion.",
+      "Create an investment, strategy, or decision memo where every material factual claim must be source-traceable.",
+      "Perform a literature or industry review with current-source requirements and explicit limitations."
+    ],
+    "should_not_trigger": [
+      "Answer one simple factual question that can be resolved with one authoritative source.",
+      "Brainstorm fictional expert opinions without retrieval or evidence requirements.",
+      "Rewrite, translate, summarize, or format supplied text without doing new research.",
+      "Provide legal, medical, or financial advice as a substitute for a qualified professional.",
+      "Generate a report where the user explicitly forbids source verification but still asks for factual certainty."
+    ],
+    "edge_cases": [
+      "For high-stakes domains, produce an evidence review and limitations, not personalized professional advice.",
+      "For user-supplied closed corpora, do not add external sources unless the brief permits them.",
+      "When PDF tooling is unavailable, fail the full-package gate unless the user explicitly requested a reduced package.",
+      "When evidence is insufficient, return a bounded partial result with unresolved claims instead of completing by inference.",
+      "When a topic is time-sensitive, enforce retrieval dates and freshness thresholds from the brief."
+    ]
+  },
+  "workflow": {
+    "steps": [
+      "Normalize the user request into a validated brief and record assumptions that materially affect scope.",
+      "Generate domain-adapted perspective questions; treat perspectives as query generators, never as evidence.",
+      "Create a research plan with source priorities, freshness rules, stopping conditions, and retrieval budget.",
+      "Retrieve through the host-agent adapter by default or an explicitly configured provider adapter when approved.",
+      "Normalize every retrieved item into the source register with provenance, dates, source type, and reliability notes.",
+      "Atomize material report claims and link each factual claim to supporting or contradicting source evidence.",
+      "Synthesize contradictions, uncertainty, and confidence without forcing unsupported consensus.",
+      "Draft report.md as the canonical public report while keeping internal claim and source IDs in audit artifacts.",
+      "Run peer review, claim closure, freshness, citation entailment, and leakage checks; revise until gates pass or the run stops as bounded partial.",
+      "Render HTML and PDF from report.md, then validate file presence, cross-format consistency, and non-zero failure semantics."
+    ],
+    "decision_points": [
+      "Ask one clarification only when the missing answer would materially change scope, source policy, risk, or deliverables.",
+      "Choose closed-corpus, host-agent retrieval, or configured provider retrieval from the brief and runtime capabilities.",
+      "Require two independent sources for high-impact contested claims when feasible; otherwise lower confidence and preserve the gap.",
+      "Stop retrieval when coverage and marginal-value thresholds are met, or when budget or availability limits are reached.",
+      "Fail full-package validation when PDF is required but absent; permit a reduced package only when the brief explicitly allows it.",
+      "Remove, weaken, or mark unknown any claim that cannot satisfy its evidence policy."
+    ],
+    "failure_modes": [
+      "Perspective prose is mistaken for evidence.",
+      "A citation exists but does not entail the attached claim.",
+      "Source IDs are referenced but absent from the register, or registered sources are never used.",
+      "Current claims rely on stale sources without an explicit historical scope.",
+      "Contradictory evidence is omitted or silently averaged into false consensus.",
+      "Inference and recommendation are presented as facts.",
+      "Markdown, HTML, and PDF diverge or contain unresolved template markers.",
+      "Validation reports errors but exits successfully.",
+      "Public outputs leak local paths, credentials, internal scratch IDs, or debugging metadata.",
+      "Retrieval stops without recording the reason and residual coverage gap."
+    ]
+  },
+  "resources": {
+    "references": [
+      "references/research-protocol.md",
+      "references/source-and-evidence-policy.md",
+      "references/claim-evidence-policy.md",
+      "references/retrieval-adapters.md",
+      "references/report-writing.md",
+      "references/export-workflow.md",
+      "references/quality-gates.md"
+    ],
+    "scripts": [
+      "scripts/init_research_package.py",
+      "scripts/validate_contracts.py",
+      "scripts/render_audit_views.py",
+      "scripts/export_report.py",
+      "scripts/validate_package.py",
+      "scripts/run_checks.py"
+    ],
+    "assets": [
+      "schemas/brief.schema.json",
+      "schemas/research-plan.schema.json",
+      "schemas/source-record.schema.json",
+      "schemas/claim-evidence-record.schema.json",
+      "schemas/report-claim-map.schema.json",
+      "schemas/validation-report.schema.json",
+      "templates/report.md",
+      "templates/report.html.j2"
+    ],
+    "reports": [
+      "reports/output-risk-profile.md",
+      "reports/artifact-design-profile.md",
+      "reports/prompt-quality-profile.md",
+      "reports/system-model.md",
+      "reports/iteration-directions.md",
+      "reports/review-studio.html"
+    ]
+  },
+  "eval_plan": {
+    "trigger": [
+      "evals/trigger_cases.json"
+    ],
+    "output": [
+      "evals/evals.json",
+      "evals/fixtures/current-topic/expected-assertions.json",
+      "evals/fixtures/closed-corpus/expected-assertions.json",
+      "evals/fixtures/contested-claim/expected-assertions.json",
+      "evals/fixtures/cross-format/expected-assertions.json"
+    ],
+    "adversarial": [
+      "evals/adversarial_cases.json",
+      "tests/fixtures/empty-evidence",
+      "tests/fixtures/fabricated-citation",
+      "tests/fixtures/stale-source",
+      "tests/fixtures/missing-pdf",
+      "tests/fixtures/template-leak",
+      "tests/fixtures/local-path-leak"
+    ],
+    "baseline": "current-v0.1.0-snapshot"
+  },
+  "risk": {
+    "output_risk": "high",
+    "execution_risk": "high",
+    "trust_boundary": "external"
+  },
+  "governance": {
+    "owner": "陈旭",
+    "maturity": "library",
+    "review_cadence": "quarterly",
+    "review_due": "2026-09-21"
+  },
+  "targets": [
+    "codex",
+    "claude-code",
+    "generic-agent"
+  ],
+  "source_files": [
+    "SKILL.md",
+    "manifest.json",
+    "agents/interface.yaml",
+    "README.md"
+  ]
+}

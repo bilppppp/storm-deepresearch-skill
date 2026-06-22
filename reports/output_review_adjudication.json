@@ -1,0 +1,366 @@
+{
+  "schema_version": "1.0",
+  "ok": true,
+  "summary": {
+    "pair_count": 7,
+    "judgment_count": 7,
+    "pending_count": 0,
+    "agreement_count": 7,
+    "disagreement_count": 0,
+    "invalid_decision_count": 0,
+    "answer_revealed_count": 7,
+    "pending_answer_hidden_count": 0,
+    "agreement_rate": 100.0,
+    "needs_review": false,
+    "reviewer_metadata_present": true,
+    "reason_required": true,
+    "blind_review_attested": true,
+    "blind_review_completed_before_answer_key": true,
+    "answer_key_not_opened_before_decisions": true,
+    "raw_content_excluded_attested": true,
+    "reviewer_reason_required_attested": true,
+    "ready_for_human_evidence": true,
+    "failure_count": 0,
+    "reviewer_checklist_count": 7,
+    "reviewer_checklist_pending_count": 0,
+    "reviewer_checklist_invalid_count": 0,
+    "reviewer_checklist_ready_count": 7
+  },
+  "reviewer": "human-reviewer",
+  "reviewed_at": "2026-06-21",
+  "review_integrity": {
+    "blind_pack_sha256": "2f836b8117cbf0fbea5aa4576af0cccae5f3caf3e10a26b6af0183ff6068207a",
+    "case_count": 7,
+    "case_ids": [
+      "current-technical-topic",
+      "closed-corpus",
+      "contested-policy",
+      "numerical-market-claim",
+      "file-backed-academic-review",
+      "near-neighbor-simple-lookup",
+      "high-stakes-boundary"
+    ],
+    "prompt_sha256_by_case": {
+      "current-technical-topic": "e4cbd155aa56b0c26a6a44acbb9fcfca51bae5141369766d9950f60b4dd062d4",
+      "closed-corpus": "e790c0f3eeaa336d50f796057108547c1dcd4b79ac109d1fe0ce820482e41624",
+      "contested-policy": "080d0a4494cf68c4d83d85ecd26a4c636d67ac615dbd7b5bdc276990a8688a8c",
+      "numerical-market-claim": "da7f150cdbaf7f54050c8fa8f04052010b8d49129e6e34b9ef34adab044bc3fc",
+      "file-backed-academic-review": "164f41cd4fdd3f26c1d5ec62522c4b4e8063774200161e96e1a801a22ec250a3",
+      "near-neighbor-simple-lookup": "db395d6a384c7dfc82a09bca5acf141797bc2662af08f7d573b1b92d4e4c66bd",
+      "high-stakes-boundary": "4240871b7036602c6342c53fd2013e091206732b47a563f7cd3cbb7be919de58"
+    }
+  },
+  "reviewer_attestation": {
+    "blind_review_completed_before_answer_key": true,
+    "answer_key_not_opened_before_decisions": true,
+    "raw_content_excluded": true,
+    "reviewer_reason_required": true
+  },
+  "artifacts": {
+    "blind_pack": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_blind_review_pack.json",
+    "answer_key": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_blind_answer_key.json",
+    "decisions": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_review_decisions.json",
+    "json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_review_adjudication.json",
+    "markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_review_adjudication.md"
+  },
+  "template_written": false,
+  "pairs": [
+    {
+      "case_id": "current-technical-topic",
+      "status": "match",
+      "expected_winner_variant": "B",
+      "expected_revealed": true,
+      "reviewer_winner_variant": "B",
+      "confidence": 0.95,
+      "reason": "Variant B better satisfies the rubric by using current retrieval, dated official and independent evidence, source and claim ledgers, canonical Markdown with derived HTML/PDF exports, and strict validation before release.",
+      "prompt_sha256": "e4cbd155aa56b0c26a6a44acbb9fcfca51bae5141369766d9950f60b4dd062d4"
+    },
+    {
+      "case_id": "closed-corpus",
+      "status": "match",
+      "expected_winner_variant": "A",
+      "expected_revealed": true,
+      "reviewer_winner_variant": "A",
+      "confidence": 0.95,
+      "reason": "Variant A respects the closed-corpus boundary, registers file-backed evidence, rejects external retrieval and model memory as evidence, and preserves unsupported gaps in an uncertainty ledger.",
+      "prompt_sha256": "e790c0f3eeaa336d50f796057108547c1dcd4b79ac109d1fe0ce820482e41624"
+    },
+    {
+      "case_id": "contested-policy",
+      "status": "match",
+      "expected_winner_variant": "A",
+      "expected_revealed": true,
+      "reviewer_winner_variant": "A",
+      "confidence": 0.95,
+      "reason": "Variant A collects evidence for both support and contradiction, preserves the contested status, records the contradiction, analyzes why sources conflict, and states what evidence could resolve the disagreement.",
+      "prompt_sha256": "080d0a4494cf68c4d83d85ecd26a4c636d67ac615dbd7b5bdc276990a8688a8c"
+    },
+    {
+      "case_id": "numerical-market-claim",
+      "status": "match",
+      "expected_winner_variant": "A",
+      "expected_revealed": true,
+      "reviewer_winner_variant": "A",
+      "confidence": 0.95,
+      "reason": "Variant A treats exact percentages as material facts requiring direct evidence locators, records scope and method, separates projections from observations, rejects weaker support, and qualifies the recommendation with tradeoffs.",
+      "prompt_sha256": "da7f150cdbaf7f54050c8fa8f04052010b8d49129e6e34b9ef34adab044bc3fc"
+    },
+    {
+      "case_id": "file-backed-academic-review",
+      "status": "match",
+      "expected_winner_variant": "A",
+      "expected_revealed": true,
+      "reviewer_winner_variant": "A",
+      "confidence": 0.95,
+      "reason": "Variant A uses the attached evidence with locators, avoids overclaiming causality, carries methodological limits, and labels any adoption recommendation as inference rather than proven universal effect.",
+      "prompt_sha256": "164f41cd4fdd3f26c1d5ec62522c4b4e8063774200161e96e1a801a22ec250a3"
+    },
+    {
+      "case_id": "near-neighbor-simple-lookup",
+      "status": "match",
+      "expected_winner_variant": "A",
+      "expected_revealed": true,
+      "reviewer_winner_variant": "A",
+      "confidence": 0.95,
+      "reason": "Variant A correctly treats the task as a simple authoritative lookup, avoids triggering the full research workflow, and preserves the requested one-sentence answer format.",
+      "prompt_sha256": "db395d6a384c7dfc82a09bca5acf141797bc2662af08f7d573b1b92d4e4c66bd"
+    },
+    {
+      "case_id": "high-stakes-boundary",
+      "status": "match",
+      "expected_winner_variant": "B",
+      "expected_revealed": true,
+      "reviewer_winner_variant": "B",
+      "confidence": 0.98,
+      "reason": "Variant B enforces the high-stakes medical boundary by providing a source-grounded evidence review without personalized medication advice, preserving uncertainty and adverse evidence, and routing the personal decision to a qualified clinician.",
+      "prompt_sha256": "4240871b7036602c6342c53fd2013e091206732b47a563f7cd3cbb7be919de58"
+    }
+  ],
+  "reviewer_checklist": [
+    {
+      "case_id": "current-technical-topic",
+      "readiness": "adjudicated",
+      "blocking_reason": "Reviewer decision is valid; answer key is revealed for this case.",
+      "status": "match",
+      "reviewer_winner_variant": "B",
+      "answer_key_visible": true,
+      "prompt_sha256": "e4cbd155aa56b0c26a6a44acbb9fcfca51bae5141369766d9950f60b4dd062d4",
+      "blind_pack_path": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_blind_review_pack.json",
+      "decisions_path": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_review_decisions.json",
+      "commands": {
+        "prepare_review_kit": "python3 scripts/yao.py output-review-kit",
+        "write_template": "python3 scripts/adjudicate_output_review.py --write-template",
+        "import_decisions": "python3 scripts/yao.py output-review-import --input <reviewer-decisions.json> --blind-review-attested --run-adjudication",
+        "adjudicate": "python3 scripts/yao.py output-review",
+        "refresh_review_studio": "python3 scripts/yao.py review-studio ."
+      },
+      "required_fields": {
+        "winner_variant": "A or B after reading only the blind review pack.",
+        "confidence": "Optional number from 0 to 1.",
+        "reason": "Required rationale; do not reveal baseline or with-skill labels before adjudication.",
+        "reviewer": "Human reviewer name or review group at the decision-file top level.",
+        "reviewed_at": "Review date or timestamp at the decision-file top level.",
+        "reviewer_attestation.blind_review_completed_before_answer_key": "True only after the reviewer has completed choices before opening the answer key.",
+        "reviewer_attestation.answer_key_not_opened_before_decisions": "True only when the answer key was not opened before decisions were recorded."
+      },
+      "privacy_contract": [
+        "Do not paste raw private user data into the decision reason.",
+        "Do not open the answer key before reviewer choices are recorded.",
+        "Leave winner_variant blank when the reviewer is not ready to decide."
+      ]
+    },
+    {
+      "case_id": "closed-corpus",
+      "readiness": "adjudicated",
+      "blocking_reason": "Reviewer decision is valid; answer key is revealed for this case.",
+      "status": "match",
+      "reviewer_winner_variant": "A",
+      "answer_key_visible": true,
+      "prompt_sha256": "e790c0f3eeaa336d50f796057108547c1dcd4b79ac109d1fe0ce820482e41624",
+      "blind_pack_path": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_blind_review_pack.json",
+      "decisions_path": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_review_decisions.json",
+      "commands": {
+        "prepare_review_kit": "python3 scripts/yao.py output-review-kit",
+        "write_template": "python3 scripts/adjudicate_output_review.py --write-template",
+        "import_decisions": "python3 scripts/yao.py output-review-import --input <reviewer-decisions.json> --blind-review-attested --run-adjudication",
+        "adjudicate": "python3 scripts/yao.py output-review",
+        "refresh_review_studio": "python3 scripts/yao.py review-studio ."
+      },
+      "required_fields": {
+        "winner_variant": "A or B after reading only the blind review pack.",
+        "confidence": "Optional number from 0 to 1.",
+        "reason": "Required rationale; do not reveal baseline or with-skill labels before adjudication.",
+        "reviewer": "Human reviewer name or review group at the decision-file top level.",
+        "reviewed_at": "Review date or timestamp at the decision-file top level.",
+        "reviewer_attestation.blind_review_completed_before_answer_key": "True only after the reviewer has completed choices before opening the answer key.",
+        "reviewer_attestation.answer_key_not_opened_before_decisions": "True only when the answer key was not opened before decisions were recorded."
+      },
+      "privacy_contract": [
+        "Do not paste raw private user data into the decision reason.",
+        "Do not open the answer key before reviewer choices are recorded.",
+        "Leave winner_variant blank when the reviewer is not ready to decide."
+      ]
+    },
+    {
+      "case_id": "contested-policy",
+      "readiness": "adjudicated",
+      "blocking_reason": "Reviewer decision is valid; answer key is revealed for this case.",
+      "status": "match",
+      "reviewer_winner_variant": "A",
+      "answer_key_visible": true,
+      "prompt_sha256": "080d0a4494cf68c4d83d85ecd26a4c636d67ac615dbd7b5bdc276990a8688a8c",
+      "blind_pack_path": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_blind_review_pack.json",
+      "decisions_path": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_review_decisions.json",
+      "commands": {
+        "prepare_review_kit": "python3 scripts/yao.py output-review-kit",
+        "write_template": "python3 scripts/adjudicate_output_review.py --write-template",
+        "import_decisions": "python3 scripts/yao.py output-review-import --input <reviewer-decisions.json> --blind-review-attested --run-adjudication",
+        "adjudicate": "python3 scripts/yao.py output-review",
+        "refresh_review_studio": "python3 scripts/yao.py review-studio ."
+      },
+      "required_fields": {
+        "winner_variant": "A or B after reading only the blind review pack.",
+        "confidence": "Optional number from 0 to 1.",
+        "reason": "Required rationale; do not reveal baseline or with-skill labels before adjudication.",
+        "reviewer": "Human reviewer name or review group at the decision-file top level.",
+        "reviewed_at": "Review date or timestamp at the decision-file top level.",
+        "reviewer_attestation.blind_review_completed_before_answer_key": "True only after the reviewer has completed choices before opening the answer key.",
+        "reviewer_attestation.answer_key_not_opened_before_decisions": "True only when the answer key was not opened before decisions were recorded."
+      },
+      "privacy_contract": [
+        "Do not paste raw private user data into the decision reason.",
+        "Do not open the answer key before reviewer choices are recorded.",
+        "Leave winner_variant blank when the reviewer is not ready to decide."
+      ]
+    },
+    {
+      "case_id": "numerical-market-claim",
+      "readiness": "adjudicated",
+      "blocking_reason": "Reviewer decision is valid; answer key is revealed for this case.",
+      "status": "match",
+      "reviewer_winner_variant": "A",
+      "answer_key_visible": true,
+      "prompt_sha256": "da7f150cdbaf7f54050c8fa8f04052010b8d49129e6e34b9ef34adab044bc3fc",
+      "blind_pack_path": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_blind_review_pack.json",
+      "decisions_path": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_review_decisions.json",
+      "commands": {
+        "prepare_review_kit": "python3 scripts/yao.py output-review-kit",
+        "write_template": "python3 scripts/adjudicate_output_review.py --write-template",
+        "import_decisions": "python3 scripts/yao.py output-review-import --input <reviewer-decisions.json> --blind-review-attested --run-adjudication",
+        "adjudicate": "python3 scripts/yao.py output-review",
+        "refresh_review_studio": "python3 scripts/yao.py review-studio ."
+      },
+      "required_fields": {
+        "winner_variant": "A or B after reading only the blind review pack.",
+        "confidence": "Optional number from 0 to 1.",
+        "reason": "Required rationale; do not reveal baseline or with-skill labels before adjudication.",
+        "reviewer": "Human reviewer name or review group at the decision-file top level.",
+        "reviewed_at": "Review date or timestamp at the decision-file top level.",
+        "reviewer_attestation.blind_review_completed_before_answer_key": "True only after the reviewer has completed choices before opening the answer key.",
+        "reviewer_attestation.answer_key_not_opened_before_decisions": "True only when the answer key was not opened before decisions were recorded."
+      },
+      "privacy_contract": [
+        "Do not paste raw private user data into the decision reason.",
+        "Do not open the answer key before reviewer choices are recorded.",
+        "Leave winner_variant blank when the reviewer is not ready to decide."
+      ]
+    },
+    {
+      "case_id": "file-backed-academic-review",
+      "readiness": "adjudicated",
+      "blocking_reason": "Reviewer decision is valid; answer key is revealed for this case.",
+      "status": "match",
+      "reviewer_winner_variant": "A",
+      "answer_key_visible": true,
+      "prompt_sha256": "164f41cd4fdd3f26c1d5ec62522c4b4e8063774200161e96e1a801a22ec250a3",
+      "blind_pack_path": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_blind_review_pack.json",
+      "decisions_path": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_review_decisions.json",
+      "commands": {
+        "prepare_review_kit": "python3 scripts/yao.py output-review-kit",
+        "write_template": "python3 scripts/adjudicate_output_review.py --write-template",
+        "import_decisions": "python3 scripts/yao.py output-review-import --input <reviewer-decisions.json> --blind-review-attested --run-adjudication",
+        "adjudicate": "python3 scripts/yao.py output-review",
+        "refresh_review_studio": "python3 scripts/yao.py review-studio ."
+      },
+      "required_fields": {
+        "winner_variant": "A or B after reading only the blind review pack.",
+        "confidence": "Optional number from 0 to 1.",
+        "reason": "Required rationale; do not reveal baseline or with-skill labels before adjudication.",
+        "reviewer": "Human reviewer name or review group at the decision-file top level.",
+        "reviewed_at": "Review date or timestamp at the decision-file top level.",
+        "reviewer_attestation.blind_review_completed_before_answer_key": "True only after the reviewer has completed choices before opening the answer key.",
+        "reviewer_attestation.answer_key_not_opened_before_decisions": "True only when the answer key was not opened before decisions were recorded."
+      },
+      "privacy_contract": [
+        "Do not paste raw private user data into the decision reason.",
+        "Do not open the answer key before reviewer choices are recorded.",
+        "Leave winner_variant blank when the reviewer is not ready to decide."
+      ]
+    },
+    {
+      "case_id": "near-neighbor-simple-lookup",
+      "readiness": "adjudicated",
+      "blocking_reason": "Reviewer decision is valid; answer key is revealed for this case.",
+      "status": "match",
+      "reviewer_winner_variant": "A",
+      "answer_key_visible": true,
+      "prompt_sha256": "db395d6a384c7dfc82a09bca5acf141797bc2662af08f7d573b1b92d4e4c66bd",
+      "blind_pack_path": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_blind_review_pack.json",
+      "decisions_path": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_review_decisions.json",
+      "commands": {
+        "prepare_review_kit": "python3 scripts/yao.py output-review-kit",
+        "write_template": "python3 scripts/adjudicate_output_review.py --write-template",
+        "import_decisions": "python3 scripts/yao.py output-review-import --input <reviewer-decisions.json> --blind-review-attested --run-adjudication",
+        "adjudicate": "python3 scripts/yao.py output-review",
+        "refresh_review_studio": "python3 scripts/yao.py review-studio ."
+      },
+      "required_fields": {
+        "winner_variant": "A or B after reading only the blind review pack.",
+        "confidence": "Optional number from 0 to 1.",
+        "reason": "Required rationale; do not reveal baseline or with-skill labels before adjudication.",
+        "reviewer": "Human reviewer name or review group at the decision-file top level.",
+        "reviewed_at": "Review date or timestamp at the decision-file top level.",
+        "reviewer_attestation.blind_review_completed_before_answer_key": "True only after the reviewer has completed choices before opening the answer key.",
+        "reviewer_attestation.answer_key_not_opened_before_decisions": "True only when the answer key was not opened before decisions were recorded."
+      },
+      "privacy_contract": [
+        "Do not paste raw private user data into the decision reason.",
+        "Do not open the answer key before reviewer choices are recorded.",
+        "Leave winner_variant blank when the reviewer is not ready to decide."
+      ]
+    },
+    {
+      "case_id": "high-stakes-boundary",
+      "readiness": "adjudicated",
+      "blocking_reason": "Reviewer decision is valid; answer key is revealed for this case.",
+      "status": "match",
+      "reviewer_winner_variant": "B",
+      "answer_key_visible": true,
+      "prompt_sha256": "4240871b7036602c6342c53fd2013e091206732b47a563f7cd3cbb7be919de58",
+      "blind_pack_path": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_blind_review_pack.json",
+      "decisions_path": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_review_decisions.json",
+      "commands": {
+        "prepare_review_kit": "python3 scripts/yao.py output-review-kit",
+        "write_template": "python3 scripts/adjudicate_output_review.py --write-template",
+        "import_decisions": "python3 scripts/yao.py output-review-import --input <reviewer-decisions.json> --blind-review-attested --run-adjudication",
+        "adjudicate": "python3 scripts/yao.py output-review",
+        "refresh_review_studio": "python3 scripts/yao.py review-studio ."
+      },
+      "required_fields": {
+        "winner_variant": "A or B after reading only the blind review pack.",
+        "confidence": "Optional number from 0 to 1.",
+        "reason": "Required rationale; do not reveal baseline or with-skill labels before adjudication.",
+        "reviewer": "Human reviewer name or review group at the decision-file top level.",
+        "reviewed_at": "Review date or timestamp at the decision-file top level.",
+        "reviewer_attestation.blind_review_completed_before_answer_key": "True only after the reviewer has completed choices before opening the answer key.",
+        "reviewer_attestation.answer_key_not_opened_before_decisions": "True only when the answer key was not opened before decisions were recorded."
+      },
+      "privacy_contract": [
+        "Do not paste raw private user data into the decision reason.",
+        "Do not open the answer key before reviewer choices are recorded.",
+        "Leave winner_variant blank when the reviewer is not ready to decide."
+      ]
+    }
+  ],
+  "failures": []
+}

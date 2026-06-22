@@ -1,0 +1,88 @@
+{
+  "margin_warning_threshold": 0.08,
+  "routes": [
+    {
+      "name": "storm-deepresearch-skill",
+      "description_file": "SKILL.md",
+      "semantic_config": "evals/semantic_config.json",
+      "threshold": 0.19
+    }
+  ],
+  "cases": [
+    {
+      "family": "full_report",
+      "expected_route": "storm-deepresearch-skill",
+      "text": "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit."
+    },
+    {
+      "family": "corpus_extension",
+      "expected_route": "storm-deepresearch-skill",
+      "text": "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty."
+    },
+    {
+      "family": "contested_claims",
+      "expected_route": "storm-deepresearch-skill",
+      "text": "Compare competing technical claims and explain what evidence would change the conclusion."
+    },
+    {
+      "family": "material_claims",
+      "expected_route": "storm-deepresearch-skill",
+      "text": "Create an investment pre-mortem where every material factual claim is traceable to a real source."
+    },
+    {
+      "family": "current_review",
+      "expected_route": "storm-deepresearch-skill",
+      "text": "Perform a current literature and industry review with explicit source freshness and limitations."
+    },
+    {
+      "family": "quick_lookup",
+      "expected_route": "no_route",
+      "text": "Find the official release date of this single product and answer in one sentence."
+    },
+    {
+      "family": "fictional_roleplay",
+      "expected_route": "no_route",
+      "text": "Brainstorm five fictional expert reactions without doing external research."
+    },
+    {
+      "family": "translate",
+      "expected_route": "no_route",
+      "text": "Translate this supplied report into Chinese without adding new information."
+    },
+    {
+      "family": "rewrite",
+      "expected_route": "no_route",
+      "text": "Rewrite this paragraph to sound clearer and more concise."
+    },
+    {
+      "family": "summary",
+      "expected_route": "no_route",
+      "text": "Summarize this one document in 200 words without creating a research package."
+    },
+    {
+      "family": "explanation_only",
+      "expected_route": "no_route",
+      "text": "Explain how STORM works, but do not run a research workflow."
+    },
+    {
+      "family": "high_stakes_boundary",
+      "expected_route": "no_route",
+      "text": "Review these medical studies without giving me personalized treatment advice."
+    },
+    {
+      "family": "closed_corpus_edge",
+      "expected_route": "storm-deepresearch-skill",
+      "text": "Use only the files I supplied for a source-grounded research report and do not retrieve anything from the internet."
+    },
+    {
+      "family": "quick_then_deep",
+      "expected_route": "no_route",
+      "text": "Give me a quick answer now and separately tell me whether a deep report would be useful."
+    },
+    {
+      "family": "slides_boundary",
+      "expected_route": "no_route",
+      "text": "Create a sourced presentation; research is needed, but another skill should own slide production."
+    }
+  ]
+}

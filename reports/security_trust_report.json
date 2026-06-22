@@ -1,0 +1,460 @@
+{
+  "ok": true,
+  "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+  "summary": {
+    "scanned_files": 54,
+    "script_count": 13,
+    "internal_module_count": 2,
+    "secret_findings": 0,
+    "dependency_files": [
+      "requirements-ci.txt"
+    ],
+    "network_script_count": 0,
+    "network_policy_covered_count": 0,
+    "network_policy_missing_count": 0,
+    "file_write_script_count": 7,
+    "permission_required_count": 2,
+    "permission_approved_count": 2,
+    "permission_missing_count": 0,
+    "permission_invalid_count": 0,
+    "permission_expired_count": 0,
+    "help_smoke_checked_count": 11,
+    "help_smoke_failed_count": 0,
+    "interactive_script_count": 0,
+    "package_hash_scope": "source-contract-without-generated-reports",
+    "package_hash_file_count": 54,
+    "package_sha256": "a466c3583b90fb464ccba989c0fa3edf37c48d1546c6b374c8a0fc1e6a5f5808"
+  },
+  "failures": [],
+  "warnings": [],
+  "secrets": [],
+  "scripts": [
+    {
+      "path": "scripts/contract_io.py",
+      "interface": "internal-module",
+      "interface_declared": true,
+      "interface_reason": "Shared contract loading and validation functions imported by package CLIs.",
+      "has_argparse": false,
+      "has_main_guard": false,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": false,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/export_report.py",
+      "interface": "cli",
+      "interface_declared": false,
+      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": true,
+      "uses_subprocess": true,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/init_research_package.py",
+      "interface": "cli",
+      "interface_declared": false,
+      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": true,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/local_output_eval_runner.py",
+      "interface": "cli",
+      "interface_declared": false,
+      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": false,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/merge_claim_ledger.py",
+      "interface": "cli",
+      "interface_declared": false,
+      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": true,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/normalize_retrieval.py",
+      "interface": "cli",
+      "interface_declared": false,
+      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": true,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/output_paths.py",
+      "interface": "internal-module",
+      "interface_declared": true,
+      "interface_reason": "Shared output boundary checks imported by package CLIs.",
+      "has_argparse": false,
+      "has_main_guard": false,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": false,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/render_audit_views.py",
+      "interface": "cli",
+      "interface_declared": false,
+      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": true,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/run_checks.py",
+      "interface": "cli",
+      "interface_declared": false,
+      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": false,
+      "uses_subprocess": true,
+      "network_urls": [
+        "https://json-schema.org/draft/2020-12/schema"
+      ],
+      "network_hosts": [
+        "json-schema.org"
+      ]
+    },
+    {
+      "path": "scripts/sanitize_release_archive.py",
+      "interface": "cli",
+      "interface_declared": false,
+      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": true,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/validate_contracts.py",
+      "interface": "cli",
+      "interface_declared": false,
+      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": false,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/validate_evidence.py",
+      "interface": "cli",
+      "interface_declared": false,
+      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": false,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/validate_package.py",
+      "interface": "cli",
+      "interface_declared": false,
+      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": true,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    }
+  ],
+  "dependencies": {
+    "present": [
+      "requirements-ci.txt"
+    ],
+    "pinned": [
+      "Jinja2==3.1.6",
+      "PyYAML==6.0.3",
+      "pypdf==6.13.3",
+      "weasyprint==69.0"
+    ],
+    "unpinned": []
+  },
+  "network_policy": {
+    "present": false,
+    "path": "security/network_policy.json",
+    "schema_version": "",
+    "network_script_count": 0,
+    "covered_scripts": [],
+    "missing_scripts": [],
+    "mismatches": [],
+    "default_policy": {}
+  },
+  "help_smoke": {
+    "enabled": true,
+    "timeout_seconds": 5.0,
+    "candidate_count": 11,
+    "checked_count": 11,
+    "passed_count": 11,
+    "failed_count": 0,
+    "skipped_count": 2,
+    "failed_scripts": [],
+    "results": [
+      {
+        "path": "scripts/export_report.py",
+        "command": "python3 scripts/export_report.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: export_report.py [-h] [--template TEMPLATE] --title TITLE\n                        [--pandoc PANDOC]\n                        [--pdf-renderer {auto,weasyprint,chromium,none}]\n                        [--chrome CHROME] [--require-pdf]\n  ",
+        "stderr_excerpt": ""
+      },
+      {
+        "path": "scripts/init_research_package.py",
+        "command": "python3 scripts/init_research_package.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: init_research_package.py [-h] --topic TOPIC --question QUESTION\n                                [--workspace WORKSPACE]\n                                [--output-root OUTPUT_ROOT] [--output OUTPUT]\n                                [--",
+        "stderr_excerpt": ""
+      },
+      {
+        "path": "scripts/local_output_eval_runner.py",
+        "command": "python3 scripts/local_output_eval_runner.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: local_output_eval_runner.py [-h]\n\nExercise Yao's deterministic runner contract without claiming model execution.\n\noptions:\n  -h, --help  show this help message and exit",
+        "stderr_excerpt": ""
+      },
+      {
+        "path": "scripts/merge_claim_ledger.py",
+        "command": "python3 scripts/merge_claim_ledger.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: merge_claim_ledger.py [-h] --package PACKAGE input_jsonl\n\nMerge full claim records without deleting existing ledger entries.\n\npositional arguments:\n  input_jsonl        Full new or revised claim records.\n\noptions:\n  -h, --help       ",
+        "stderr_excerpt": ""
+      },
+      {
+        "path": "scripts/normalize_retrieval.py",
+        "command": "python3 scripts/normalize_retrieval.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: normalize_retrieval.py [-h] --mode {closed_corpus,host,provider}\n                              --package PACKAGE\n                              input_jsonl\n\nNormalize adapter output into deterministic source records.\n\npositional argum",
+        "stderr_excerpt": ""
+      },
+      {
+        "path": "scripts/render_audit_views.py",
+        "command": "python3 scripts/render_audit_views.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: render_audit_views.py [-h] output_dir\n\nRender human-readable audit views from canonical ledgers.\n\npositional arguments:\n  output_dir\n\noptions:\n  -h, --help  show this help message and exit",
+        "stderr_excerpt": ""
+      },
+      {
+        "path": "scripts/run_checks.py",
+        "command": "python3 scripts/run_checks.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: run_checks.py [-h] (--all | --package PACKAGE)\n\nRun the local release gates with non-zero failure propagation.\n\noptions:\n  -h, --help         show this help message and exit\n  --all\n  --package PACKAGE",
+        "stderr_excerpt": ""
+      },
+      {
+        "path": "scripts/sanitize_release_archive.py",
+        "command": "python3 scripts/sanitize_release_archive.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: sanitize_release_archive.py [-h] --redact-root REDACT_ROOT archive\n\nRedact machine-local roots from text files inside a release ZIP.\n\npositional arguments:\n  archive\n\noptions:\n  -h, --help            show this help message and exit\n ",
+        "stderr_excerpt": ""
+      },
+      {
+        "path": "scripts/validate_contracts.py",
+        "command": "python3 scripts/validate_contracts.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: validate_contracts.py [-h] output_dir\n\nValidate research package data contracts without claiming release readiness.\n\npositional arguments:\n  output_dir\n\noptions:\n  -h, --help  show this help message and exit",
+        "stderr_excerpt": ""
+      },
+      {
+        "path": "scripts/validate_evidence.py",
+        "command": "python3 scripts/validate_evidence.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: validate_evidence.py [-h] output_dir\n\nEnforce claim-evidence closure and freshness rules.\n\npositional arguments:\n  output_dir\n\noptions:\n  -h, --help  show this help message and exit",
+        "stderr_excerpt": ""
+      },
+      {
+        "path": "scripts/validate_package.py",
+        "command": "python3 scripts/validate_package.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: validate_package.py [-h] output_dir\n\nStrictly validate a STORM DeepResearch output package.\n\npositional arguments:\n  output_dir\n\noptions:\n  -h, --help  show this help message and exit",
+        "stderr_excerpt": ""
+      }
+    ],
+    "skipped": [
+      {
+        "path": "scripts/contract_io.py",
+        "reason": "internal module"
+      },
+      {
+        "path": "scripts/output_paths.py",
+        "reason": "internal module"
+      }
+    ]
+  },
+  "permission_governance": {
+    "present": true,
+    "path": "security/permission_policy.json",
+    "schema_version": "1.0",
+    "reviewed_at": "2026-06-22",
+    "required_capabilities": [
+      "file_write",
+      "subprocess"
+    ],
+    "approved_capabilities": [
+      "file_write",
+      "subprocess"
+    ],
+    "missing_capabilities": [],
+    "invalid_capabilities": [],
+    "expired_capabilities": [],
+    "approval_count": 2,
+    "required_count": 2,
+    "missing_count": 0,
+    "invalid_count": 0,
+    "expired_count": 0,
+    "approvals": [
+      {
+        "capability": "file_write",
+        "status": "approved",
+        "scripts": [
+          "scripts/export_report.py",
+          "scripts/init_research_package.py",
+          "scripts/merge_claim_ledger.py",
+          "scripts/normalize_retrieval.py",
+          "scripts/render_audit_views.py",
+          "scripts/sanitize_release_archive.py",
+          "scripts/validate_package.py"
+        ],
+        "reviewer": "陈旭 via explicit task authorization",
+        "scope": "Write only inside the resolved approved research output root, local temporary test packages, and the generated release ZIP during path redaction.",
+        "reason": "The requested skill must create Markdown, HTML, PDF, audit ledgers, deterministic validation reports, and a release archive without machine-local path leakage.",
+        "expires_at": "2026-09-21",
+        "evidence": [
+          "agents/interface.yaml",
+          "references/output-path-policy.md",
+          "scripts/sanitize_release_archive.py",
+          "reports/security_trust_report.md"
+        ],
+        "target_enforcement": {
+          "openai": "adapter metadata and host approval",
+          "claude": "adapter metadata and host approval",
+          "generic": "adapter metadata; host must enforce output root",
+          "vscode": "workspace trust and adapter metadata"
+        },
+        "validation": []
+      },
+      {
+        "capability": "subprocess",
+        "status": "approved",
+        "scripts": [
+          "scripts/export_report.py",
+          "scripts/run_checks.py"
+        ],
+        "reviewer": "陈旭 via explicit task authorization",
+        "scope": "Run local Pandoc, WeasyPrint or Chromium rendering, Python tests, and Yao validation commands without shell interpolation of research content.",
+        "reason": "Deterministic multi-format export and complete Yao release verification require bounded local renderer and test subprocesses.",
+        "expires_at": "2026-09-21",
+        "evidence": [
+          "references/export-workflow.md",
+          "scripts/export_report.py",
+          "scripts/run_checks.py"
+        ],
+        "target_enforcement": {
+          "openai": "adapter metadata and command approval",
+          "claude": "adapter metadata and command approval",
+          "generic": "adapter metadata; host command allowlist required",
+          "vscode": "workspace trust and command approval"
+        },
+        "validation": []
+      }
+    ]
+  },
+  "trust_metadata": {
+    "source_tier": "local",
+    "remote_inline_execution": "forbid",
+    "remote_metadata_policy": "allow-metadata-only"
+  },
+  "artifacts": {
+    "json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/security_trust_report.json",
+    "markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/security_trust_report.md"
+  }
+}

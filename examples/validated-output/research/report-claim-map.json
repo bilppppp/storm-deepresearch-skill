@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "mappings": [
+    {"anchor": "what-storm-actually-proves", "fingerprint": "storm-method-components", "claim_ids": ["C001"]},
+    {"anchor": "what-storm-actually-proves", "fingerprint": "evaluation-threshold-delta", "claim_ids": ["C002", "C006"]},
+    {"anchor": "why-prompts-are-not-enough", "fingerprint": "residual-grounding-failures", "claim_ids": ["C003"]},
+    {"anchor": "why-prompts-are-not-enough", "fingerprint": "retrieval-is-required", "claim_ids": ["C004"]},
+    {"anchor": "recommended-library-architecture", "fingerprint": "governed-evidence-pipeline", "claim_ids": ["C005"]}
+  ]
+}

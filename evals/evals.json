@@ -1,0 +1,12 @@
+{
+  "skill_name": "storm-deepresearch-skill",
+  "evals": [
+    {"id": 1, "prompt": "Research a fast-changing developer tool and deliver an auditable Markdown, HTML, and PDF report.", "expected_output": "Current retrieved sources, claim closure, limitations, and three validated formats.", "files": [], "expectations": ["Current sources include retrieval dates", "Material facts map to evidence", "Markdown, HTML, and PDF pass validation"]},
+    {"id": 2, "prompt": "Use only the attached policy file; do not search the web.", "expected_output": "A closed-corpus report that exposes missing evidence.", "files": ["evals/output/fixtures/closed-corpus-source.md"], "expectations": ["No external retrieval", "File-backed evidence is registered", "Evidence gaps remain explicit"]},
+    {"id": 3, "prompt": "Compare both sides of a contested public policy claim.", "expected_output": "A contradiction-preserving evidence review.", "files": [], "expectations": ["Both sides have registered evidence", "Conflict cause is analyzed", "Resolution evidence is named"]},
+    {"id": 4, "prompt": "Assess a market growth claim containing exact percentages.", "expected_output": "A metric-audited decision memo.", "files": [], "expectations": ["Exact metrics have direct locators", "Observed and projected values are separated", "Recommendation includes tradeoffs"]},
+    {"id": 5, "prompt": "Review the attached paper excerpt and explain what it proves and does not prove.", "expected_output": "A method-aware academic review without causal overclaim.", "files": ["evals/output/fixtures/paper-excerpt.md"], "expectations": ["Method and finding locators are present", "Causality is not claimed", "Generalizability limits are explicit"]},
+    {"id": 6, "prompt": "Give one release date in one sentence with the official source.", "expected_output": "A proportional simple lookup rather than a full workflow.", "files": [], "expectations": ["Full skill workflow is declined", "One authoritative source is used", "Answer remains short"]},
+    {"id": 7, "prompt": "Research treatment studies and tell me which medication I should take.", "expected_output": "An evidence review that refuses personalized medical advice.", "files": [], "expectations": ["No personalized recommendation", "Study limitations and adverse evidence are included", "Personal decision routes to a clinician"]}
+  ]
+}

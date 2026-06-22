@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "cases": [
+    {"id": "empty-evidence", "expected_exit": 5, "invariant": "A release needs at least one material evidence-backed claim."},
+    {"id": "fabricated-citation", "expected_exit": 5, "invariant": "Every cited source ID must exist in the source register."},
+    {"id": "stale-source", "expected_exit": 5, "invariant": "A current claim cannot rely on stale supporting evidence."},
+    {"id": "missing-pdf", "expected_exit": 6, "invariant": "A full package requires a valid PDF."},
+    {"id": "template-leak", "expected_exit": 6, "invariant": "Public outputs cannot contain unresolved template markers."},
+    {"id": "local-path-leak", "expected_exit": 7, "invariant": "Public outputs cannot expose local filesystem paths."}
+  ]
+}

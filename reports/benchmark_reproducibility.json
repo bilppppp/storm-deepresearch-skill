@@ -1,0 +1,437 @@
+{
+  "schema_version": "1.0",
+  "ok": false,
+  "generated_at": "2026-06-21",
+  "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+  "commit": "unknown",
+  "git_status": {
+    "available": false,
+    "dirty": null,
+    "changed_file_count": null,
+    "source_dirty": null,
+    "source_changed_file_count": null,
+    "generated_dirty": null,
+    "generated_changed_file_count": null
+  },
+  "summary": {
+    "reproducibility_ready": false,
+    "release_lock_ready": false,
+    "methodology_complete": true,
+    "required_artifact_count": 25,
+    "missing_artifact_count": 9,
+    "evidence_bundle_sha256": "5d35a8aca1be59308d61622e9297394d1439516582ff01474d2ce01ea33b4715",
+    "source_contract_sha256": "26ef58b7f9b3d5f8380045c3ba3ecfb37bb3c9086987999f7339915996e3bd54",
+    "archive_sha256": "65c6f7a42c721a0a542b84587b6ddef1c4709a7890d7c13f04a240c01bd38408",
+    "output_case_count": 7,
+    "failure_disclosure_count": 0,
+    "command_count": 23,
+    "command_executed_count": 14,
+    "timing_observed_count": 14,
+    "model_executed_count": 0,
+    "token_observed_count": 0,
+    "human_review_complete": true,
+    "provider_evidence_complete": false,
+    "world_class_ready": false,
+    "world_class_open_gap_count": 7,
+    "world_class_task_count": 0,
+    "world_class_ledger_pending_count": 0,
+    "world_class_source_check_count": 0,
+    "world_class_source_pass_count": 0,
+    "world_class_source_blocked_count": 0,
+    "beta_test_ready": false,
+    "beta_test_blocker_count": 3,
+    "beta_test_deferred_evidence_count": 0,
+    "public_claim_ready": false,
+    "public_claim_blocker_count": 5,
+    "working_tree_dirty": null,
+    "changed_file_count": null,
+    "source_tree_dirty": null,
+    "source_changed_file_count": null,
+    "generated_tree_dirty": null,
+    "generated_changed_file_count": null
+  },
+  "beta_test_release": {
+    "ready": false,
+    "scope": "beta/public test release without superiority, fully-reviewed, or world-class claims",
+    "blockers": [
+      "local benchmark reproducibility is incomplete",
+      "release lock is not clean or commit is unavailable",
+      "provider-backed model holdout source evidence is incomplete"
+    ],
+    "allowed_deferred_evidence": [],
+    "policy": "Human blind-review, native permission enforcement, real client telemetry, and ledger acceptance may be deferred for beta/public testing, but public claims must remain blocked until those evidence entries are accepted.",
+    "required_wording": "Use beta, public test, or technical preview wording; do not claim world-class readiness, fully reviewed quality, or proven superiority over baseline."
+  },
+  "public_claim": {
+    "ready": false,
+    "scope": "public benchmark or world-class readiness claim",
+    "blockers": [
+      "local benchmark reproducibility is incomplete",
+      "release lock is not clean or commit is unavailable",
+      "provider-backed model holdout evidence is incomplete",
+      "world-class evidence is not accepted yet (7 open gaps, 0 ledger pending)",
+      "world-class source checks are not all accepted (0/0 pass, 0 blocked)"
+    ],
+    "policy": "Local reproducibility can pass before public claims; public claims require provider evidence, human adjudication, clean release lock, accepted world-class evidence, and complete source checks."
+  },
+  "release_lock": {
+    "ready": false,
+    "commit": "unknown",
+    "status_scope": "generation-time status",
+    "source_changed_file_count": null,
+    "generated_changed_file_count": null,
+    "reason": "git status unavailable; git commit unavailable; working tree cleanliness unknown"
+  },
+  "evidence_bundle": {
+    "algorithm": "sha256(path,label,exists,artifact_sha256)",
+    "artifact_count": 25,
+    "existing_count": 16,
+    "missing_count": 9,
+    "missing_paths": [
+      "reports/world_class_claim_guard.json",
+      "reports/world_class_evidence_intake.json",
+      "reports/world_class_evidence_ledger.json",
+      "reports/world_class_evidence_plan.json",
+      "reports/world_class_evidence_preflight.json",
+      "reports/world_class_operator_runbook.html",
+      "reports/world_class_operator_runbook.json",
+      "reports/world_class_operator_runbook.md",
+      "reports/world_class_submission_review.json"
+    ],
+    "sha256": "5d35a8aca1be59308d61622e9297394d1439516582ff01474d2ce01ea33b4715"
+  },
+  "methodology": {
+    "path": "reports/benchmark_methodology.md",
+    "exists": true,
+    "sections": [
+      {
+        "heading": "## Benchmark Types",
+        "exists": true
+      },
+      {
+        "heading": "## Sample Sources",
+        "exists": true
+      },
+      {
+        "heading": "## Evaluation Dimensions",
+        "exists": true
+      },
+      {
+        "heading": "## Weighting Rule",
+        "exists": true
+      },
+      {
+        "heading": "## Failure Disclosure",
+        "exists": true
+      },
+      {
+        "heading": "## Reproduction",
+        "exists": true
+      }
+    ],
+    "missing_sections": []
+  },
+  "artifacts_checked": [
+    {
+      "label": "methodology",
+      "path": "reports/benchmark_methodology.md",
+      "exists": true,
+      "bytes": 2736,
+      "sha256": "ed6e391e05210fc2d6d0d44f152f8c59c47faa85c8dce758226d1176bdafb5b0"
+    },
+    {
+      "label": "failure_disclosure",
+      "path": "evals/failure-cases.md",
+      "exists": true,
+      "bytes": 927,
+      "sha256": "3a067c775ddaf92136535d7ac397becda4a65332bd0a632b2e606dcecbad14cb"
+    },
+    {
+      "label": "output_cases",
+      "path": "evals/output/cases.jsonl",
+      "exists": true,
+      "bytes": 10418,
+      "sha256": "ffa0e861368c408c38ed16dfed7378f0d1e655802ff729df2ce230be4e512f6c"
+    },
+    {
+      "label": "output_schema",
+      "path": "evals/output/schema.json",
+      "exists": true,
+      "bytes": 2191,
+      "sha256": "f9b01671f84009159a1e3b110eeb7d953506ccdfd10a309b5c6377c9ff0375dd"
+    },
+    {
+      "label": "output_scorecard",
+      "path": "reports/output_quality_scorecard.json",
+      "exists": true,
+      "bytes": 34981,
+      "sha256": "74cf529fe4246efa2e561381a806b38527b2ea211b7bbe31d44e3d2d31e0e1d8"
+    },
+    {
+      "label": "output_execution",
+      "path": "reports/output_execution_runs.json",
+      "exists": true,
+      "bytes": 11136,
+      "sha256": "6cc959be7c1ec905e96c93a0d2a8d1c98279432e82d9b55ba356cf88d73dfaba"
+    },
+    {
+      "label": "blind_review",
+      "path": "reports/output_blind_review_pack.json",
+      "exists": true,
+      "bytes": 11543,
+      "sha256": "353f12e37d73c1b9456bb75ecff51de92f4cf24e918166c03b9232c16ff3e7ad"
+    },
+    {
+      "label": "review_adjudication",
+      "path": "reports/output_review_adjudication.json",
+      "exists": true,
+      "bytes": 21872,
+      "sha256": "e7320ff9e79fc7e54d16f8a8d9bb677f4290ecba75345030d1297c9f15fc98a0"
+    },
+    {
+      "label": "trigger_scorecard",
+      "path": "reports/route_scorecard.json",
+      "exists": true,
+      "bytes": 10358,
+      "sha256": "4d44bf17d0f89da5c2ca988e394ace7398ffb5b39f0615bc921fb91f75357543"
+    },
+    {
+      "label": "runtime_conformance",
+      "path": "reports/conformance_matrix.json",
+      "exists": true,
+      "bytes": 10268,
+      "sha256": "adc46b2f933d7e24b9b8bd52e538d0c517f4ce0618f2b6a1f97310a3584fbb23"
+    },
+    {
+      "label": "trust_report",
+      "path": "reports/security_trust_report.json",
+      "exists": true,
+      "bytes": 14209,
+      "sha256": "7e67b88e7975d24d2569f953cdfe8686c73688e38ca7bda2e08b14619b3b482b"
+    },
+    {
+      "label": "python_compatibility",
+      "path": "reports/python_compatibility.json",
+      "exists": true,
+      "bytes": 3139,
+      "sha256": "fe018f18f186257a9ab5271b749a9a4576c03d4dfc317f4f36a40996e56a29b9"
+    },
+    {
+      "label": "registry_audit",
+      "path": "reports/registry_audit.json",
+      "exists": true,
+      "bytes": 3888,
+      "sha256": "414c589eebc1234690c0b65fa4f4a71a60d5d3ddf37aa1cecd99a951a020d498"
+    },
+    {
+      "label": "package_verification",
+      "path": "reports/package_verification.json",
+      "exists": true,
+      "bytes": 19961,
+      "sha256": "83f71e4f53d5538a5cc9420a12f3bb95eb40dff97ceb49de6001f1a3bae9fad0"
+    },
+    {
+      "label": "install_simulation",
+      "path": "reports/install_simulation.json",
+      "exists": true,
+      "bytes": 7829,
+      "sha256": "e68925810293531bba008ce92814cd2d2a0a0d1f2731d89cdcee8ebb2048c469"
+    },
+    {
+      "label": "skill_os2_audit",
+      "path": "reports/skill_os2_audit.json",
+      "exists": true,
+      "bytes": 15522,
+      "sha256": "1bd18651aa91a2af1cec7c43ce5710103c64e9e158ceadfeb1182594b2808b34"
+    },
+    {
+      "label": "world_class_evidence_plan",
+      "path": "reports/world_class_evidence_plan.json",
+      "exists": false
+    },
+    {
+      "label": "world_class_evidence_ledger",
+      "path": "reports/world_class_evidence_ledger.json",
+      "exists": false
+    },
+    {
+      "label": "world_class_evidence_intake",
+      "path": "reports/world_class_evidence_intake.json",
+      "exists": false
+    },
+    {
+      "label": "world_class_evidence_preflight",
+      "path": "reports/world_class_evidence_preflight.json",
+      "exists": false
+    },
+    {
+      "label": "world_class_submission_review",
+      "path": "reports/world_class_submission_review.json",
+      "exists": false
+    },
+    {
+      "label": "world_class_operator_runbook",
+      "path": "reports/world_class_operator_runbook.json",
+      "exists": false
+    },
+    {
+      "label": "world_class_operator_runbook_markdown",
+      "path": "reports/world_class_operator_runbook.md",
+      "exists": false
+    },
+    {
+      "label": "world_class_operator_runbook_html",
+      "path": "reports/world_class_operator_runbook.html",
+      "exists": false
+    },
+    {
+      "label": "world_class_claim_guard",
+      "path": "reports/world_class_claim_guard.json",
+      "exists": false
+    }
+  ],
+  "missing_artifacts": [
+    "reports/world_class_evidence_plan.json",
+    "reports/world_class_evidence_ledger.json",
+    "reports/world_class_evidence_intake.json",
+    "reports/world_class_evidence_preflight.json",
+    "reports/world_class_submission_review.json",
+    "reports/world_class_operator_runbook.json",
+    "reports/world_class_operator_runbook.md",
+    "reports/world_class_operator_runbook.html",
+    "reports/world_class_claim_guard.json"
+  ],
+  "reproduction_commands": [
+    {
+      "label": "source commit",
+      "command": "git rev-parse HEAD",
+      "evidence": "git commit hash"
+    },
+    {
+      "label": "trigger eval",
+      "command": "make eval-suite",
+      "evidence": "reports/eval_suite.json"
+    },
+    {
+      "label": "output eval",
+      "command": "python3 scripts/yao.py output-eval",
+      "evidence": "reports/output_quality_scorecard.json"
+    },
+    {
+      "label": "output execution",
+      "command": "python3 scripts/yao.py output-exec --runner-command '[\"python3\",\"scripts/local_output_eval_runner.py\"]'",
+      "evidence": "reports/output_execution_runs.json"
+    },
+    {
+      "label": "blind review adjudication",
+      "command": "python3 scripts/yao.py output-review",
+      "evidence": "reports/output_review_adjudication.json"
+    },
+    {
+      "label": "skill ir",
+      "command": "python3 scripts/yao.py skill-ir . --output-json skill-ir/examples/yao-meta-skill.json",
+      "evidence": "skill-ir/examples/yao-meta-skill.json"
+    },
+    {
+      "label": "runtime conformance",
+      "command": "python3 scripts/yao.py conformance .",
+      "evidence": "reports/conformance_matrix.json"
+    },
+    {
+      "label": "trust report",
+      "command": "python3 scripts/yao.py trust .",
+      "evidence": "reports/security_trust_report.json"
+    },
+    {
+      "label": "python compatibility",
+      "command": "python3 scripts/yao.py python-compat .",
+      "evidence": "reports/python_compatibility.json"
+    },
+    {
+      "label": "package",
+      "command": "python3 scripts/yao.py package . --platform openai --platform claude --platform generic --platform vscode --expectations evals/packaging_expectations.json --output-dir dist --zip",
+      "evidence": "dist/yao-meta-skill.zip"
+    },
+    {
+      "label": "package verify",
+      "command": "python3 scripts/yao.py package-verify . --package-dir dist --require-zip",
+      "evidence": "reports/package_verification.json"
+    },
+    {
+      "label": "install simulate",
+      "command": "python3 scripts/yao.py install-simulate . --package-dir dist",
+      "evidence": "reports/install_simulation.json"
+    },
+    {
+      "label": "registry audit",
+      "command": "python3 scripts/yao.py registry-audit .",
+      "evidence": "reports/registry_audit.json"
+    },
+    {
+      "label": "skill os audit",
+      "command": "python3 scripts/yao.py skill-os2-audit .",
+      "evidence": "reports/skill_os2_audit.json"
+    },
+    {
+      "label": "world-class evidence plan",
+      "command": "python3 scripts/yao.py world-class-evidence .",
+      "evidence": "reports/world_class_evidence_plan.json"
+    },
+    {
+      "label": "world-class evidence ledger",
+      "command": "python3 scripts/yao.py world-class-ledger . --submissions-dir evidence/world_class/submissions",
+      "evidence": "reports/world_class_evidence_ledger.json"
+    },
+    {
+      "label": "world-class evidence intake",
+      "command": "python3 scripts/yao.py world-class-intake . --submissions-dir evidence/world_class/submissions",
+      "evidence": "reports/world_class_evidence_intake.json"
+    },
+    {
+      "label": "world-class evidence preflight",
+      "command": "python3 scripts/yao.py world-class-preflight . --submissions-dir evidence/world_class/submissions",
+      "evidence": "reports/world_class_evidence_preflight.json"
+    },
+    {
+      "label": "world-class submission review",
+      "command": "python3 scripts/yao.py world-class-submission-review . --submissions-dir evidence/world_class/submissions",
+      "evidence": "reports/world_class_submission_review.json"
+    },
+    {
+      "label": "world-class operator runbook",
+      "command": "python3 scripts/yao.py world-class-runbook . --submissions-dir evidence/world_class/submissions",
+      "evidence": "reports/world_class_operator_runbook.json"
+    },
+    {
+      "label": "world-class claim guard",
+      "command": "python3 scripts/yao.py world-class-claim-guard .",
+      "evidence": "reports/world_class_claim_guard.json"
+    },
+    {
+      "label": "evidence consistency",
+      "command": "python3 scripts/yao.py evidence-consistency .",
+      "evidence": "reports/evidence_consistency.json"
+    },
+    {
+      "label": "full ci",
+      "command": "make ci-test",
+      "evidence": "CI target output"
+    }
+  ],
+  "failure_disclosure": {
+    "path": "evals/failure-cases.md",
+    "case_count": 0,
+    "policy": "Keep representative failures visible and tied to regression checks."
+  },
+  "limitations": [
+    "The git commit and dirty flags are generation-time context; release lock is blocked by source changes, while generated evidence artifacts are tracked separately.",
+    "Local command-runner evidence is reproducible but does not replace provider-backed model holdout evidence.",
+    "Pending blind-review decisions are visible but do not count as human adjudication.",
+    "World-class readiness remains false until external and human evidence gaps close.",
+    "Beta/public testing may proceed without human blind-review only when wording avoids superiority, fully-reviewed, or world-class claims."
+  ],
+  "artifacts": {
+    "json": "reports/benchmark_reproducibility.json",
+    "markdown": "reports/benchmark_reproducibility.md"
+  }
+}

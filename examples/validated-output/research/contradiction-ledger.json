@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "conflicts": [
+    {
+      "conflict_id": "X001",
+      "claim_ids": ["C002", "C006"],
+      "cause": "The article compresses a threshold-based absolute percentage-point result into a broad comparative phrase.",
+      "resolution_evidence": "Use the published Table 2 values and preserve the rating threshold and baseline.",
+      "judgment": "The paper supports a 25 percentage-point increase in articles rated at least four for organization, not a generic 25% improvement in organization quality."
+    }
+  ]
+}

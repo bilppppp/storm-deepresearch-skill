@@ -1,0 +1,70 @@
+interface:
+  display_name: "STORM DeepResearch"
+  short_description: "Build evidence-grounded long-form research packages with auditable claims and multi-format reports"
+  default_prompt: "Use $storm-deepresearch-skill to produce a full evidence-led dossier with STORM question utilization, a claim-evidence audit, contradiction analysis, and validated Markdown, HTML, and PDF outputs."
+compatibility:
+  canonical_format: "agent-skills"
+  adapter_targets:
+    - "openai"
+    - "claude"
+    - "agent-skills"
+    - "vscode"
+    - "generic"
+  activation:
+    mode: "manual"
+    paths: []
+  execution:
+    context: "inline"
+    shell: "bash"
+  trust:
+    source_tier: "local"
+    remote_inline_execution: "forbid"
+    remote_metadata_policy: "allow-metadata-only"
+  degradation:
+    openai: "Use host search tools and preserve the canonical evidence and output contracts."
+    claude: "Use host search tools and preserve the canonical evidence and output contracts."
+    agent-skills: "Use the canonical SKILL.md and relative package resources; the host must enforce declared permissions."
+    vscode: "Use workspace-trusted local tools and preserve the canonical evidence and output contracts."
+    generic: "Require an approved retrieval adapter or closed corpus; never simulate retrieved evidence."
+contract:
+  inputs:
+    required:
+      - "topic_or_question"
+    optional:
+      - "input_files"
+      - "urls"
+      - "audience"
+      - "timeframe"
+      - "geography"
+      - "source_policy"
+      - "freshness_policy"
+      - "retrieval_mode"
+      - "output_mode"
+      - "report_language"
+      - "length_contract"
+      - "workspace_root"
+      - "output_root"
+  defaults:
+    retrieval_mode: "host"
+    output_mode: "full"
+    depth_level: "full_dossier"
+    zh_length_contract: "8000-10000 characters"
+    en_length_contract: "3500-7000 words"
+    output_root: "output/storm-deepresearch"
+    output_collision_policy: "fail"
+    ledger_update_policy: "monotonic-merge"
+  permissions:
+    - "read user-approved input files"
+    - "write only inside the resolved approved output root"
+    - "use host network tools only when the brief allows external retrieval"
+    - "run local validation and rendering commands"
+  stop_conditions:
+    - "required scope or permission is missing"
+    - "retrieval cannot produce provenance-bearing records"
+    - "material factual claims remain unsupported"
+    - "required output formats fail validation"
+    - "the run exists or escapes the output root"
+  non_goals:
+    - "quick factual lookup"
+    - "evidence-free expert role-play"
+    - "personalized professional advice"

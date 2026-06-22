@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "package_state": "initialized",
+  "topic": "家庭服务器上自建热搜榜 API 的可行性",
+  "research_question": "个人开发者能否在家庭服务器上合法、稳定、低成本地搭建热搜榜 API？",
+  "user_goal": "判断是否值得投入，以及需要避开的技术和合规风险",
+  "audience": "懂一点编程的个人开发者",
+  "decision_context": "是否投入时间搭建并长期维护",
+  "depth_level": "full_dossier",
+  "report_language": "zh-CN",
+  "length_contract": {
+    "unit": "characters",
+    "minimum": 8000,
+    "target": 9000,
+    "maximum": 10000,
+    "content_standard": "evidence_led"
+  },
+  "geography": "中国大陆服务为主",
+  "timeframe": "当前一年",
+  "source_policy": "external_allowed",
+  "freshness_policy": {
+    "as_of": "2026-06-21",
+    "max_age_days": 365
+  },
+  "retrieval_mode": "host",
+  "output_mode": "full",
+  "uncertainty_tolerance": "low",
+  "user_materials": [],
+  "assumptions": [
+    "平台授权与数据再分发条款需要单独核验"
+  ]
+}

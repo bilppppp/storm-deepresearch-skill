@@ -1,0 +1,2302 @@
+{
+  "overview": {
+    "skill_summary": {
+      "name": "storm-deepresearch-skill",
+      "title": "STORM DeepResearch",
+      "display_name": "STORM DeepResearch",
+      "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+      "maturity": "library",
+      "updated_at": "2026-06-21",
+      "core_value": "把一次性经验沉淀为可复用、可评估、可迁移的 Skill 包体。",
+      "audience": "Skill 作者、复用团队和后续 reviewer。",
+      "deliverables": [
+        "SKILL.md",
+        "agents/interface.yaml",
+        "reports/skill-ir.json",
+        "reports/compiled_targets.md",
+        "reports/output_quality_scorecard.md",
+        "reports/benchmark_reproducibility.md",
+        "reports/output_execution_runs.md",
+        "reports/output_blind_review_pack.md",
+        "reports/output_review_kit.md",
+        "reports/output_blind_answer_key.json",
+        "reports/conformance_matrix.md",
+        "reports/security_trust_report.md",
+        "reports/runtime_permission_probes.md",
+        "reports/skill_atlas.html",
+        "reports/registry_audit.md",
+        "reports/package_verification.md",
+        "reports/install_simulation.md",
+        "reports/upgrade_check.md",
+        "reports/adoption_drift_report.md",
+        "reports/review_waivers.md",
+        "reports/review_annotations.md",
+        "reports/review-studio.html",
+        "reports/skill-interpretation.html",
+        "reports/skill-overview.html"
+      ],
+      "flow": [
+        "输入材料",
+        "Skill 包体",
+        "可复用能力"
+      ]
+    },
+    "scorecard": {
+      "completeness_score": {
+        "label": "完整度",
+        "score": 100,
+        "reasons": [
+          "SKILL.md 已存在，是 Skill 的入口。",
+          "README.md 已存在，便于人工阅读。",
+          "agents/interface.yaml 已存在，便于跨平台适配。",
+          "manifest.json 已存在，生命周期信息可追踪。",
+          "reports/ 已存在，生成证据可以随包体迁移。"
+        ]
+      },
+      "trigger_score": {
+        "label": "触发清晰",
+        "score": 100,
+        "reasons": [
+          "frontmatter description 已存在，具备基础路由面。",
+          "description 有足够长度说明任务边界。",
+          "description 已包含使用场景或排除边界信号。",
+          "evals/ 已存在，可承载触发样例或质量检查。",
+          "intent-confidence 报告已生成，可辅助判断触发稳定性。"
+        ]
+      },
+      "evidence_score": {
+        "label": "证据充分",
+        "score": 100,
+        "reasons": [
+          "已生成 20 / 20 类报告证据。",
+          "skill-ir.json 已存在。",
+          "compiled_targets.json 已存在。",
+          "intent-dialogue.json 已存在。"
+        ]
+      },
+      "maintainability_score": {
+        "label": "可维护性",
+        "score": 100,
+        "reasons": [
+          "SKILL.md 约 331 个词/字。",
+          "入口文件保持克制，可维护性较好。",
+          "references/ 已承载扩展指导。",
+          "scripts/ 已承载确定性逻辑。",
+          "evals/ 已承载可迁移检查。"
+        ]
+      },
+      "portability_score": {
+        "label": "可迁移性",
+        "score": 100,
+        "reasons": [
+          "agents/interface.yaml 已存在。",
+          "manifest.json 已存在。",
+          "目标平台或 adapter target 已声明。",
+          "入口文件未发现明显私有绝对路径。"
+        ]
+      },
+      "context_cost": {
+        "label": "上下文成本",
+        "score": 60,
+        "reasons": [
+          "入口约 331 个词/字，references 约 1539 个词/字。",
+          "分数越高代表上下文成本越低。",
+          "上下文成本偏高，建议压缩入口或拆分 references。"
+        ]
+      }
+    },
+    "capability_profile": {
+      "archetype": "library",
+      "task_family": "Prompt engineering",
+      "maturity": "library",
+      "trigger_strength": "手动触发 + description 路由",
+      "reuse_scope": "跨平台",
+      "matrix": {
+        "execution_certainty": 72,
+        "knowledge_density": 80
+      }
+    },
+    "principle_model": {
+      "nodes": [
+        {
+          "title": "意图澄清",
+          "body": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript."
+        },
+        {
+          "title": "边界路由",
+          "body": "用 frontmatter description 决定是否触发，并写明相邻非目标。"
+        },
+        {
+          "title": "资产分层",
+          "body": "把入口、参考、脚本、评估和报告拆到各自目录，避免 SKILL.md 膨胀。"
+        },
+        {
+          "title": "证据回路",
+          "body": "Ask only the highest-leverage clarification before adding package weight."
+        },
+        {
+          "title": "漂移观察",
+          "body": "Add near-neighbor exclusions and route evals before expanding workflow steps."
+        },
+        {
+          "title": "杠杆升级",
+          "body": "Name the recurring job, expected input, output, and strongest non-goal in compact language."
+        }
+      ],
+      "layers": [
+        "入口层",
+        "参考层",
+        "脚本层",
+        "评估层",
+        "报告层"
+      ]
+    },
+    "contract_boundary": {
+      "trigger": {
+        "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+        "activation": "manual",
+        "execution": "inline",
+        "shell": "bash"
+      },
+      "inputs": [
+        "A research topic or decision question",
+        "User-supplied articles, papers, URLs, notes, or a closed corpus",
+        "Audience, geography, timeframe, freshness, and output constraints"
+      ],
+      "outputs": [
+        "A validated research package with a canonical Markdown report, provenance-bearing source and Claim-Evidence ledgers, contradiction and uncertainty records, consistent HTML and PDF, and machine-readable validation evidence.",
+        "结构化 Skill 目录，共 8 类关键资产。"
+      ],
+      "should_trigger": [
+        "团队复用前，需要明确触发边界、质量证据和维护责任。",
+        "用户说出类似需求时：Use $storm-deepresearch-skill to research this topic with real sources, a claim-evidence audit, contradiction analysis, and validated Markdown, HTML, and PDF outputs.",
+        "已有原始资料，但还没有清晰输入、输出和后续迭代路径。"
+      ],
+      "should_not_trigger": [
+        "只需要一次性回答、没有复用价值的临时请求。",
+        "要求直接执行相邻任务，而不是沉淀或使用这个 Skill。",
+        "缺少必要事实且用户不允许澄清的场景。"
+      ],
+      "boundary_cards": [
+        {
+          "label": "Owned",
+          "body": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks."
+        },
+        {
+          "label": "Adjacent",
+          "body": "相邻任务需要先确认是否应转为独立 Skill。"
+        },
+        {
+          "label": "Excluded",
+          "body": "不替代人工事实核查，也不静默扩大职责。"
+        }
+      ]
+    },
+    "quality_review": {
+      "strengths": [
+        "触发面保持精简，并锚定在 frontmatter description。",
+        "已生成 Skill IR，核心语义可先于平台打包被审查和迁移。",
+        "已生成目标编译报告，可审查 IR 到 OpenAI、Claude、generic 等目标契约的映射。",
+        "已生成 Output Eval Lab scorecard，可比较 with-skill 与 baseline 输出质量。",
+        "已生成 Output Execution Runs，可区分记录样本、命令执行和模型执行证据。",
+        "已生成 Runtime Conformance Matrix，可审查目标端消费能力。"
+      ],
+      "gaps": [
+        "上下文成本需要补强：入口约 331 个词/字，references 约 1539 个词/字。"
+      ],
+      "recommendations": [
+        "先改触发边界，再扩展工作流。",
+        "只把重复且稳定的步骤沉淀为脚本。",
+        "每次升级后重新生成报告并检查分数原因。"
+      ],
+      "artifact_design": {
+        "design_system": "metric editorial",
+        "highlights": [
+          "High-trust editorial report with a clear first-screen thesis, compact evidence blocks, and decisions separated from supporting detail.",
+          "Keep the first screen useful without requiring the reader to parse every detail.",
+          "Use tables only for comparisons; move explanations below the table.",
+          "Keep source notes readable without flooding the body with markers."
+        ]
+      },
+      "prompt_quality": {
+        "overall_quality_score": 89.0,
+        "highlights": [
+          "Primary prompt task family: Prompt engineering.",
+          "Complexity: expert — multiple task families plus governance, evaluation, or expert-level constraints",
+          "Completeness: 95/100.",
+          "Clarity: 80/100."
+        ]
+      },
+      "system_model": {
+        "stability": {
+          "score": 92,
+          "band": "system-ready"
+        },
+        "highlights": [
+          "Stability: system-ready (92/100).",
+          "Owned job: Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
+          "Leverage: Tune the frontmatter description — Name the recurring job, expected input, output, and strongest non-goal in compact language.",
+          "Leverage: Install output self-repair checks — Add only the checks that prevent recurring output mistakes."
+        ]
+      }
+    },
+    "risk_governance": {
+      "risks": [
+        {
+          "name": "误触发风险",
+          "impact": 3,
+          "probability": 1,
+          "signal": "frontmatter description 已存在，具备基础路由面。",
+          "response": "先补证据和边界，再增加包体复杂度。"
+        },
+        {
+          "name": "输出漂移风险",
+          "impact": 2,
+          "probability": 1,
+          "signal": "已生成 20 / 20 类报告证据。",
+          "response": "先补证据和边界，再增加包体复杂度。"
+        },
+        {
+          "name": "证据不足风险",
+          "impact": 3,
+          "probability": 1,
+          "signal": "已生成 20 / 20 类报告证据。",
+          "response": "先补证据和边界，再增加包体复杂度。"
+        },
+        {
+          "name": "包体膨胀风险",
+          "impact": 2,
+          "probability": 1,
+          "signal": "SKILL.md 约 331 个词/字。",
+          "response": "先补证据和边界，再增加包体复杂度。"
+        },
+        {
+          "name": "跨平台迁移风险",
+          "impact": 3,
+          "probability": 1,
+          "signal": "agents/interface.yaml 已存在。",
+          "response": "先补证据和边界，再增加包体复杂度。"
+        }
+      ],
+      "risk_families": [
+        {
+          "key": "markdown_readability",
+          "label": "Markdown readability",
+          "matched_keywords": [
+            "markdown",
+            "md",
+            "table",
+            "report",
+            "brief",
+            "doc"
+          ],
+          "score": 6,
+          "risks": [
+            "Tables can render as dense grids with weak hierarchy or poor mobile readability.",
+            "Long bullets can make the output look complete while hiding the actual decision logic.",
+            "Mixed heading levels can reduce scanability."
+          ],
+          "constraints": [
+            "Use tables only when comparison is the main job; otherwise prefer compact cards or grouped bullets.",
+            "Keep table cells short and move explanations below the table.",
+            "Use heading levels consistently and keep each section anchored to a user-facing outcome."
+          ],
+          "self_repair": [
+            "Preview whether each table still reads well when columns are narrow.",
+            "Convert any table with paragraph-length cells into bullets or cards."
+          ]
+        },
+        {
+          "key": "citation_clutter",
+          "label": "Citation and footnote clutter",
+          "matched_keywords": [
+            "citation",
+            "source",
+            "research",
+            "reference"
+          ],
+          "score": 4,
+          "risks": [
+            "Footnote markers or dense citation notes can interrupt the reading flow.",
+            "Evidence can be over-attached to obvious statements and under-attached to risky claims.",
+            "Source notes may become more prominent than the tutorial itself."
+          ],
+          "constraints": [
+            "Attach citations only to claims that need evidence, not to every sentence.",
+            "Group source notes at the end of a section when inline markers would hurt readability.",
+            "Keep the main sentence readable without requiring the reader to chase a footnote."
+          ],
+          "self_repair": [
+            "Remove decorative citations that do not support a material claim.",
+            "Move repeated source explanations into one compact source note."
+          ]
+        },
+        {
+          "key": "code_or_command_safety",
+          "label": "Code and command safety",
+          "matched_keywords": [
+            "script"
+          ],
+          "score": 1,
+          "risks": [
+            "Commands can omit environment assumptions, working directory, or rollback notes.",
+            "Code snippets can look runnable while missing required inputs.",
+            "Error handling can be either absent or over-engineered."
+          ],
+          "constraints": [
+            "Name the working directory, required inputs, and expected output for each command.",
+            "Mark destructive or external side-effect operations explicitly.",
+            "Prefer the smallest runnable snippet over broad framework code."
+          ],
+          "self_repair": [
+            "Scan each command for cwd, input, output, and side-effect assumptions.",
+            "Remove speculative error handling that is not tied to a real failure mode."
+          ]
+        },
+        {
+          "key": "tone_and_specificity",
+          "label": "Tone and specificity",
+          "matched_keywords": [
+            "article"
+          ],
+          "score": 1,
+          "risks": [
+            "Headings and summaries can drift into generic, interchangeable language.",
+            "The output can sound polished but lose the user's actual taste, audience, or scenario.",
+            "Strong claims can appear without examples or constraints."
+          ],
+          "constraints": [
+            "Anchor titles and summaries in the user's audience, object, and concrete outcome.",
+            "Avoid placeholder phrases such as comprehensive guide, ultimate solution, or key insights unless the source demands them.",
+            "Preserve one distinctive phrase, constraint, or standard from the user's input."
+          ],
+          "self_repair": [
+            "Replace generic title candidates with scenario-specific alternatives.",
+            "Delete any polished sentence that could fit almost any project unchanged."
+          ]
+        }
+      ],
+      "human_judgment_boundary": [
+        "Ask one focused clarification when the real job, output, or exclusion boundary is unclear.",
+        "Escalate visible tradeoffs when benchmark patterns conflict with local privacy, naming, or governance constraints.",
+        "Do not silently broaden the skill into adjacent jobs just because the examples are nearby."
+      ]
+    },
+    "world_class_readiness": {
+      "ready": false,
+      "decision": "not-generated",
+      "entry_count": 0,
+      "pending_count": 0,
+      "accepted_count": 0,
+      "external_pending_count": 0,
+      "human_pending_count": 0,
+      "source_check_count": 0,
+      "source_pass_count": 0,
+      "conclusion_zh": "未生成 world-class ledger；当前报告不会宣称世界级完成。",
+      "conclusion_en": "No world-class ledger was generated; this report does not claim world-class completion.",
+      "entries": []
+    },
+    "package_assets": {
+      "entries": [
+        {
+          "path": "SKILL.md",
+          "label": "Skill entrypoint",
+          "kind": "file",
+          "file_count": 1
+        },
+        {
+          "path": "README.md",
+          "label": "Human-readable usage guide",
+          "kind": "file",
+          "file_count": 1
+        },
+        {
+          "path": "agents/interface.yaml",
+          "label": "Neutral interface metadata",
+          "kind": "file",
+          "file_count": 1
+        },
+        {
+          "path": "manifest.json",
+          "label": "Lifecycle and portability metadata",
+          "kind": "file",
+          "file_count": 1
+        },
+        {
+          "path": "references",
+          "label": "Extended guidance and reusable notes",
+          "kind": "folder",
+          "file_count": 7
+        },
+        {
+          "path": "scripts",
+          "label": "Deterministic helpers or local tooling",
+          "kind": "folder",
+          "file_count": 10
+        },
+        {
+          "path": "evals",
+          "label": "Trigger and quality checks",
+          "kind": "folder",
+          "file_count": 12
+        },
+        {
+          "path": "reports",
+          "label": "Generated evidence and overview artifacts",
+          "kind": "folder",
+          "file_count": 86
+        }
+      ],
+      "file_count": 119,
+      "folder_count": 4,
+      "distribution": [
+        {
+          "label": "SKILL.md",
+          "value": 1
+        },
+        {
+          "label": "README.md",
+          "value": 1
+        },
+        {
+          "label": "agents/interface.yaml",
+          "value": 1
+        },
+        {
+          "label": "manifest.json",
+          "value": 1
+        },
+        {
+          "label": "references",
+          "value": 7
+        },
+        {
+          "label": "scripts",
+          "value": 10
+        },
+        {
+          "label": "evals",
+          "value": 12
+        },
+        {
+          "label": "reports",
+          "value": 86
+        }
+      ]
+    },
+    "iteration_roadmap": {
+      "items": [
+        {
+          "title": "Tighten trigger and exclusions",
+          "why": "The package needs clearer near-neighbor exclusions before it grows.",
+          "actions": [
+            "Add 3 to 5 should-trigger and should-not-trigger examples.",
+            "Refine the frontmatter description to name the recurring job and non-goals.",
+            "Run a first trigger evaluation pass before expanding the package."
+          ],
+          "unlocks": "Cleaner routing and fewer accidental activations."
+        },
+        {
+          "title": "Create an iteration evidence loop",
+          "why": "The package should show what changed and why after the first draft.",
+          "actions": [
+            "Generate the HTML skill report and keep it aligned with the package.",
+            "Record reference scan choices and non-goals.",
+            "Capture the next iteration choice explicitly before adding more files."
+          ],
+          "unlocks": "A clearer path for the next author or reviewer."
+        }
+      ]
+    },
+    "report_contract": {
+      "schema_version": "2.0",
+      "html_report": "reports/skill-overview.html",
+      "language": "zh-CN",
+      "default_language": "zh-CN",
+      "languages": [
+        "zh-CN",
+        "en"
+      ],
+      "layout": "kami-white-audit-v2",
+      "nav_labels": [
+        "技能概述",
+        "总览指标",
+        "能力画像",
+        "原理结构",
+        "契约边界",
+        "质量评估",
+        "风险治理",
+        "包体资产",
+        "迭代路线"
+      ],
+      "nav_labels_en": [
+        "Overview",
+        "Metrics",
+        "Profile",
+        "Principle",
+        "Contract",
+        "Quality",
+        "Risk",
+        "Assets",
+        "Roadmap"
+      ]
+    },
+    "name": "storm-deepresearch-skill",
+    "title": "STORM DeepResearch",
+    "display_name": "STORM DeepResearch",
+    "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+    "logic_steps": [
+      "Normalize `brief.json`; clarify only scope-changing gaps.",
+      "Generate perspectives and questions with the [research protocol](references/research-protocol.md).",
+      "Use an approved [retrieval adapter](references/retrieval-adapters.md); memory and personas are not sources.",
+      "Close material claims under the [evidence](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policies.",
+      "Preserve contradictions and uncertainty; remove, qualify, or mark unsupported claims unknown."
+    ],
+    "usage_steps": [
+      "Use $storm-deepresearch-skill to research this topic with real sources, a claim-evidence audit, contradiction analysis, and validated Markdown, HTML, and PDF outputs.",
+      "Use this skill when the request matches: Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks."
+    ],
+    "package_map": [
+      {
+        "path": "SKILL.md",
+        "label": "Skill entrypoint",
+        "kind": "file",
+        "file_count": 1
+      },
+      {
+        "path": "README.md",
+        "label": "Human-readable usage guide",
+        "kind": "file",
+        "file_count": 1
+      },
+      {
+        "path": "agents/interface.yaml",
+        "label": "Neutral interface metadata",
+        "kind": "file",
+        "file_count": 1
+      },
+      {
+        "path": "manifest.json",
+        "label": "Lifecycle and portability metadata",
+        "kind": "file",
+        "file_count": 1
+      },
+      {
+        "path": "references",
+        "label": "Extended guidance and reusable notes",
+        "kind": "folder",
+        "file_count": 7
+      },
+      {
+        "path": "scripts",
+        "label": "Deterministic helpers or local tooling",
+        "kind": "folder",
+        "file_count": 10
+      },
+      {
+        "path": "evals",
+        "label": "Trigger and quality checks",
+        "kind": "folder",
+        "file_count": 12
+      },
+      {
+        "path": "reports",
+        "label": "Generated evidence and overview artifacts",
+        "kind": "folder",
+        "file_count": 86
+      }
+    ],
+    "strengths": [
+      "触发面保持精简，并锚定在 frontmatter description。",
+      "已生成 Skill IR，核心语义可先于平台打包被审查和迁移。",
+      "已生成目标编译报告，可审查 IR 到 OpenAI、Claude、generic 等目标契约的映射。",
+      "已生成 Output Eval Lab scorecard，可比较 with-skill 与 baseline 输出质量。",
+      "已生成 Output Execution Runs，可区分记录样本、命令执行和模型执行证据。",
+      "已生成 Runtime Conformance Matrix，可审查目标端消费能力。"
+    ],
+    "scenarios": [
+      "团队复用前，需要明确触发边界、质量证据和维护责任。",
+      "用户说出类似需求时：Use $storm-deepresearch-skill to research this topic with real sources, a claim-evidence audit, contradiction analysis, and validated Markdown, HTML, and PDF outputs.",
+      "已有原始资料，但还没有清晰输入、输出和后续迭代路径。"
+    ],
+    "trigger_contract": {
+      "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+      "activation": "manual",
+      "execution": "inline",
+      "shell": "bash"
+    },
+    "io_contract": {
+      "inputs": [
+        "A research topic or decision question",
+        "User-supplied articles, papers, URLs, notes, or a closed corpus",
+        "Audience, geography, timeframe, freshness, and output constraints"
+      ],
+      "outputs": [
+        "A validated research package with a canonical Markdown report, provenance-bearing source and Claim-Evidence ledgers, contradiction and uncertainty records, consistent HTML and PDF, and machine-readable validation evidence.",
+        "结构化 Skill 目录，共 8 类关键资产。"
+      ]
+    },
+    "principles": [
+      {
+        "title": "意图澄清",
+        "body": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript."
+      },
+      {
+        "title": "边界路由",
+        "body": "用 frontmatter description 决定是否触发，并写明相邻非目标。"
+      },
+      {
+        "title": "资产分层",
+        "body": "把入口、参考、脚本、评估和报告拆到各自目录，避免 SKILL.md 膨胀。"
+      },
+      {
+        "title": "证据回路",
+        "body": "Ask only the highest-leverage clarification before adding package weight."
+      },
+      {
+        "title": "漂移观察",
+        "body": "Add near-neighbor exclusions and route evals before expanding workflow steps."
+      },
+      {
+        "title": "杠杆升级",
+        "body": "Name the recurring job, expected input, output, and strongest non-goal in compact language."
+      }
+    ],
+    "roadmap": [
+      {
+        "title": "Tighten trigger and exclusions",
+        "why": "The package needs clearer near-neighbor exclusions before it grows.",
+        "actions": [
+          "Add 3 to 5 should-trigger and should-not-trigger examples.",
+          "Refine the frontmatter description to name the recurring job and non-goals.",
+          "Run a first trigger evaluation pass before expanding the package."
+        ],
+        "unlocks": "Cleaner routing and fewer accidental activations."
+      },
+      {
+        "title": "Create an iteration evidence loop",
+        "why": "The package should show what changed and why after the first draft.",
+        "actions": [
+          "Generate the HTML skill report and keep it aligned with the package.",
+          "Record reference scan choices and non-goals.",
+          "Capture the next iteration choice explicitly before adding more files."
+        ],
+        "unlocks": "A clearer path for the next author or reviewer."
+      }
+    ],
+    "cards": [],
+    "introduction": [
+      "这份报告用于快速理解新生成 Skill 的定位、原理、触发边界和交付内容。",
+      "先确认重复任务、真实输入形态和可交付输出，再决定是否继续加 references、scripts 或 evals。",
+      "如果需求仍然模糊，优先回到 intent dialogue 收紧边界，再扩展包体结构。"
+    ],
+    "benchmark_highlights": [],
+    "skill_ir": {
+      "schema_version": "2.0.0",
+      "source_path": "reports/skill-ir.json",
+      "target_count": 5,
+      "trigger_samples": 5,
+      "output_eval_cases": 4
+    },
+    "compiled_targets": {
+      "ok": true,
+      "schema_version": "1.0",
+      "summary": {
+        "target_count": 5,
+        "pass_count": 5,
+        "warn_count": 0,
+        "block_count": 0,
+        "failure_count": 0,
+        "warning_count": 0
+      },
+      "targets": [
+        {
+          "target": "openai",
+          "status": "pass",
+          "adapter_mode": "metadata-adapter",
+          "degradation_strategy": "Use host search tools and preserve the canonical evidence and output contracts.",
+          "native_surface": "OpenAI-style interface metadata plus neutral Agent Skills source",
+          "permission_enforcement": "metadata-only",
+          "generated_files": [
+            "targets/openai/adapter.json",
+            "targets/openai/agents/openai.yaml"
+          ],
+          "unsupported_features": [
+            "client-native script permission prompts are represented as permission contract metadata"
+          ],
+          "warnings": []
+        },
+        {
+          "target": "claude",
+          "status": "pass",
+          "adapter_mode": "neutral-source-plus-adapter",
+          "degradation_strategy": "Use host search tools and preserve the canonical evidence and output contracts.",
+          "native_surface": "Claude-compatible neutral source folder with adapter notes",
+          "permission_enforcement": "metadata-fallback",
+          "generated_files": [
+            "targets/claude/adapter.json",
+            "targets/claude/README.md"
+          ],
+          "unsupported_features": [
+            "vendor-native metadata fields are carried as adapter JSON and README notes"
+          ],
+          "warnings": []
+        },
+        {
+          "target": "agent-skills",
+          "status": "pass",
+          "adapter_mode": "neutral-agent-skills-source",
+          "degradation_strategy": "Use the canonical SKILL.md and relative package resources; the host must enforce declared permissions.",
+          "native_surface": "Agent Skills standard source tree",
+          "permission_enforcement": "consumer-enforced-or-metadata-only",
+          "generated_files": [
+            "SKILL.md",
+            "agents/interface.yaml"
+          ],
+          "unsupported_features": [],
+          "warnings": []
+        },
+        {
+          "target": "vscode",
+          "status": "pass",
+          "adapter_mode": "vscode-agent-skills-adapter",
+          "degradation_strategy": "Use workspace-trusted local tools and preserve the canonical evidence and output contracts.",
+          "native_surface": "VS Code/Copilot Agent Skills project or user scope",
+          "permission_enforcement": "client-or-workspace-trust",
+          "generated_files": [
+            "targets/vscode/adapter.json",
+            "targets/vscode/README.md"
+          ],
+          "unsupported_features": [
+            "VS Code installation scope is documented but not installed by this compiler"
+          ],
+          "warnings": []
+        },
+        {
+          "target": "generic",
+          "status": "pass",
+          "adapter_mode": "agent-skills-compatible",
+          "degradation_strategy": "Require an approved retrieval adapter or closed corpus; never simulate retrieved evidence.",
+          "native_surface": "Agent Skills compatible neutral package",
+          "permission_enforcement": "consumer-enforced-or-metadata-only",
+          "generated_files": [
+            "targets/generic/adapter.json"
+          ],
+          "unsupported_features": [],
+          "warnings": []
+        }
+      ],
+      "failures": [],
+      "warnings": []
+    },
+    "output_quality": {
+      "case_count": 7,
+      "file_backed_case_count": 2,
+      "near_neighbor_case_count": 1,
+      "boundary_case_count": 1,
+      "baseline_pass_rate": 0.0,
+      "with_skill_pass_rate": 100.0,
+      "delta": 100.0,
+      "regression_count": 0,
+      "gate_pass": true,
+      "failure_taxonomy": [],
+      "blind_pair_count": 7
+    },
+    "output_execution": {
+      "ok": true,
+      "summary": {
+        "case_count": 7,
+        "variant_run_count": 14,
+        "command_executed_count": 14,
+        "model_executed_count": 0,
+        "recorded_fixture_count": 0,
+        "timing_observed_count": 14,
+        "token_observed_count": 0,
+        "token_estimated_count": 14,
+        "baseline_pass_rate": 0.0,
+        "with_skill_pass_rate": 100.0,
+        "delta": 100.0,
+        "regression_count": 0,
+        "failure_count": 0,
+        "gate_pass": true
+      },
+      "runner": {
+        "mode": "command",
+        "command": [
+          "/opt/homebrew/Cellar/python@3.11/3.11.14_1/Frameworks/Python.framework/Versions/3.11/bin/python3.11",
+          "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/scripts/local_output_eval_runner.py"
+        ],
+        "timeout_seconds": 30.0
+      },
+      "failures": []
+    },
+    "output_blind_review": {
+      "summary": {
+        "pair_count": 7,
+        "answer_key_separate": true,
+        "with_skill_hidden_count": 7
+      },
+      "seed": "yao-output-eval-blind-v1",
+      "pair_count": 7,
+      "answer_key_separate": true
+    },
+    "output_review_kit": {
+      "ok": true,
+      "summary": {
+        "case_count": 7,
+        "ready_for_adjudication_count": 0,
+        "pending_decision_count": 7,
+        "invalid_decision_count": 0,
+        "reviewer_metadata_present": false,
+        "answer_key_hidden": true,
+        "answer_key_path_exposed": false,
+        "ready_to_run_adjudication": false,
+        "failure_count": 0
+      },
+      "artifacts": {
+        "reviewer_kit_json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_review_kit.json",
+        "reviewer_kit_markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_review_kit.md",
+        "reviewer_kit_html": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_review_kit.html",
+        "blind_pack_json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_blind_review_pack.json",
+        "blind_pack_markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_blind_review_pack.md",
+        "decisions": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_review_decisions.json",
+        "adjudication_json": "reports/output_review_adjudication.json",
+        "adjudication_markdown": "reports/output_review_adjudication.md"
+      },
+      "failures": []
+    },
+    "output_review_adjudication": {
+      "ok": false,
+      "summary": {},
+      "reviewer": "",
+      "reviewed_at": "",
+      "failures": []
+    },
+    "benchmark_reproducibility": {
+      "ok": false,
+      "summary": {
+        "reproducibility_ready": false,
+        "release_lock_ready": false,
+        "methodology_complete": true,
+        "required_artifact_count": 25,
+        "missing_artifact_count": 10,
+        "evidence_bundle_sha256": "9ca715833bf90cc3900697af408a6d21fbecdc06257c4622f65e755a03c7ca2a",
+        "source_contract_sha256": "26ef58b7f9b3d5f8380045c3ba3ecfb37bb3c9086987999f7339915996e3bd54",
+        "archive_sha256": "1fc90bbff3408a133e9ade3f478a5e847860eda9c51611f0c9a05f44a1609b00",
+        "output_case_count": 7,
+        "failure_disclosure_count": 0,
+        "command_count": 23,
+        "command_executed_count": 14,
+        "timing_observed_count": 14,
+        "model_executed_count": 0,
+        "token_observed_count": 0,
+        "human_review_complete": false,
+        "provider_evidence_complete": false,
+        "world_class_ready": false,
+        "world_class_open_gap_count": 7,
+        "world_class_task_count": 0,
+        "world_class_ledger_pending_count": 0,
+        "world_class_source_check_count": 0,
+        "world_class_source_pass_count": 0,
+        "world_class_source_blocked_count": 0,
+        "beta_test_ready": false,
+        "beta_test_blocker_count": 3,
+        "beta_test_deferred_evidence_count": 0,
+        "public_claim_ready": false,
+        "public_claim_blocker_count": 6,
+        "working_tree_dirty": null,
+        "changed_file_count": null,
+        "source_tree_dirty": null,
+        "source_changed_file_count": null,
+        "generated_tree_dirty": null,
+        "generated_changed_file_count": null
+      },
+      "commit": "unknown",
+      "missing_artifacts": [
+        "reports/output_review_adjudication.json",
+        "reports/world_class_evidence_plan.json",
+        "reports/world_class_evidence_ledger.json",
+        "reports/world_class_evidence_intake.json",
+        "reports/world_class_evidence_preflight.json",
+        "reports/world_class_submission_review.json",
+        "reports/world_class_operator_runbook.json",
+        "reports/world_class_operator_runbook.md",
+        "reports/world_class_operator_runbook.html",
+        "reports/world_class_claim_guard.json"
+      ],
+      "limitations": [
+        "The git commit and dirty flags are generation-time context; release lock is blocked by source changes, while generated evidence artifacts are tracked separately.",
+        "Local command-runner evidence is reproducible but does not replace provider-backed model holdout evidence.",
+        "Pending blind-review decisions are visible but do not count as human adjudication.",
+        "World-class readiness remains false until external and human evidence gaps close.",
+        "Beta/public testing may proceed without human blind-review only when wording avoids superiority, fully-reviewed, or world-class claims."
+      ]
+    },
+    "runtime_conformance": {
+      "target_count": 5,
+      "pass_count": 5,
+      "fail_count": 0
+    },
+    "runtime_permissions": {
+      "ok": true,
+      "summary": {
+        "target_count": 4,
+        "pass_count": 4,
+        "fail_count": 0,
+        "native_enforcement_count": 0,
+        "metadata_fallback_count": 4,
+        "residual_risk_count": 4,
+        "required_capability_count": 2,
+        "failure_count": 0,
+        "installer_enforcement_source_status": "present",
+        "installer_enforcement_target_count": 4,
+        "installer_enforcement_pass_count": 4,
+        "installer_permission_enforced_count": 8,
+        "installer_permission_failure_count": 0,
+        "installer_permission_capability_count": 2,
+        "world_class_native_evidence_ready": false,
+        "installer_enforcement_ready": true
+      },
+      "expected_capabilities": [
+        "file_write",
+        "subprocess"
+      ],
+      "targets": [
+        {
+          "target": "openai",
+          "status": "pass",
+          "assurance": "metadata-fallback-explicit",
+          "native_enforcement": false,
+          "metadata_fallback_explicit": true,
+          "residual_risks": [
+            "Client-native permission enforcement is not provided by this target; installer or operator must honor metadata."
+          ]
+        },
+        {
+          "target": "claude",
+          "status": "pass",
+          "assurance": "metadata-fallback-explicit",
+          "native_enforcement": false,
+          "metadata_fallback_explicit": true,
+          "residual_risks": [
+            "Client-native permission enforcement is not provided by this target; installer or operator must honor metadata."
+          ]
+        },
+        {
+          "target": "generic",
+          "status": "pass",
+          "assurance": "metadata-fallback-explicit",
+          "native_enforcement": false,
+          "metadata_fallback_explicit": true,
+          "residual_risks": [
+            "Client-native permission enforcement is not provided by this target; installer or operator must honor metadata."
+          ]
+        },
+        {
+          "target": "vscode",
+          "status": "pass",
+          "assurance": "metadata-fallback-explicit",
+          "native_enforcement": false,
+          "metadata_fallback_explicit": true,
+          "residual_risks": [
+            "Client-native permission enforcement is not provided by this target; installer or operator must honor metadata."
+          ]
+        }
+      ],
+      "failures": []
+    },
+    "trust_security": {
+      "scanned_files": 46,
+      "script_count": 10,
+      "internal_module_count": 1,
+      "secret_findings": 0,
+      "dependency_files": [
+        "requirements-ci.txt"
+      ],
+      "network_script_count": 0,
+      "network_policy_covered_count": 0,
+      "network_policy_missing_count": 0,
+      "file_write_script_count": 4,
+      "permission_required_count": 2,
+      "permission_approved_count": 2,
+      "permission_missing_count": 0,
+      "permission_invalid_count": 0,
+      "permission_expired_count": 0,
+      "help_smoke_checked_count": 9,
+      "help_smoke_failed_count": 0,
+      "interactive_script_count": 0,
+      "package_hash_scope": "source-contract-without-generated-reports",
+      "package_hash_file_count": 46,
+      "package_sha256": "26ef58b7f9b3d5f8380045c3ba3ecfb37bb3c9086987999f7339915996e3bd54"
+    },
+    "skill_atlas": {
+      "skill_count": 1,
+      "actionable_skill_count": 1,
+      "route_collision_count": 0,
+      "actionable_route_collision_count": 0,
+      "owner_gap_count": 0,
+      "actionable_owner_gap_count": 0,
+      "stale_count": 0,
+      "actionable_stale_count": 0,
+      "shared_resource_count": 0,
+      "no_route_opportunity_count": 0,
+      "telemetry_report_count": 1,
+      "drift_signal_count": 1,
+      "actionable_drift_signal_count": 1,
+      "non_actionable_issue_count": 0
+    },
+    "registry_distribution": {
+      "ok": true,
+      "package": {
+        "schema_version": "2.0",
+        "name": "storm-deepresearch-skill",
+        "version": "0.2.0",
+        "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+        "targets": [
+          "openai",
+          "claude",
+          "agent-skills",
+          "vscode",
+          "generic"
+        ],
+        "maturity": "library",
+        "owner": "陈旭",
+        "review_cadence": "quarterly",
+        "trust_level": "local",
+        "license": "MIT-0",
+        "checksums": {
+          "package_sha256": "ab096fb0ab76703d642898bdfe88eefa054c935ffaadff66b5a53962046ccf9c",
+          "archive_sha256": "1fc90bbff3408a133e9ade3f478a5e847860eda9c51611f0c9a05f44a1609b00"
+        },
+        "compatibility": {
+          "openai": "pass",
+          "claude": "pass",
+          "agent-skills": "pass",
+          "vscode": "pass",
+          "generic": "pass"
+        },
+        "source": {
+          "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+          "skill_ir": "reports/skill-ir.json",
+          "ir_schema_version": "2.0.0",
+          "canonical_metadata": "agents/interface.yaml"
+        },
+        "artifacts": {
+          "overview_html": "reports/skill-overview.html",
+          "review_studio_html": "reports/review-studio.html",
+          "trust_report": "reports/security_trust_report.md",
+          "conformance_matrix": "reports/conformance_matrix.md",
+          "compiled_targets": "reports/compiled_targets.md",
+          "package_verification": "reports/package_verification.md",
+          "install_simulation": "reports/install_simulation.md",
+          "adoption_drift": "reports/adoption_drift_report.md",
+          "review_waivers": "reports/review_waivers.md",
+          "review_annotations": "reports/review_annotations.md",
+          "package_metadata": "registry/packages/storm-deepresearch-skill.json"
+        },
+        "distribution": {
+          "archive_verified": true,
+          "archive_sha256": "1fc90bbff3408a133e9ade3f478a5e847860eda9c51611f0c9a05f44a1609b00",
+          "package_verification": "reports/package_verification.json",
+          "install_simulated": true,
+          "install_simulation": "reports/install_simulation.json"
+        },
+        "generated_at": "2026-06-21"
+      },
+      "failures": [],
+      "warnings": []
+    },
+    "package_verification": {
+      "ok": true,
+      "summary": {
+        "target_count": 4,
+        "adapter_count": 4,
+        "archive_present": true,
+        "archive_sha256": "1fc90bbff3408a133e9ade3f478a5e847860eda9c51611f0c9a05f44a1609b00",
+        "archive_entry_count": 199,
+        "failure_count": 0,
+        "warning_count": 0
+      },
+      "failures": [],
+      "warnings": []
+    },
+    "install_simulation": {
+      "ok": true,
+      "summary": {
+        "archive_present": true,
+        "archive_entry_count": 199,
+        "archive_extracted": true,
+        "entrypoint_loaded": true,
+        "manifest_loaded": true,
+        "interface_loaded": true,
+        "adapter_count": 4,
+        "installer_permission_enforced_count": 8,
+        "installer_permission_failure_count": 0,
+        "permission_target_count": 4,
+        "permission_capability_count": 2,
+        "install_root_is_temp": true,
+        "failure_count": 0,
+        "warning_count": 0
+      },
+      "failures": [],
+      "warnings": []
+    },
+    "upgrade_check": {
+      "ok": true,
+      "summary": {
+        "declared_bump": "minor",
+        "recommended_bump": "minor",
+        "breaking_change_count": 0,
+        "added_target_count": 5,
+        "metadata_change_count": 5,
+        "checksum_change_count": 2,
+        "failure_count": 0,
+        "warning_count": 0
+      },
+      "upgrade_diff": {
+        "name_changed": false,
+        "added_targets": [
+          "agent-skills",
+          "claude",
+          "generic",
+          "openai",
+          "vscode"
+        ],
+        "removed_targets": [],
+        "compatibility_changes": [
+          {
+            "target": "agent-skills",
+            "from": "missing",
+            "to": "pass",
+            "direction": "improved"
+          },
+          {
+            "target": "claude",
+            "from": "missing",
+            "to": "pass",
+            "direction": "improved"
+          },
+          {
+            "target": "generic",
+            "from": "missing",
+            "to": "pass",
+            "direction": "improved"
+          },
+          {
+            "target": "openai",
+            "from": "missing",
+            "to": "pass",
+            "direction": "improved"
+          },
+          {
+            "target": "vscode",
+            "from": "missing",
+            "to": "pass",
+            "direction": "improved"
+          }
+        ],
+        "metadata_changes": [
+          {
+            "field": "description",
+            "from": "A rigorous multi-perspective, source-grounded research skill with Markdown, HTML, and PDF-ready outputs.",
+            "to": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks."
+          },
+          {
+            "field": "maturity",
+            "from": "draft",
+            "to": "library"
+          },
+          {
+            "field": "owner",
+            "from": "",
+            "to": "陈旭"
+          },
+          {
+            "field": "review_cadence",
+            "from": "",
+            "to": "quarterly"
+          },
+          {
+            "field": "trust_level",
+            "from": "",
+            "to": "local"
+          }
+        ],
+        "checksum_changes": [
+          {
+            "field": "archive_sha256",
+            "from": "",
+            "to": "1fc90bbff3408a133e9ade3f478a5e847860eda9c51611f0c9a05f44a1609b00"
+          },
+          {
+            "field": "package_sha256",
+            "from": "a99ed1275f68ac3d3d9bf144da9aad212bf292d55dcf0cc9574b0c5602cd7678",
+            "to": "ab096fb0ab76703d642898bdfe88eefa054c935ffaadff66b5a53962046ccf9c"
+          }
+        ]
+      },
+      "release_notes": [
+        "Recommended version bump: minor.",
+        "Added targets: agent-skills, claude, generic, openai, vscode.",
+        "Package or archive checksum changed; reviewers should verify package artifacts before release.",
+        "Package verification evidence: reports/package_verification.md."
+      ],
+      "failures": [],
+      "warnings": []
+    },
+    "adoption_drift": {
+      "ok": true,
+      "summary": {
+        "event_count": 0,
+        "adoption_sample_count": 0,
+        "activation_count": 0,
+        "accepted_count": 0,
+        "edited_count": 0,
+        "rejected_count": 0,
+        "missed_count": 0,
+        "failed_count": 0,
+        "adoption_rate": 0,
+        "missed_trigger_count": 0,
+        "wrong_trigger_count": 0,
+        "bad_output_count": 0,
+        "script_error_count": 0,
+        "missing_resource_count": 0,
+        "review_overdue_count": 0,
+        "risk_band": "no-data",
+        "event_types": {},
+        "failure_types": {},
+        "source_types": {},
+        "command_counts": {}
+      },
+      "next_iteration_candidates": [
+        {
+          "signal": "no telemetry",
+          "recommendation": "Start with a small metadata-only sample before using telemetry for release decisions."
+        }
+      ],
+      "privacy_contract": {
+        "storage": "local-first",
+        "event_scope": "metadata-only",
+        "raw_content_allowed": false,
+        "raw_event_log_packaged": false,
+        "blocked_fields": [
+          "content",
+          "input",
+          "inputs",
+          "message",
+          "messages",
+          "note",
+          "output",
+          "outputs",
+          "prompt",
+          "raw",
+          "text",
+          "transcript"
+        ]
+      },
+      "failures": []
+    },
+    "review_waivers": {
+      "ok": true,
+      "summary": {
+        "waiver_count": 0,
+        "active_count": 0,
+        "expired_count": 0,
+        "invalid_count": 0,
+        "covered_gate_count": 0,
+        "covered_gate_keys": [],
+        "waiver_candidate_count": 1,
+        "waiverable_open_count": 1,
+        "non_waivable_count": 0
+      },
+      "policy": {
+        "blocker_waivers_allowed": false,
+        "minimum_reason_chars": 20,
+        "expires_required": true,
+        "review_studio_gate_keys": [
+          "architecture-maintainability",
+          "context-budget",
+          "intent-canvas",
+          "operations-loop",
+          "output-lab",
+          "permission-gates",
+          "permission-runtime",
+          "python-compat",
+          "registry-audit",
+          "release-notes",
+          "review-waivers",
+          "runtime-matrix",
+          "skill-atlas",
+          "trigger-lab",
+          "trust-report",
+          "world-class-evidence"
+        ],
+        "known_gate_keys": [
+          "architecture-maintainability",
+          "context-budget",
+          "intent-canvas",
+          "operations-loop",
+          "output-lab",
+          "permission-gates",
+          "permission-runtime",
+          "python-compat",
+          "registry-audit",
+          "release-notes",
+          "runtime-matrix",
+          "skill-atlas",
+          "trigger-lab",
+          "trust-report"
+        ],
+        "waiverable_gate_keys": [
+          "architecture-maintainability",
+          "context-budget",
+          "intent-canvas",
+          "operations-loop",
+          "output-lab",
+          "permission-gates",
+          "permission-runtime",
+          "python-compat",
+          "registry-audit",
+          "release-notes",
+          "runtime-matrix",
+          "skill-atlas",
+          "trigger-lab",
+          "trust-report"
+        ],
+        "non_waivable_gate_keys": [
+          "review-waivers",
+          "world-class-evidence"
+        ]
+      },
+      "failures": [],
+      "warnings": []
+    },
+    "review_annotations": {
+      "ok": true,
+      "summary": {
+        "annotation_count": 0,
+        "open_count": 0,
+        "resolved_count": 0,
+        "deferred_count": 0,
+        "open_blocker_count": 0,
+        "open_warning_count": 0,
+        "linked_gate_count": 0,
+        "target_missing_count": 0,
+        "failure_count": 0
+      },
+      "annotations": [],
+      "failures": []
+    },
+    "world_class_evidence_plan": {
+      "ok": false,
+      "summary": {},
+      "tasks": [],
+      "source_audit": {}
+    },
+    "world_class_evidence_ledger": {
+      "ok": false,
+      "summary": {},
+      "entries": [],
+      "source_plan": {}
+    },
+    "synthesis_highlights": [
+      "Borrow a first-time operator flow that explains itself before it asks for more structure.",
+      "Borrow a review checkpoint wherever trust matters more than raw speed.",
+      "Borrow the habit of designing from the required hand-back output backwards."
+    ],
+    "artifact_design": {
+      "design_system": "metric editorial",
+      "highlights": [
+        "High-trust editorial report with a clear first-screen thesis, compact evidence blocks, and decisions separated from supporting detail.",
+        "Keep the first screen useful without requiring the reader to parse every detail.",
+        "Use tables only for comparisons; move explanations below the table.",
+        "Keep source notes readable without flooding the body with markers."
+      ]
+    },
+    "prompt_quality": {
+      "overall_quality_score": 89.0,
+      "highlights": [
+        "Primary prompt task family: Prompt engineering.",
+        "Complexity: expert — multiple task families plus governance, evaluation, or expert-level constraints",
+        "Completeness: 95/100.",
+        "Clarity: 80/100."
+      ]
+    },
+    "system_model": {
+      "stability": {
+        "score": 92,
+        "band": "system-ready"
+      },
+      "highlights": [
+        "Stability: system-ready (92/100).",
+        "Owned job: Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
+        "Leverage: Tune the frontmatter description — Name the recurring job, expected input, output, and strongest non-goal in compact language.",
+        "Leverage: Install output self-repair checks — Add only the checks that prevent recurring output mistakes."
+      ]
+    },
+    "metadata": {
+      "canonical_format": "agent-skills",
+      "targets": [
+        "openai",
+        "claude",
+        "agent-skills",
+        "vscode",
+        "generic"
+      ],
+      "maturity_tier": "library",
+      "skill_archetype": "library",
+      "updated_at": "2026-06-21"
+    }
+  },
+  "intent_confidence": {
+    "score": 100,
+    "band": "high",
+    "gate_passed": true,
+    "strengths": [
+      "The recurring job is concrete enough to anchor the package.",
+      "Real input shape is explicit.",
+      "The hand-back output is concrete.",
+      "Boundary exclusions are already explicit.",
+      "Operational constraints are visible."
+    ],
+    "gaps": [],
+    "follow_up_questions": [],
+    "anchor_sentence": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript. Primary output: A validated research package with a canonical Markdown report, provenance-bearing source and Claim-Evidence ledgers, contradiction and uncertainty records, consistent HTML and PDF, and machine-readable validation evidence.. Exclusions: Quick factual lookup, Simple summarization, Evidence-free expert role-play, Personalized medical, legal, or investment advice.",
+    "recommended_action": "Intent is clear enough to package the first routeable version.",
+    "context": {
+      "job": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
+      "real_inputs": [
+        "A research topic or decision question",
+        "User-supplied articles, papers, URLs, notes, or a closed corpus",
+        "Audience, geography, timeframe, freshness, and output constraints"
+      ],
+      "primary_output": "A validated research package with a canonical Markdown report, provenance-bearing source and Claim-Evidence ledgers, contradiction and uncertainty records, consistent HTML and PDF, and machine-readable validation evidence.",
+      "description": "Use STORM-inspired perspectives to generate retrieval questions, ground every material claim in provenance-bearing evidence, refuse unsupported completion, and deliver validated Markdown, HTML, and PDF research artifacts.",
+      "exclusions": [
+        "Quick factual lookup",
+        "Simple summarization",
+        "Evidence-free expert role-play",
+        "Personalized medical, legal, or investment advice"
+      ],
+      "constraints": [
+        "Perspectives may generate questions but may not authorize facts",
+        "Bundled scripts may not initiate undeclared network access",
+        "Credentials must remain in environment variables",
+        "Full mode requires PDF and all failed gates must exit non-zero",
+        "Public artifacts may not expose local paths, credentials, or internal audit IDs"
+      ],
+      "standards": [
+        "100 percent material fact evidence closure",
+        "Explicit fact, inference, recommendation, contradiction, and uncertainty labeling",
+        "One canonical Markdown source with cross-format consistency",
+        "Adversarial evaluation, baseline comparison, trust checks, and install simulation"
+      ],
+      "correction": "Do not expand the prompt chain as the main solution; move authority into retrieval adapters, source and claim ledgers, strict validators, and release governance.",
+      "user_references": [
+        "The Stanford STORM Method article supplied by the user",
+        "https://github.com/yaojingang/yao-open-skills/tree/main/skills/yao-tutorial-skill",
+        "https://github.com/yaojingang/yao-meta-skill"
+      ]
+    }
+  },
+  "intent": {
+    "skill_name": "storm-deepresearch-skill",
+    "title": "STORM DeepResearch",
+    "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+    "focus": "quality-and-boundary",
+    "opening_frame": "Let's start from the real work, the result you care about, and the standards that matter here. We can make the structure clearer after that.",
+    "reference_note": "If you already have examples you admire, bring them in. We will learn the pattern, not copy the source.",
+    "conversation_path": [
+      "Start with the user's own words, not package vocabulary.",
+      "Reflect the job, output, and non-goals back in one clean sentence.",
+      "Only then offer a tiny scaffold if it would help the user move faster."
+    ],
+    "opening_styles": [
+      {
+        "label": "温柔陪伴型",
+        "best_when": "用户想法还散、还在试探，或者需要先被接住。",
+        "message": "我们先不急着把它说成一个很完整的 skill。你就像跟我聊天一样，先说说你最想让它以后稳稳接住哪类重复工作；如果它做得很理想，最后应该交回你一个什么结果。"
+      },
+      {
+        "label": "专业教练型",
+        "best_when": "用户目标比较明确，希望被高效带着走。",
+        "message": "我们先把这件事讲清楚，再决定 skill 怎么设计。你先告诉我三件事：它要接住的重复任务是什么，别人通常会给它什么材料，最后你希望它交付什么结果。"
+      },
+      {
+        "label": "共创伙伴型",
+        "best_when": "用户已经有一些想法，希望一起打磨，不想被填表。",
+        "message": "我们把这次当成一次共创。你先给我一个粗糙版本就行，我先帮你看它真正的核心任务是什么，再一起决定边界、结构和接下来最值的一步。"
+      }
+    ],
+    "optional_scaffold": [
+      "The repeated job it should reliably handle",
+      "The real inputs people will hand to it",
+      "The useful output it should hand back",
+      "What it should clearly refuse"
+    ],
+    "questions": [
+      {
+        "question": "If this skill worked beautifully, what recurring job would it reliably handle for the user every time?",
+        "why": "This reveals the real job-to-be-done and gives the package a humane center instead of a guessed prompt shape."
+      },
+      {
+        "question": "When someone reaches for this skill in the real world, what materials will they actually hand to it?",
+        "why": "Input shape decides whether references, scripts, or templates are needed."
+      },
+      {
+        "question": "What finished output should it hand back so the user can immediately keep moving?",
+        "why": "Outputs should drive the package structure before extra guidance is added."
+      },
+      {
+        "question": "Which nearby requests should this skill politely refuse so the boundary stays clean?",
+        "why": "The exclusion list is the fastest route to better trigger quality."
+      },
+      {
+        "question": "What matters most here: speed, consistency, auditability, portability, governance, or tone/style fit?",
+        "why": "Constraints decide how much structure, packaging, and review the skill actually needs."
+      },
+      {
+        "question": "Do you already have any references you want this skill to learn from, such as a repo, product, page, workflow, or prompt example?",
+        "why": "A good reference can raise the quality bar quickly, but the skill should only borrow patterns and standards, never copy wording or confidential material."
+      },
+      {
+        "question": "What failure would make this skill untrustworthy in practice?",
+        "why": "The answer usually reveals the first evaluation gate worth adding."
+      }
+    ],
+    "output": {
+      "capability_sentence": "STORM DeepResearch should turn a recurring request into a reliable reusable output without widening the boundary unnecessarily.",
+      "required_capture": [
+        "recurring job",
+        "real inputs",
+        "required outputs",
+        "exclusions",
+        "constraints",
+        "reference preferences",
+        "first evaluation target"
+      ],
+      "recommended_first_gate": "trigger and boundary"
+    }
+  },
+  "reference": {
+    "skill_name": "storm-deepresearch-skill",
+    "title": "STORM DeepResearch",
+    "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+    "scan_focus": [
+      {
+        "label": "Evaluation pattern",
+        "reason": "This skill already carries eval assets, so benchmark how top examples define trigger boundaries and quality gates."
+      },
+      {
+        "label": "Execution pattern",
+        "reason": "There is deterministic logic in scripts, so compare how strong references separate prose from executable steps."
+      },
+      {
+        "label": "Portability pattern",
+        "reason": "The package carries neutral metadata, so scan how good references preserve semantics across targets without forking source."
+      },
+      {
+        "label": "Method pattern",
+        "reason": "Use the core job description as the anchor for comparison: Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks."
+      }
+    ],
+    "external_references": [],
+    "user_references": [],
+    "local_constraints": [],
+    "borrow_plan": [
+      "External benchmark first: let high-quality public references define the upper bound for method, structure, execution, or portability.",
+      "User references second: use them to understand taste, standards, and directional preferences without copying source phrasing.",
+      "Local fit third: use local assets only to detect naming conflicts, private dependencies, or compatibility constraints.",
+      "Borrow patterns, not prose: extract loops, boundaries, metadata, and operator flow without copying source-specific language.",
+      "Keep the package light: reject any borrowed pattern that increases context cost faster than it increases reliability."
+    ],
+    "priority_rule": "External benchmark objects set the pattern ceiling. User references refine taste and standards. Local files only calibrate fit, risk, and compatibility.",
+    "non_goals": [
+      "Do not copy source prose or branding into the new skill.",
+      "Do not import gates that cost more context than they save.",
+      "Do not use benchmark scanning to justify scope creep.",
+      "Do not let local historical habits outrank stronger public benchmarks."
+    ]
+  },
+  "iteration": {
+    "summary": {
+      "skill_name": "storm-deepresearch-skill",
+      "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+      "maturity_tier": "library",
+      "selection_rule": "Pick the three smallest next steps that increase reliability more than they increase context cost.",
+      "recommended_now": "Tighten trigger and exclusions",
+      "recommended_now_why": "The package needs clearer near-neighbor exclusions before it grows.",
+      "defer_for_now": "Create an iteration evidence loop"
+    },
+    "directions": [
+      {
+        "priority": 1,
+        "title": "Tighten trigger and exclusions",
+        "why": "The package needs clearer near-neighbor exclusions before it grows.",
+        "actions": [
+          "Add 3 to 5 should-trigger and should-not-trigger examples.",
+          "Refine the frontmatter description to name the recurring job and non-goals.",
+          "Run a first trigger evaluation pass before expanding the package."
+        ],
+        "unlocks": "Cleaner routing and fewer accidental activations.",
+        "do_now": "Do this first.",
+        "wait_on": "Wait to add broader structure until this move clearly improves reliability."
+      },
+      {
+        "priority": 11,
+        "title": "Create an iteration evidence loop",
+        "why": "The package should show what changed and why after the first draft.",
+        "actions": [
+          "Generate the HTML skill report and keep it aligned with the package.",
+          "Record reference scan choices and non-goals.",
+          "Capture the next iteration choice explicitly before adding more files."
+        ],
+        "unlocks": "A clearer path for the next author or reviewer.",
+        "do_now": "Do this after the first move lands cleanly.",
+        "wait_on": "Wait until the package has evidence that this extra structure is justified."
+      }
+    ]
+  },
+  "feedback": {},
+  "baseline": {},
+  "compare": {},
+  "promotion": {
+    "schema_version": "1.0",
+    "ok": true,
+    "generated_at": "2026-06-22",
+    "reviewer": "engineering-review",
+    "reviewed_at": "2026-06-22",
+    "summary": {
+      "promote": 1,
+      "keep_current": 0,
+      "blocked": 0
+    },
+    "targets": [
+      {
+        "name": "storm-deepresearch-skill",
+        "from_version": "0.3.0",
+        "to_version": "0.4.0",
+        "release_scope": "local-library",
+        "promotion": {
+          "decision": "promote",
+          "all_local_gates_pass": true,
+          "route_clean": true,
+          "existing_human_output_review_complete": true,
+          "long_form_human_review_complete": false,
+          "provider_holdout_complete": false,
+          "world_class_claim_allowed": false,
+          "causes": [
+            "workspace_scoped_default_output_added",
+            "existing_run_reinitialization_blocked",
+            "symlink_resolved_containment_enforced",
+            "source_ledger_ids_preserved_by_atomic_merge",
+            "exports_and_validation_confined_to_package",
+            "five_target_conformance_and_distribution_checks_passed"
+          ],
+          "next_action": "Use 0.4.0 locally and review the first real workspace-scoped 8000-10000-character dossier before claiming long-form or cross-agent superiority."
+        },
+        "evidence": {
+          "unit_tests": "tests/test_validate_package.py",
+          "output_path_tests": "tests/test_output_paths.py",
+          "ledger_merge_tests": "tests/test_normalize_retrieval.py",
+          "library_contract_tests": "tests/test_library_contract.py",
+          "representative_package": "examples/validated-output/validation/validation-report.json",
+          "conformance_matrix": "reports/conformance_matrix.json",
+          "trust_report": "reports/security_trust_report.json",
+          "package_verification": "reports/package_verification.json",
+          "install_simulation": "reports/install_simulation.json",
+          "runtime_permissions": "reports/runtime_permission_probes.json",
+          "registry_audit": "reports/registry_audit.json",
+          "migration_guide": "docs/migration-v0.3-to-v0.4.md"
+        },
+        "residual_limits": [
+          "The first real 8000-10000-character dossier has not yet received human qualitative review.",
+          "The path boundary is tested locally; adversarial concurrent filesystem mutation is outside the current threat model.",
+          "No real provider model execution or provider holdout evidence is claimed.",
+          "Runtime permission enforcement uses installer metadata fallback on the tested clients.",
+          "No world-class or public superiority claim is permitted."
+        ]
+      }
+    ]
+  },
+  "benchmark": {},
+  "reference_synthesis": {
+    "skill_name": "storm-deepresearch-skill",
+    "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+    "intent_confidence": {
+      "score": 100,
+      "band": "high",
+      "gate_passed": true
+    },
+    "github_benchmarks": [],
+    "source_tracks": [
+      {
+        "source_type": "official",
+        "name": "Official workflow product ergonomics",
+        "evidence_mode": "curated-pattern-track",
+        "matched_keywords": [
+          "review"
+        ],
+        "borrow": "Borrow a first-time operator flow that explains itself before it asks for more structure.",
+        "avoid": "Do not mimic product polish that adds UI bulk without improving clarity.",
+        "why_relevant": "This track matches: review."
+      },
+      {
+        "source_type": "research",
+        "name": "Human-in-the-loop verification",
+        "evidence_mode": "curated-pattern-track",
+        "matched_keywords": [
+          "review",
+          "audit"
+        ],
+        "borrow": "Borrow a review checkpoint wherever trust matters more than raw speed.",
+        "avoid": "Do not force every skill through heavyweight review when the risk is low.",
+        "why_relevant": "This track matches: review, audit."
+      },
+      {
+        "source_type": "principles",
+        "name": "Outcome-backwards design",
+        "evidence_mode": "curated-pattern-track",
+        "matched_keywords": [
+          "output",
+          "deliverable"
+        ],
+        "borrow": "Borrow the habit of designing from the required hand-back output backwards.",
+        "avoid": "Do not start with architecture terms before the deliverable is concrete.",
+        "why_relevant": "This track matches: output, deliverable."
+      }
+    ],
+    "synthesis": {
+      "borrow_now": [
+        "Borrow a first-time operator flow that explains itself before it asks for more structure.",
+        "Borrow a review checkpoint wherever trust matters more than raw speed.",
+        "Borrow the habit of designing from the required hand-back output backwards."
+      ],
+      "avoid_now": [
+        "Do not mimic product polish that adds UI bulk without improving clarity.",
+        "Do not force every skill through heavyweight review when the risk is low.",
+        "Do not start with architecture terms before the deliverable is concrete."
+      ],
+      "quality_risers": [
+        "Use GitHub repositories for concrete package and workflow patterns.",
+        "Use curated official or commercial tracks for entrypoint and operator ergonomics.",
+        "Use research tracks to justify the smallest evaluation loop that still catches regressions.",
+        "Use principle tracks to keep the package small, boundary-aware, and outcome-driven."
+      ],
+      "pattern_gate": {
+        "threshold": 4,
+        "source_count": 3,
+        "accepted": [
+          {
+            "name": "Official workflow product ergonomics",
+            "source_type": "official",
+            "borrow": "Borrow a first-time operator flow that explains itself before it asks for more structure.",
+            "avoid": "Do not mimic product polish that adds UI bulk without improving clarity.",
+            "gates": {
+              "recurrence": true,
+              "generativity": true,
+              "distinctiveness": true,
+              "boundary": true
+            },
+            "passed": [
+              "recurrence",
+              "generativity",
+              "distinctiveness",
+              "boundary"
+            ],
+            "missing": [],
+            "score": 4
+          },
+          {
+            "name": "Human-in-the-loop verification",
+            "source_type": "research",
+            "borrow": "Borrow a review checkpoint wherever trust matters more than raw speed.",
+            "avoid": "Do not force every skill through heavyweight review when the risk is low.",
+            "gates": {
+              "recurrence": true,
+              "generativity": true,
+              "distinctiveness": true,
+              "boundary": true
+            },
+            "passed": [
+              "recurrence",
+              "generativity",
+              "distinctiveness",
+              "boundary"
+            ],
+            "missing": [],
+            "score": 4
+          },
+          {
+            "name": "Outcome-backwards design",
+            "source_type": "principles",
+            "borrow": "Borrow the habit of designing from the required hand-back output backwards.",
+            "avoid": "Do not start with architecture terms before the deliverable is concrete.",
+            "gates": {
+              "recurrence": true,
+              "generativity": true,
+              "distinctiveness": true,
+              "boundary": true
+            },
+            "passed": [
+              "recurrence",
+              "generativity",
+              "distinctiveness",
+              "boundary"
+            ],
+            "missing": [],
+            "score": 4
+          }
+        ],
+        "deferred": [],
+        "summary": "3 accepted, 0 deferred using threshold 4/4."
+      },
+      "conflicts": [
+        {
+          "key": "lightweight_vs_governance",
+          "summary": "The stated preference leans lightweight or speed-first, while the benchmark mix leans toward governance, review, or heavier evaluation structure.",
+          "user_preference": "lightweight or speed-first",
+          "benchmark_pressure": "governance or evaluation-heavy patterns"
+        }
+      ],
+      "recommendation": {
+        "summary": "Start by borrowing this pattern: Borrow a first-time operator flow that explains itself before it asks for more structure. Avoid this for the first pass: Do not mimic product polish that adds UI bulk without improving clarity.",
+        "borrow_now": [
+          "Borrow a first-time operator flow that explains itself before it asks for more structure.",
+          "Borrow a review checkpoint wherever trust matters more than raw speed."
+        ],
+        "avoid_for_now": [
+          "Do not mimic product polish that adds UI bulk without improving clarity.",
+          "Do not force every skill through heavyweight review when the risk is low."
+        ],
+        "why": "There is a real design conflict to resolve: The stated preference leans lightweight or speed-first, while the benchmark mix leans toward governance, review, or heavier evaluation structure.",
+        "user_decision_required": true
+      },
+      "visibility": {
+        "mode": "explicit",
+        "user_decision_required": true,
+        "reasons": [
+          "design_conflict"
+        ],
+        "user_note": "Surface the recommendation because intent is still settling or there is a real design conflict that needs a user call.",
+        "reviewer_note": "Keep the full benchmark and synthesis evidence visible for authors and reviewers."
+      },
+      "decision_prompt": "Use the recommendation by default. Only surface the underlying benchmark tradeoffs when intent is uncertain or a real design conflict needs a deliberate call.",
+      "source_mix": {
+        "github_benchmarks": 0,
+        "curated_tracks": 3,
+        "user_references": 0
+      }
+    }
+  },
+  "output_risk": {
+    "skill_name": "storm-deepresearch-skill",
+    "risk_families": [
+      {
+        "key": "markdown_readability",
+        "label": "Markdown readability",
+        "matched_keywords": [
+          "markdown",
+          "md",
+          "table",
+          "report",
+          "brief",
+          "doc"
+        ],
+        "score": 6,
+        "risks": [
+          "Tables can render as dense grids with weak hierarchy or poor mobile readability.",
+          "Long bullets can make the output look complete while hiding the actual decision logic.",
+          "Mixed heading levels can reduce scanability."
+        ],
+        "constraints": [
+          "Use tables only when comparison is the main job; otherwise prefer compact cards or grouped bullets.",
+          "Keep table cells short and move explanations below the table.",
+          "Use heading levels consistently and keep each section anchored to a user-facing outcome."
+        ],
+        "self_repair": [
+          "Preview whether each table still reads well when columns are narrow.",
+          "Convert any table with paragraph-length cells into bullets or cards."
+        ]
+      },
+      {
+        "key": "citation_clutter",
+        "label": "Citation and footnote clutter",
+        "matched_keywords": [
+          "citation",
+          "source",
+          "research",
+          "reference"
+        ],
+        "score": 4,
+        "risks": [
+          "Footnote markers or dense citation notes can interrupt the reading flow.",
+          "Evidence can be over-attached to obvious statements and under-attached to risky claims.",
+          "Source notes may become more prominent than the tutorial itself."
+        ],
+        "constraints": [
+          "Attach citations only to claims that need evidence, not to every sentence.",
+          "Group source notes at the end of a section when inline markers would hurt readability.",
+          "Keep the main sentence readable without requiring the reader to chase a footnote."
+        ],
+        "self_repair": [
+          "Remove decorative citations that do not support a material claim.",
+          "Move repeated source explanations into one compact source note."
+        ]
+      },
+      {
+        "key": "code_or_command_safety",
+        "label": "Code and command safety",
+        "matched_keywords": [
+          "script",
+          "api"
+        ],
+        "score": 2,
+        "risks": [
+          "Commands can omit environment assumptions, working directory, or rollback notes.",
+          "Code snippets can look runnable while missing required inputs.",
+          "Error handling can be either absent or over-engineered."
+        ],
+        "constraints": [
+          "Name the working directory, required inputs, and expected output for each command.",
+          "Mark destructive or external side-effect operations explicitly.",
+          "Prefer the smallest runnable snippet over broad framework code."
+        ],
+        "self_repair": [
+          "Scan each command for cwd, input, output, and side-effect assumptions.",
+          "Remove speculative error handling that is not tied to a real failure mode."
+        ]
+      },
+      {
+        "key": "tone_and_specificity",
+        "label": "Tone and specificity",
+        "matched_keywords": [
+          "article"
+        ],
+        "score": 1,
+        "risks": [
+          "Headings and summaries can drift into generic, interchangeable language.",
+          "The output can sound polished but lose the user's actual taste, audience, or scenario.",
+          "Strong claims can appear without examples or constraints."
+        ],
+        "constraints": [
+          "Anchor titles and summaries in the user's audience, object, and concrete outcome.",
+          "Avoid placeholder phrases such as comprehensive guide, ultimate solution, or key insights unless the source demands them.",
+          "Preserve one distinctive phrase, constraint, or standard from the user's input."
+        ],
+        "self_repair": [
+          "Replace generic title candidates with scenario-specific alternatives.",
+          "Delete any polished sentence that could fit almost any project unchanged."
+        ]
+      }
+    ],
+    "top_risks": [
+      "Tables can render as dense grids with weak hierarchy or poor mobile readability.",
+      "Long bullets can make the output look complete while hiding the actual decision logic.",
+      "Footnote markers or dense citation notes can interrupt the reading flow.",
+      "Evidence can be over-attached to obvious statements and under-attached to risky claims.",
+      "Commands can omit environment assumptions, working directory, or rollback notes.",
+      "Code snippets can look runnable while missing required inputs."
+    ],
+    "output_constraints": [
+      "Use tables only when comparison is the main job; otherwise prefer compact cards or grouped bullets.",
+      "Keep table cells short and move explanations below the table.",
+      "Attach citations only to claims that need evidence, not to every sentence.",
+      "Group source notes at the end of a section when inline markers would hurt readability.",
+      "Name the working directory, required inputs, and expected output for each command.",
+      "Mark destructive or external side-effect operations explicitly."
+    ],
+    "self_repair_checks": [
+      "Preview whether each table still reads well when columns are narrow.",
+      "Convert any table with paragraph-length cells into bullets or cards.",
+      "Remove decorative citations that do not support a material claim.",
+      "Move repeated source explanations into one compact source note.",
+      "Scan each command for cwd, input, output, and side-effect assumptions.",
+      "Remove speculative error handling that is not tied to a real failure mode."
+    ],
+    "reviewer_note": "Use this report before deepening the package and again before approving example outputs."
+  },
+  "artifact_design": {
+    "skill_name": "storm-deepresearch-skill",
+    "design_system": "metric editorial",
+    "primary_artifact": {
+      "key": "report",
+      "label": "Report or brief",
+      "direction": "High-trust editorial report with a clear first-screen thesis, compact evidence blocks, and decisions separated from supporting detail.",
+      "matched_keywords": [
+        "report",
+        "brief",
+        "memo"
+      ]
+    },
+    "artifact_families": [
+      {
+        "key": "report",
+        "label": "Report or brief",
+        "score": 3,
+        "matched_keywords": [
+          "report",
+          "brief",
+          "memo"
+        ],
+        "direction": "High-trust editorial report with a clear first-screen thesis, compact evidence blocks, and decisions separated from supporting detail."
+      },
+      {
+        "key": "review_viewer",
+        "label": "Review viewer",
+        "score": 2,
+        "matched_keywords": [
+          "review",
+          "audit"
+        ],
+        "direction": "Side-by-side reviewer studio with explicit tradeoffs, evidence readiness, and fast paths for approving, blocking, or requesting one focused fix."
+      },
+      {
+        "key": "dashboard",
+        "label": "Dashboard or metrics page",
+        "score": 2,
+        "matched_keywords": [
+          "metric",
+          "table"
+        ],
+        "direction": "Metric-first dashboard with stable dimensions, short labels, visible deltas, and narrative callouts only where they change interpretation."
+      },
+      {
+        "key": "code_or_cli",
+        "label": "Code, CLI, or implementation guide",
+        "score": 1,
+        "matched_keywords": [
+          "script"
+        ],
+        "direction": "Execution-focused technical artifact with environment assumptions, copyable commands, expected outputs, and side effects made explicit."
+      }
+    ],
+    "layout_patterns": [
+      "thesis",
+      "evidence blocks",
+      "decision table",
+      "risks",
+      "next actions",
+      "summary",
+      "variant comparison",
+      "evidence"
+    ],
+    "design_tokens": {
+      "type": [
+        "Use a distinctive display face or serif for major claims when the artifact is editorial.",
+        "Use a restrained sans for dense body text and technical details.",
+        "Use mono only for metadata, paths, commands, labels, and evidence tags."
+      ],
+      "color": [
+        "Choose colors from the artifact's domain, brand, or evidence mood.",
+        "Do not default to Kami parchment, purple gradients, or generic SaaS blue unless the content justifies it.",
+        "Keep accent color limited to decisions, active states, risk, or section anchors."
+      ],
+      "spacing": [
+        "Prefer clear grid rhythm over floating decorative cards.",
+        "Increase whitespace around decisions and shrink whitespace around supporting metadata.",
+        "Split dense content instead of shrinking type or adding scroll traps."
+      ],
+      "components": [
+        "Use cards for grouped evidence, tables for comparisons, callouts for decisions, and timelines for sequence.",
+        "Avoid cards inside cards.",
+        "Keep reviewer-only detail visible but visually quieter than user-facing guidance."
+      ]
+    },
+    "quality_gates": [
+      "Keep the first screen useful without requiring the reader to parse every detail.",
+      "Use tables only for comparisons; move explanations below the table.",
+      "Keep source notes readable without flooding the body with markers.",
+      "Make differences visible instead of hiding them in prose.",
+      "Separate author-facing recommendations from reviewer-only evidence.",
+      "Surface conflicts clearly and keep routine benchmark synthesis quiet.",
+      "Avoid paragraph-heavy table cells.",
+      "Keep charts tied to one analytical question each."
+    ],
+    "anti_patterns": [
+      "Do not copy Kami's fixed parchment background as a default.",
+      "Do not use generic purple gradients, glass cards, or stock SaaS hero sections unless the content calls for them.",
+      "Do not let Markdown tables become the default shape for every comparison or explanation.",
+      "Do not turn reviewer evidence into user-facing clutter.",
+      "Do not invent screenshots, citations, charts, or UI states."
+    ],
+    "reviewer_note": "Use this profile to judge whether the generated artifacts feel designed for their job, not merely rendered."
+  },
+  "prompt_quality": {
+    "skill_name": "storm-deepresearch-skill",
+    "relevance": "prompt-heavy",
+    "primary_task_family": {
+      "key": "prompt_engineering",
+      "label": "Prompt engineering",
+      "matched_keywords": [
+        "prompt",
+        "role",
+        "format"
+      ]
+    },
+    "task_families": [
+      {
+        "key": "prompt_engineering",
+        "label": "Prompt engineering",
+        "score": 3,
+        "matched_keywords": [
+          "prompt",
+          "role",
+          "format"
+        ],
+        "role_guidance": "Use a prompt engineer role only when role design materially improves execution.",
+        "task_guidance": "Map Role, Task, and Format into skill behavior rather than copying a large prompt template.",
+        "format_guidance": "Return a compact prompt contract plus tests, quality matrix, and usage notes."
+      },
+      {
+        "key": "analytical_reasoning",
+        "label": "Analytical reasoning",
+        "score": 1,
+        "matched_keywords": [
+          "decision"
+        ],
+        "role_guidance": "Use an analyst role that separates evidence, inference, uncertainty, and recommendation.",
+        "task_guidance": "State assumptions, compare alternatives, and make the decision path inspectable.",
+        "format_guidance": "Return findings, evidence, tradeoffs, recommendation, and residual risks."
+      },
+      {
+        "key": "execution_operation",
+        "label": "Execution operation",
+        "score": 1,
+        "matched_keywords": [
+          "workflow"
+        ],
+        "role_guidance": "Use an operator role with explicit boundaries, inputs, outputs, and failure handling.",
+        "task_guidance": "Convert the job into ordered steps with validation checks and stop conditions.",
+        "format_guidance": "Return a runbook-like handoff with commands, checks, owners, and next actions when relevant."
+      },
+      {
+        "key": "dialogue_interaction",
+        "label": "Dialogue interaction",
+        "score": 1,
+        "matched_keywords": [
+          "support"
+        ],
+        "role_guidance": "Use a conversational role that asks only high-leverage questions and remembers the user's goal.",
+        "task_guidance": "Clarify intent, resolve uncertainty, and converge toward a recommendation instead of a long option list.",
+        "format_guidance": "Return concise prompts, decision points, and reviewer-visible assumptions."
+      }
+    ],
+    "complexity": {
+      "band": "expert",
+      "score": 25,
+      "reason": "multiple task families plus governance, evaluation, or expert-level constraints"
+    },
+    "need_model": {
+      "explicit_need": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
+      "implicit_need": "The reusable skill needs a stable role, task, and output contract rather than a one-off prompt.",
+      "scenario": "A research topic or decision question, User-supplied articles, papers, URLs, notes, or a closed corpus, Audience, geography, timeframe, freshness, and output constraints",
+      "user_level": "infer from examples and standards; ask only if it changes output depth",
+      "success_standard": "100 percent material fact evidence closure, Explicit fact, inference, recommendation, contradiction, and uncertainty labeling, One canonical Markdown source with cross-format consistency, Adversarial evaluation, baseline comparison, trust checks, and install simulation"
+    },
+    "rtf_to_skill": {
+      "role": "Use a prompt engineer role only when role design materially improves execution.",
+      "task": "Map Role, Task, and Format into skill behavior rather than copying a large prompt template.",
+      "format": "Return a compact prompt contract plus tests, quality matrix, and usage notes."
+    },
+    "quality_matrix": [
+      {
+        "key": "completeness",
+        "label": "Completeness",
+        "score": 95,
+        "matched_signals": [
+          "output",
+          "constraint"
+        ],
+        "repair": "Name missing inputs, outputs, constraints, or success standards before deepening the package."
+      },
+      {
+        "key": "clarity",
+        "label": "Clarity",
+        "score": 80,
+        "matched_signals": [],
+        "repair": "Replace broad verbs with observable actions and define what done means."
+      },
+      {
+        "key": "consistency",
+        "label": "Consistency",
+        "score": 85,
+        "matched_signals": [
+          "consistent"
+        ],
+        "repair": "Check that role, task, format, exclusions, and examples do not contradict each other."
+      },
+      {
+        "key": "practicality",
+        "label": "Practicality",
+        "score": 95,
+        "matched_signals": [
+          "action",
+          "use",
+          "workflow"
+        ],
+        "repair": "Add runnable steps, examples, or verification cues instead of abstract advice."
+      },
+      {
+        "key": "specificity",
+        "label": "Specificity",
+        "score": 90,
+        "matched_signals": [
+          "audience",
+          "domain"
+        ],
+        "repair": "Anchor wording in the user's audience, domain nouns, and target outcome."
+      }
+    ],
+    "overall_quality_score": 89.0,
+    "self_repair_checks": [
+      "Check explicit need, implicit need, scenario, user level, and success standard before deepening.",
+      "Map Role, Task, and Format into skill behavior, not decorative prompt labels.",
+      "Ask one focused clarification only when missing information changes the package boundary.",
+      "Add tests or examples for prompt-heavy behavior before treating it as reusable.",
+      "Keep prompt methodology in references and reports instead of bloating SKILL.md."
+    ],
+    "reviewer_note": "Use this profile when the package depends on prompt behavior, role design, output contracts, or conversation quality."
+  },
+  "evidence_readiness": {
+    "score": 71,
+    "checks": [
+      {
+        "label": "Intent clarity",
+        "status": "ready",
+        "detail": "100/100 intent confidence."
+      },
+      {
+        "label": "Benchmark coverage",
+        "status": "needs evidence",
+        "detail": "0 GitHub benchmark repositories attached."
+      },
+      {
+        "label": "Pattern gate",
+        "status": "ready",
+        "detail": "3 accepted, 0 deferred using threshold 4/4."
+      },
+      {
+        "label": "Conflict handling",
+        "status": "decision needed",
+        "detail": "The stated preference leans lightweight or speed-first, while the benchmark mix leans toward governance, review, or heavier evaluation structure."
+      },
+      {
+        "label": "Output risk profile",
+        "status": "ready",
+        "detail": "4 output risk families attached."
+      },
+      {
+        "label": "Artifact design profile",
+        "status": "ready",
+        "detail": "High-trust editorial report with a clear first-screen thesis, compact evidence blocks, and decisions separated from supporting detail."
+      },
+      {
+        "label": "Prompt quality profile",
+        "status": "ready",
+        "detail": "89.0/100 prompt-facing quality score."
+      }
+    ],
+    "reviewer_note": "Use this section to decide whether the package is ready to deepen or should stay in discovery."
+  }
+}

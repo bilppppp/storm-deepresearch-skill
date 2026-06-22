@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "reviewed_at": "2026-06-22",
+  "capabilities": {
+    "file_write": {
+      "decision": "approved",
+      "reviewer": "陈旭 via explicit task authorization",
+      "scope": "Write only inside the resolved approved research output root, local temporary test packages, and the generated release ZIP during path redaction.",
+      "reason": "The requested skill must create Markdown, HTML, PDF, audit ledgers, deterministic validation reports, and a release archive without machine-local path leakage.",
+      "expires_at": "2026-09-21",
+      "evidence": [
+        "agents/interface.yaml",
+        "references/output-path-policy.md",
+        "scripts/sanitize_release_archive.py",
+        "reports/security_trust_report.md"
+      ],
+      "target_enforcement": {
+        "openai": "adapter metadata and host approval",
+        "claude": "adapter metadata and host approval",
+        "generic": "adapter metadata; host must enforce output root",
+        "vscode": "workspace trust and adapter metadata"
+      }
+    },
+    "subprocess": {
+      "decision": "approved",
+      "reviewer": "陈旭 via explicit task authorization",
+      "scope": "Run local Pandoc, WeasyPrint or Chromium rendering, Python tests, and Yao validation commands without shell interpolation of research content.",
+      "reason": "Deterministic multi-format export and complete Yao release verification require bounded local renderer and test subprocesses.",
+      "expires_at": "2026-09-21",
+      "evidence": [
+        "references/export-workflow.md",
+        "scripts/export_report.py",
+        "scripts/run_checks.py"
+      ],
+      "target_enforcement": {
+        "openai": "adapter metadata and command approval",
+        "claude": "adapter metadata and command approval",
+        "generic": "adapter metadata; host command allowlist required",
+        "vscode": "workspace trust and command approval"
+      }
+    }
+  }
+}

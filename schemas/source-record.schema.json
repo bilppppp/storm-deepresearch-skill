@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source-record.schema.json",
+  "title": "Source Register Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source_id", "title", "author_or_org", "canonical_url", "file_ref", "published_at", "retrieved_at", "source_type", "primary_class", "reliability_tier", "freshness_status", "reliability_notes", "content_hash"],
+  "properties": {
+    "source_id": {"type": "string", "pattern": "^S[0-9]{3}$"},
+    "title": {"type": "string", "minLength": 1},
+    "author_or_org": {"type": "string", "minLength": 1},
+    "canonical_url": {"type": "string"},
+    "file_ref": {"type": "string"},
+    "published_at": {"type": "string"},
+    "retrieved_at": {"type": "string", "format": "date-time"},
+    "source_type": {"type": "string", "minLength": 1},
+    "primary_class": {"enum": ["primary", "secondary"]},
+    "reliability_tier": {"enum": ["A", "B", "C", "D"]},
+    "freshness_status": {"enum": ["current", "stale", "historical", "unknown"]},
+    "reliability_notes": {"type": "string"},
+    "content_hash": {"type": "string"}
+  }
+}

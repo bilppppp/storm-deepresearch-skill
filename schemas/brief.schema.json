@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "brief.schema.json",
+  "title": "STORM DeepResearch Brief",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "package_state", "topic", "research_question", "user_goal",
+    "audience", "decision_context", "depth_level", "report_language", "length_contract", "geography", "timeframe",
+    "source_policy", "freshness_policy", "retrieval_mode", "output_mode",
+    "uncertainty_tolerance", "user_materials", "assumptions"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "package_state": {"enum": ["initialized", "planned", "retrieving", "evidence_ready", "drafted", "reviewed", "rendered", "validated", "released", "blocked_input", "blocked_retrieval", "bounded_partial", "validation_failed"]},
+    "topic": {"type": "string", "minLength": 1},
+    "research_question": {"type": "string", "minLength": 1},
+    "user_goal": {"type": "string", "minLength": 1},
+    "audience": {"type": "string", "minLength": 1},
+    "decision_context": {"type": "string"},
+    "depth_level": {"enum": ["briefing", "standard_report", "full_dossier"]},
+    "report_language": {"type": "string", "minLength": 2},
+    "length_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "minimum", "target", "maximum", "content_standard"],
+      "properties": {
+        "unit": {"enum": ["characters", "words"]},
+        "minimum": {"type": "integer", "minimum": 1},
+        "target": {"type": "integer", "minimum": 1},
+        "maximum": {"type": "integer", "minimum": 1},
+        "content_standard": {"const": "evidence_led"}
+      }
+    },
+    "geography": {"type": "string", "minLength": 1},
+    "timeframe": {"type": "string", "minLength": 1},
+    "source_policy": {"enum": ["external_allowed", "closed_corpus", "primary_only"]},
+    "freshness_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["as_of", "max_age_days"],
+      "properties": {
+        "as_of": {"type": "string", "format": "date"},
+        "max_age_days": {"type": "integer", "minimum": 0}
+      }
+    },
+    "retrieval_mode": {"enum": ["host", "provider", "closed_corpus"]},
+    "output_mode": {"enum": ["full", "reduced"]},
+    "uncertainty_tolerance": {"enum": ["low", "medium", "high"]},
+    "user_materials": {"type": "array", "items": {"type": "string"}},
+    "assumptions": {"type": "array", "items": {"type": "string"}}
+  }
+}

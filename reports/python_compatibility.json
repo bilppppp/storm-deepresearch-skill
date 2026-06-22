@@ -1,0 +1,169 @@
+{
+  "schema_version": "1.0",
+  "ok": true,
+  "generated_at": "2026-06-22",
+  "root": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+  "summary": {
+    "target_python": "3.11",
+    "file_count": 23,
+    "issue_count": 0,
+    "syntax_error_count": 0,
+    "fstring_311_violation_count": 0,
+    "decision": "pass"
+  },
+  "rules": [
+    {
+      "key": "current-python-syntax",
+      "reason": "Every scanned Python source file must compile under the running interpreter."
+    },
+    {
+      "key": "fstring-expression-backslash",
+      "reason": "Python 3.11 rejects backslashes inside f-string expressions; keep escaping outside the expression."
+    }
+  ],
+  "files": [
+    {
+      "path": "scripts/contract_io.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "scripts/export_report.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "scripts/init_research_package.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "scripts/local_output_eval_runner.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "scripts/normalize_retrieval.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "scripts/output_paths.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "scripts/render_audit_views.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "scripts/run_checks.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "scripts/sanitize_release_archive.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "scripts/validate_contracts.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "scripts/validate_evidence.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "scripts/validate_package.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_contracts.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_evidence_validation.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_export_report.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_init_research_package.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_library_contract.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_local_output_eval_runner.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_normalize_retrieval.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_output_paths.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_run_checks.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_sanitize_release_archive.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_validate_package.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    }
+  ],
+  "issues": [],
+  "artifacts": {
+    "json": "reports/python_compatibility.json",
+    "markdown": "reports/python_compatibility.md"
+  }
+}

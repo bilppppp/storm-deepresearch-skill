@@ -1,0 +1,35 @@
+{
+  "job": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
+  "real_inputs": [
+    "A research topic or decision question",
+    "User-supplied articles, papers, URLs, notes, or a closed corpus",
+    "Audience, geography, timeframe, freshness, and output constraints"
+  ],
+  "primary_output": "A validated research package with a canonical Markdown report, provenance-bearing source and Claim-Evidence ledgers, contradiction and uncertainty records, consistent HTML and PDF, and machine-readable validation evidence.",
+  "description": "Use STORM-inspired perspectives to generate retrieval questions, ground every material claim in provenance-bearing evidence, refuse unsupported completion, and deliver validated Markdown, HTML, and PDF research artifacts.",
+  "exclusions": [
+    "Quick factual lookup",
+    "Simple summarization",
+    "Evidence-free expert role-play",
+    "Personalized medical, legal, or investment advice"
+  ],
+  "constraints": [
+    "Perspectives may generate questions but may not authorize facts",
+    "Bundled scripts may not initiate undeclared network access",
+    "Credentials must remain in environment variables",
+    "Full mode requires PDF and all failed gates must exit non-zero",
+    "Public artifacts may not expose local paths, credentials, or internal audit IDs"
+  ],
+  "standards": [
+    "100 percent material fact evidence closure",
+    "Explicit fact, inference, recommendation, contradiction, and uncertainty labeling",
+    "One canonical Markdown source with cross-format consistency",
+    "Adversarial evaluation, baseline comparison, trust checks, and install simulation"
+  ],
+  "correction": "Do not expand the prompt chain as the main solution; move authority into retrieval adapters, source and claim ledgers, strict validators, and release governance.",
+  "user_references": [
+    "The Stanford STORM Method article supplied by the user",
+    "https://github.com/yaojingang/yao-open-skills/tree/main/skills/yao-tutorial-skill",
+    "https://github.com/yaojingang/yao-meta-skill"
+  ]
+}

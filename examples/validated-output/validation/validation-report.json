@@ -1,0 +1,228 @@
+{
+  "schema_version": "1.0",
+  "ok": true,
+  "package_state": "validated",
+  "checks": [
+    {
+      "check_id": "file:brief.json",
+      "severity": "info",
+      "status": "pass",
+      "path": "brief.json",
+      "message": "brief.json exists",
+      "repair_command": ""
+    },
+    {
+      "check_id": "file:research/research-plan.json",
+      "severity": "info",
+      "status": "pass",
+      "path": "research/research-plan.json",
+      "message": "research/research-plan.json exists",
+      "repair_command": ""
+    },
+    {
+      "check_id": "file:research/source-register.jsonl",
+      "severity": "info",
+      "status": "pass",
+      "path": "research/source-register.jsonl",
+      "message": "research/source-register.jsonl exists",
+      "repair_command": ""
+    },
+    {
+      "check_id": "file:research/source-register.md",
+      "severity": "info",
+      "status": "pass",
+      "path": "research/source-register.md",
+      "message": "research/source-register.md exists",
+      "repair_command": ""
+    },
+    {
+      "check_id": "file:research/claim-evidence-ledger.jsonl",
+      "severity": "info",
+      "status": "pass",
+      "path": "research/claim-evidence-ledger.jsonl",
+      "message": "research/claim-evidence-ledger.jsonl exists",
+      "repair_command": ""
+    },
+    {
+      "check_id": "file:research/evidence-map.md",
+      "severity": "info",
+      "status": "pass",
+      "path": "research/evidence-map.md",
+      "message": "research/evidence-map.md exists",
+      "repair_command": ""
+    },
+    {
+      "check_id": "file:research/report-claim-map.json",
+      "severity": "info",
+      "status": "pass",
+      "path": "research/report-claim-map.json",
+      "message": "research/report-claim-map.json exists",
+      "repair_command": ""
+    },
+    {
+      "check_id": "file:research/perspective-questions.md",
+      "severity": "info",
+      "status": "pass",
+      "path": "research/perspective-questions.md",
+      "message": "research/perspective-questions.md exists",
+      "repair_command": ""
+    },
+    {
+      "check_id": "file:research/contradiction-ledger.json",
+      "severity": "info",
+      "status": "pass",
+      "path": "research/contradiction-ledger.json",
+      "message": "research/contradiction-ledger.json exists",
+      "repair_command": ""
+    },
+    {
+      "check_id": "file:research/contradiction-map.md",
+      "severity": "info",
+      "status": "pass",
+      "path": "research/contradiction-map.md",
+      "message": "research/contradiction-map.md exists",
+      "repair_command": ""
+    },
+    {
+      "check_id": "file:research/uncertainty-ledger.md",
+      "severity": "info",
+      "status": "pass",
+      "path": "research/uncertainty-ledger.md",
+      "message": "research/uncertainty-ledger.md exists",
+      "repair_command": ""
+    },
+    {
+      "check_id": "file:research/peer-review.md",
+      "severity": "info",
+      "status": "pass",
+      "path": "research/peer-review.md",
+      "message": "research/peer-review.md exists",
+      "repair_command": ""
+    },
+    {
+      "check_id": "file:report.md",
+      "severity": "info",
+      "status": "pass",
+      "path": "report.md",
+      "message": "report.md exists",
+      "repair_command": ""
+    },
+    {
+      "check_id": "file:exports/report.html",
+      "severity": "info",
+      "status": "pass",
+      "path": "exports/report.html",
+      "message": "exports/report.html exists",
+      "repair_command": ""
+    },
+    {
+      "check_id": "file:validation/render-manifest.json",
+      "severity": "info",
+      "status": "pass",
+      "path": "validation/render-manifest.json",
+      "message": "validation/render-manifest.json exists",
+      "repair_command": ""
+    },
+    {
+      "check_id": "contracts",
+      "severity": "info",
+      "status": "pass",
+      "path": "brief.json; research/*.json*",
+      "message": "research contracts are valid",
+      "repair_command": ""
+    },
+    {
+      "check_id": "evidence-closure",
+      "severity": "info",
+      "status": "pass",
+      "path": "research/claim-evidence-ledger.jsonl",
+      "message": "material claims have closed evidence",
+      "repair_command": ""
+    },
+    {
+      "check_id": "public-path-safety",
+      "severity": "info",
+      "status": "pass",
+      "path": "report.md; exports/report.html",
+      "message": "public outputs contain no local path leak",
+      "repair_command": ""
+    },
+    {
+      "check_id": "public-id-safety",
+      "severity": "info",
+      "status": "pass",
+      "path": "report.md; exports/report.html",
+      "message": "public outputs do not expose internal claim/source IDs",
+      "repair_command": ""
+    },
+    {
+      "check_id": "template-resolution",
+      "severity": "info",
+      "status": "pass",
+      "path": "report.md; exports/report.html",
+      "message": "no template markers remain",
+      "repair_command": ""
+    },
+    {
+      "check_id": "title-consistency",
+      "severity": "info",
+      "status": "pass",
+      "path": "report.md; exports/report.html",
+      "message": "Markdown and HTML titles match",
+      "repair_command": ""
+    },
+    {
+      "check_id": "storm-research-utilization",
+      "severity": "info",
+      "status": "pass",
+      "path": "research/research-plan.json; report.md",
+      "message": "STORM questions, material claims, and section budgets are used by the report",
+      "repair_command": ""
+    },
+    {
+      "check_id": "report-depth",
+      "severity": "info",
+      "status": "pass",
+      "path": "brief.json; report.md",
+      "message": "report body satisfies the evidence-led length contract (826 words)",
+      "repair_command": ""
+    },
+    {
+      "check_id": "section-consistency",
+      "severity": "info",
+      "status": "pass",
+      "path": "report.md; exports/report.html",
+      "message": "all Markdown sections appear in HTML",
+      "repair_command": ""
+    },
+    {
+      "check_id": "references-section",
+      "severity": "info",
+      "status": "pass",
+      "path": "report.md; exports/report.html",
+      "message": "references section appears in Markdown and HTML",
+      "repair_command": ""
+    },
+    {
+      "check_id": "render-manifest",
+      "severity": "info",
+      "status": "pass",
+      "path": "validation/render-manifest.json",
+      "message": "render fingerprints match current files",
+      "repair_command": ""
+    },
+    {
+      "check_id": "pdf-integrity",
+      "severity": "info",
+      "status": "pass",
+      "path": "exports/report.pdf",
+      "message": "PDF requirement and content checks pass",
+      "repair_command": ""
+    }
+  ],
+  "summary": {
+    "passed": 27,
+    "warnings": 0,
+    "failed": 0
+  }
+}

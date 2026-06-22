@@ -1,0 +1,62 @@
+<h2>STORM DeepResearch 应该升级到哪一级？</h2>
+<p class="subtitle">选择的是工程边界，不是功能多少。推荐 B：公开可复用、可验证、可维护。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a-personal-production" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:20px">
+      <div class="mockup">
+        <div class="mockup-header">A · Personal Production</div>
+        <div class="mockup-body" style="display:grid;gap:10px">
+          <div class="placeholder">研究问题 → 来源登记 → 综合报告</div>
+          <div class="placeholder">Markdown → HTML → PDF</div>
+          <div class="placeholder" style="opacity:.65">单机冒烟检查</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. 个人生产工具</h3>
+      <p>重点是自己能稳定用。修复导出和验证器，但不建设完整版本治理与基准测试。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b-reusable-library" onclick="toggleSelect(this)" style="outline:3px solid #2563eb">
+    <div class="card-image" style="padding:20px">
+      <div class="mockup">
+        <div class="mockup-header">B · Reusable Library · 推荐</div>
+        <div class="mockup-body" style="display:grid;gap:10px">
+          <div class="placeholder">Brief + 自适应视角 + 检索计划</div>
+          <div class="placeholder">证据账本 → 主张闭环 → 矛盾/不确定性</div>
+          <div class="placeholder">确定性导出器 → MD / HTML / PDF</div>
+          <div class="placeholder">触发测试 + 输出评测 + 回归基线</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. 可公开复用的 Library</h3>
+      <p>把“研究协议”升级成可安装系统：明确接口、可重复验证、真实样例、版本与维护周期。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c-governed-high-risk" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:20px">
+      <div class="mockup">
+        <div class="mockup-header">C · Governed High Risk</div>
+        <div class="mockup-body" style="display:grid;gap:10px">
+          <div class="placeholder">B 的全部能力</div>
+          <div class="placeholder">领域政策 → 法律/医疗/投资边界</div>
+          <div class="placeholder">双人复核 + 发布审批 + 审计日志</div>
+          <div class="placeholder">到期复审 + 风险豁免</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. 高风险研究系统</h3>
+      <p>适合输出会直接影响法律、医疗、投资决策的场景。最稳，但成本最高，必须有人类审批。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <span class="label">当前诊断</span>
+  <p>现版本是“协议完整、执行证据薄弱”：治理 42/100；入口无 frontmatter；无真实 eval；验证器会把带占位符、无 PDF 的空包判定为成功。</p>
+</div>

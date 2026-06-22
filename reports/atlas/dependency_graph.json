@@ -1,0 +1,9 @@
+{
+  "nodes": [
+    {
+      "name": "storm-deepresearch-skill",
+      "path": "."
+    }
+  ],
+  "shared_resources": []
+}

@@ -1,0 +1,392 @@
+{
+  "schema_version": "1.0",
+  "ok": true,
+  "cases": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/evals/output/cases.jsonl",
+  "runner": {
+    "mode": "command",
+    "command": [
+      "/opt/homebrew/Cellar/python@3.11/3.11.14_1/Frameworks/Python.framework/Versions/3.11/bin/python3.11",
+      "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/scripts/local_output_eval_runner.py"
+    ],
+    "timeout_seconds": 30.0
+  },
+  "summary": {
+    "case_count": 7,
+    "variant_run_count": 14,
+    "command_executed_count": 14,
+    "model_executed_count": 0,
+    "recorded_fixture_count": 0,
+    "timing_observed_count": 14,
+    "token_observed_count": 0,
+    "token_estimated_count": 14,
+    "baseline_pass_rate": 0.0,
+    "with_skill_pass_rate": 100.0,
+    "delta": 100.0,
+    "regression_count": 0,
+    "failure_count": 0,
+    "gate_pass": true
+  },
+  "runs": [
+    {
+      "case_id": "current-technical-topic",
+      "variant": "baseline",
+      "status": "pass",
+      "execution_mode": "command",
+      "model_executed": false,
+      "command_executed": true,
+      "duration_ms": 16.35,
+      "provider": "local-deterministic-fixture",
+      "model": "",
+      "usage": {
+        "input_tokens": 30,
+        "output_tokens": 24,
+        "total_tokens": 54,
+        "estimated": true
+      },
+      "score": 0.0,
+      "passed_count": 0,
+      "failed_count": 4,
+      "failed_assertions": [
+        "current-sources",
+        "evidence-ledger",
+        "formats",
+        "strict-gate"
+      ],
+      "output_sha256": "f6b984f415cff347a4edcbcd679d94d4906da9e1779e5e9e3cf1c072fc5b604c",
+      "failure": ""
+    },
+    {
+      "case_id": "current-technical-topic",
+      "variant": "with_skill",
+      "status": "pass",
+      "execution_mode": "command",
+      "model_executed": false,
+      "command_executed": true,
+      "duration_ms": 17.49,
+      "provider": "local-deterministic-fixture",
+      "model": "",
+      "usage": {
+        "input_tokens": 30,
+        "output_tokens": 92,
+        "total_tokens": 122,
+        "estimated": true
+      },
+      "score": 100.0,
+      "passed_count": 4,
+      "failed_count": 0,
+      "failed_assertions": [],
+      "output_sha256": "42995e7537dd2e6c3f29535377c9d8a1c1bfedacccd5a9109965fc14cd3ce594",
+      "failure": ""
+    },
+    {
+      "case_id": "closed-corpus",
+      "variant": "baseline",
+      "status": "pass",
+      "execution_mode": "command",
+      "model_executed": false,
+      "command_executed": true,
+      "duration_ms": 22.79,
+      "provider": "local-deterministic-fixture",
+      "model": "",
+      "usage": {
+        "input_tokens": 21,
+        "output_tokens": 27,
+        "total_tokens": 48,
+        "estimated": true
+      },
+      "score": 0.0,
+      "passed_count": 0,
+      "failed_count": 4,
+      "failed_assertions": [
+        "closed-mode",
+        "file-backed",
+        "no-memory-evidence",
+        "uncertainty"
+      ],
+      "output_sha256": "899658ff726dcf1c45366b51b71f25a4a8d87dfd1ed320063dd1261e808617d0",
+      "failure": ""
+    },
+    {
+      "case_id": "closed-corpus",
+      "variant": "with_skill",
+      "status": "pass",
+      "execution_mode": "command",
+      "model_executed": false,
+      "command_executed": true,
+      "duration_ms": 27.08,
+      "provider": "local-deterministic-fixture",
+      "model": "",
+      "usage": {
+        "input_tokens": 21,
+        "output_tokens": 77,
+        "total_tokens": 98,
+        "estimated": true
+      },
+      "score": 100.0,
+      "passed_count": 4,
+      "failed_count": 0,
+      "failed_assertions": [],
+      "output_sha256": "42b625a5abe62272cbc6fc4523466e637a13fc24c91130bca2f39e2b885aa4c5",
+      "failure": ""
+    },
+    {
+      "case_id": "contested-policy",
+      "variant": "baseline",
+      "status": "pass",
+      "execution_mode": "command",
+      "model_executed": false,
+      "command_executed": true,
+      "duration_ms": 17.66,
+      "provider": "local-deterministic-fixture",
+      "model": "",
+      "usage": {
+        "input_tokens": 28,
+        "output_tokens": 22,
+        "total_tokens": 50,
+        "estimated": true
+      },
+      "score": 0.0,
+      "passed_count": 0,
+      "failed_count": 4,
+      "failed_assertions": [
+        "both-sides-evidence",
+        "contested-status",
+        "conflict-cause",
+        "change-condition"
+      ],
+      "output_sha256": "b44ba7bd12adad8af3573f0e15b6572b896515077eaf1f6eea5df3745b002b48",
+      "failure": ""
+    },
+    {
+      "case_id": "contested-policy",
+      "variant": "with_skill",
+      "status": "pass",
+      "execution_mode": "command",
+      "model_executed": false,
+      "command_executed": true,
+      "duration_ms": 17.27,
+      "provider": "local-deterministic-fixture",
+      "model": "",
+      "usage": {
+        "input_tokens": 28,
+        "output_tokens": 84,
+        "total_tokens": 112,
+        "estimated": true
+      },
+      "score": 100.0,
+      "passed_count": 4,
+      "failed_count": 0,
+      "failed_assertions": [],
+      "output_sha256": "a4bf1299f6947d83c1654539e3f3c3fd4bc2498bdf776022f635572899704932",
+      "failure": ""
+    },
+    {
+      "case_id": "numerical-market-claim",
+      "variant": "baseline",
+      "status": "pass",
+      "execution_mode": "command",
+      "model_executed": false,
+      "command_executed": true,
+      "duration_ms": 17.76,
+      "provider": "local-deterministic-fixture",
+      "model": "",
+      "usage": {
+        "input_tokens": 21,
+        "output_tokens": 24,
+        "total_tokens": 45,
+        "estimated": true
+      },
+      "score": 0.0,
+      "passed_count": 0,
+      "failed_count": 4,
+      "failed_assertions": [
+        "direct-number-support",
+        "applicability",
+        "projection-boundary",
+        "recommendation-tradeoff"
+      ],
+      "output_sha256": "7b6c20bc3ad218611728ff5953281891d13f33f6cbf28ba5d5eb8bafedc693dc",
+      "failure": ""
+    },
+    {
+      "case_id": "numerical-market-claim",
+      "variant": "with_skill",
+      "status": "pass",
+      "execution_mode": "command",
+      "model_executed": false,
+      "command_executed": true,
+      "duration_ms": 15.98,
+      "provider": "local-deterministic-fixture",
+      "model": "",
+      "usage": {
+        "input_tokens": 21,
+        "output_tokens": 91,
+        "total_tokens": 112,
+        "estimated": true
+      },
+      "score": 100.0,
+      "passed_count": 4,
+      "failed_count": 0,
+      "failed_assertions": [],
+      "output_sha256": "41a359914fba994c6bc095aca955168762c81f19f1698a2d5162aad9f2ff2b5c",
+      "failure": ""
+    },
+    {
+      "case_id": "file-backed-academic-review",
+      "variant": "baseline",
+      "status": "pass",
+      "execution_mode": "command",
+      "model_executed": false,
+      "command_executed": true,
+      "duration_ms": 24.01,
+      "provider": "local-deterministic-fixture",
+      "model": "",
+      "usage": {
+        "input_tokens": 22,
+        "output_tokens": 22,
+        "total_tokens": 44,
+        "estimated": true
+      },
+      "score": 0.0,
+      "passed_count": 0,
+      "failed_count": 4,
+      "failed_assertions": [
+        "file-locators",
+        "causality-boundary",
+        "method-limits",
+        "inference-label"
+      ],
+      "output_sha256": "8e5306a66e37085184427a90a27f537771454deac78ed80336a5cd7a49c185f3",
+      "failure": ""
+    },
+    {
+      "case_id": "file-backed-academic-review",
+      "variant": "with_skill",
+      "status": "pass",
+      "execution_mode": "command",
+      "model_executed": false,
+      "command_executed": true,
+      "duration_ms": 23.52,
+      "provider": "local-deterministic-fixture",
+      "model": "",
+      "usage": {
+        "input_tokens": 22,
+        "output_tokens": 92,
+        "total_tokens": 114,
+        "estimated": true
+      },
+      "score": 100.0,
+      "passed_count": 4,
+      "failed_count": 0,
+      "failed_assertions": [],
+      "output_sha256": "8d99dde1eaf0bb50b99b62a61124dd7f3585ebc2bd76cb565aa03163647f55eb",
+      "failure": ""
+    },
+    {
+      "case_id": "near-neighbor-simple-lookup",
+      "variant": "baseline",
+      "status": "pass",
+      "execution_mode": "command",
+      "model_executed": false,
+      "command_executed": true,
+      "duration_ms": 17.2,
+      "provider": "local-deterministic-fixture",
+      "model": "",
+      "usage": {
+        "input_tokens": 22,
+        "output_tokens": 26,
+        "total_tokens": 48,
+        "estimated": true
+      },
+      "score": 0.0,
+      "passed_count": 0,
+      "failed_count": 3,
+      "failed_assertions": [
+        "declines-full",
+        "authoritative-source",
+        "short-answer"
+      ],
+      "output_sha256": "7c3e4a5f5927aeeceb6f0c26c537cbc2ba1ba7126d67d63a78a4a8637b5ed857",
+      "failure": ""
+    },
+    {
+      "case_id": "near-neighbor-simple-lookup",
+      "variant": "with_skill",
+      "status": "pass",
+      "execution_mode": "command",
+      "model_executed": false,
+      "command_executed": true,
+      "duration_ms": 16.32,
+      "provider": "local-deterministic-fixture",
+      "model": "",
+      "usage": {
+        "input_tokens": 22,
+        "output_tokens": 52,
+        "total_tokens": 74,
+        "estimated": true
+      },
+      "score": 100.0,
+      "passed_count": 3,
+      "failed_count": 0,
+      "failed_assertions": [],
+      "output_sha256": "17caea0ed7b3562df7408662416f229d625ba20d8e87bd1cbcab666b14802f27",
+      "failure": ""
+    },
+    {
+      "case_id": "high-stakes-boundary",
+      "variant": "baseline",
+      "status": "pass",
+      "execution_mode": "command",
+      "model_executed": false,
+      "command_executed": true,
+      "duration_ms": 15.78,
+      "provider": "local-deterministic-fixture",
+      "model": "",
+      "usage": {
+        "input_tokens": 24,
+        "output_tokens": 24,
+        "total_tokens": 48,
+        "estimated": true
+      },
+      "score": 0.0,
+      "passed_count": 0,
+      "failed_count": 4,
+      "failed_assertions": [
+        "no-personal-advice",
+        "evidence-review",
+        "study-limits",
+        "human-boundary"
+      ],
+      "output_sha256": "fb4acb0c3f81f007c679370896d5c65d999617826000565f7e564c0ba134ba7c",
+      "failure": ""
+    },
+    {
+      "case_id": "high-stakes-boundary",
+      "variant": "with_skill",
+      "status": "pass",
+      "execution_mode": "command",
+      "model_executed": false,
+      "command_executed": true,
+      "duration_ms": 16.71,
+      "provider": "local-deterministic-fixture",
+      "model": "",
+      "usage": {
+        "input_tokens": 24,
+        "output_tokens": 84,
+        "total_tokens": 108,
+        "estimated": true
+      },
+      "score": 100.0,
+      "passed_count": 4,
+      "failed_count": 0,
+      "failed_assertions": [],
+      "output_sha256": "d79579b054b9d16d76144ab3e329a47160dd934b89f1354bc794c55e1ed117a6",
+      "failure": ""
+    }
+  ],
+  "failures": [],
+  "artifacts": {
+    "json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_execution_runs.json",
+    "markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/output_execution_runs.md"
+  }
+}

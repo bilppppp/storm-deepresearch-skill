@@ -1,0 +1,94 @@
+{
+  "fallback_positive_concepts": [
+    "deep_research",
+    "evidence_governance",
+    "contradiction_analysis",
+    "multi_format"
+  ],
+  "positive_concepts": {
+    "deep_research": {
+      "weight": 0.35,
+      "phrases": [
+        "deep research",
+        "source-grounded",
+        "research report",
+        "literature review",
+        "industry review",
+        "decision brief",
+        "current literature"
+      ]
+    },
+    "evidence_governance": {
+      "weight": 0.3,
+      "phrases": [
+        "claim-evidence",
+        "evidence audit",
+        "real sources",
+        "traceable",
+        "retrieve missing evidence",
+        "source freshness",
+        "factual reliability",
+        "material factual claim"
+      ]
+    },
+    "contradiction_analysis": {
+      "weight": 0.2,
+      "phrases": [
+        "contradiction",
+        "contradictions",
+        "uncertainty",
+        "competing technical claims",
+        "what evidence would change"
+      ]
+    },
+    "multi_format": {
+      "weight": 0.15,
+      "phrases": [
+        "markdown",
+        "html",
+        "pdf",
+        "multi-format"
+      ]
+    }
+  },
+  "negative_concepts": {
+    "quick_lookup": {
+      "weight": 0.5,
+      "exclusive": true,
+      "phrases": [
+        "quick answer",
+        "quick factual lookup",
+        "one sentence",
+        "official release date"
+      ]
+    },
+    "simple_transform": {
+      "weight": 0.5,
+      "exclusive": true,
+      "phrases": [
+        "summarize",
+        "translate",
+        "rewrite this paragraph",
+        "simple summarization"
+      ]
+    },
+    "no_research": {
+      "weight": 0.55,
+      "exclusive": true,
+      "phrases": [
+        "without doing external research",
+        "do not run a research workflow",
+        "fictional expert reactions"
+      ]
+    },
+    "adjacent_artifact": {
+      "weight": 0.3,
+      "exclusive": true,
+      "phrases": [
+        "translate this supplied report",
+        "sourced presentation",
+        "another skill should own slide production"
+      ]
+    }
+  }
+}

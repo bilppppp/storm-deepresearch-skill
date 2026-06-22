@@ -1,0 +1,16 @@
+{
+  "schema_version": "2.0",
+  "name": "storm-deepresearch-skill",
+  "version": "0.1.0",
+  "description": "A rigorous multi-perspective, source-grounded research skill with Markdown, HTML, and PDF-ready outputs.",
+  "targets": [],
+  "maturity": "draft",
+  "owner": "",
+  "review_cadence": "",
+  "trust_level": "",
+  "license": "MIT-0",
+  "checksums": {
+    "package_sha256": "a99ed1275f68ac3d3d9bf144da9aad212bf292d55dcf0cc9574b0c5602cd7678"
+  },
+  "compatibility": {}
+}

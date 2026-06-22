@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "retrieval-record.schema.json",
+  "title": "Retrieval Adapter Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["query_id", "title", "publisher", "retrieved_at", "content_excerpt", "content_locator", "adapter"],
+  "anyOf": [{"required": ["url"]}, {"required": ["file_ref"]}],
+  "properties": {
+    "query_id": {"type": "string", "pattern": "^Q[0-9]{3}$"},
+    "url": {"type": "string"},
+    "file_ref": {"type": "string"},
+    "title": {"type": "string", "minLength": 1},
+    "publisher": {"type": "string", "minLength": 1},
+    "published_at": {"type": "string"},
+    "retrieved_at": {"type": "string", "format": "date-time"},
+    "content_excerpt": {"type": "string", "minLength": 1},
+    "content_locator": {"type": "string", "minLength": 1},
+    "adapter": {"enum": ["host", "provider", "closed_corpus"]},
+    "source_type": {"type": "string"},
+    "primary_class": {"enum": ["primary", "secondary"]},
+    "reliability_tier": {"enum": ["A", "B", "C", "D"]},
+    "freshness_status": {"enum": ["current", "stale", "historical", "unknown"]},
+    "reliability_notes": {"type": "string"},
+    "raw_artifact": {"type": ["string", "null"]}
+  }
+}

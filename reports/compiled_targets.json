@@ -1,0 +1,2899 @@
+{
+  "schema_version": "1.0",
+  "ok": true,
+  "generated_at": "2026-06-22",
+  "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+  "summary": {
+    "target_count": 5,
+    "pass_count": 5,
+    "warn_count": 0,
+    "block_count": 0,
+    "failure_count": 0,
+    "warning_count": 0
+  },
+  "targets": [
+    {
+      "schema_version": "1.0",
+      "target": "openai",
+      "status": "pass",
+      "compiler": {
+        "name": "yao-skill-ir-compiler",
+        "schema_version": "1.0",
+        "source": "skill-ir",
+        "ir_source": "reports/skill-ir.json",
+        "ir_schema_version": "2.0.0"
+      },
+      "source": {
+        "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+        "canonical_metadata": "agents/interface.yaml",
+        "declared_targets": [
+          "openai",
+          "claude",
+          "agent-skills",
+          "vscode",
+          "generic"
+        ]
+      },
+      "compiled_contract": {
+        "name": "storm-deepresearch-skill",
+        "title": "STORM DeepResearch",
+        "version": "0.4.0",
+        "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+        "job_to_be_done": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
+        "trigger": {
+          "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "should_trigger": [
+            "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
+            "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
+            "Compare competing technical claims and explain what evidence would change the conclusion.",
+            "Create an investment pre-mortem where every material factual claim is traceable to a real source.",
+            "Perform a current literature and industry review with explicit source freshness and limitations."
+          ],
+          "should_not_trigger": [
+            "Find the official release date of this single product and answer in one sentence.",
+            "Brainstorm five fictional expert reactions without doing external research.",
+            "Translate this supplied report into Chinese without adding new information.",
+            "Rewrite this paragraph to sound clearer and more concise.",
+            "Summarize this one document in 200 words without creating a research package.",
+            "Quick factual lookup",
+            "Simple summarization",
+            "Evidence-free expert role-play",
+            "Personalized medical, legal, or investment advice"
+          ],
+          "edge_cases": [
+            "Explain how STORM works, but do not run a research workflow.",
+            "Review these medical studies without giving me personalized treatment advice.",
+            "Use only the files I supplied and do not retrieve anything from the internet.",
+            "Give me a quick answer now and separately tell me whether a deep report would be useful.",
+            "Create a sourced presentation; research is needed, but another skill should own slide production."
+          ]
+        },
+        "workflow": {
+          "steps": [
+            "Normalize the brief and lock `length_contract`.",
+            "Generate questions with the [protocol](references/research-protocol.md) and [STORM mapping](references/storm-workflow-mapping.md).",
+            "Retrieve through an approved [adapter](references/retrieval-adapters.md); memory is not evidence.",
+            "Merge ledgers monotonically; close claims under the [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policies.",
+            "Preserve contradictions and unknowns.",
+            "Map every answered question and material claim into `report_outline`.",
+            "Draft `report.md`, review, export, and validate."
+          ],
+          "decision_points": [
+            "Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.",
+            "Initialize a fresh workspace-scoped run; reject existing or escaping paths.",
+            "Use `closed_corpus` for supplied-only material; otherwise approved host search. For high-stakes topics, avoid personalized advice.",
+            "Ask one focused clarification when the real job, output, or exclusion boundary is unclear.",
+            "Escalate visible tradeoffs when benchmark patterns conflict with local privacy, naming, or governance constraints.",
+            "Do not silently broaden the skill into adjacent jobs just because the examples are nearby."
+          ],
+          "failure_modes": [
+            "Tables can render as dense grids with weak hierarchy or poor mobile readability.",
+            "Long bullets can make the output look complete while hiding the actual decision logic.",
+            "Footnote markers or dense citation notes can interrupt the reading flow.",
+            "Evidence can be over-attached to obvious statements and under-attached to risky claims.",
+            "Commands can omit environment assumptions, working directory, or rollback notes.",
+            "Code snippets can look runnable while missing required inputs.",
+            "Users start invoking the skill for adjacent one-off or explanation-only requests.",
+            "Outputs remain valid but become generic, cluttered, or weakly aligned with the user's domain.",
+            "Borrowed benchmark patterns no longer fit the local job or add ceremony without payoff.",
+            "Skill usage becomes team-critical while ownership, review cadence, or rollback evidence stays informal."
+          ]
+        },
+        "resources": {
+          "references": [
+            "references/claim-evidence-policy.md",
+            "references/export-workflow.md",
+            "references/output-path-policy.md",
+            "references/quality-gates.md",
+            "references/report-writing.md",
+            "references/research-protocol.md",
+            "references/retrieval-adapters.md",
+            "references/source-and-evidence-policy.md",
+            "references/storm-workflow-mapping.md"
+          ],
+          "scripts": [
+            "scripts/contract_io.py",
+            "scripts/export_report.py",
+            "scripts/init_research_package.py",
+            "scripts/local_output_eval_runner.py",
+            "scripts/merge_claim_ledger.py",
+            "scripts/normalize_retrieval.py",
+            "scripts/output_paths.py",
+            "scripts/render_audit_views.py",
+            "scripts/run_checks.py",
+            "scripts/sanitize_release_archive.py",
+            "scripts/validate_contracts.py",
+            "scripts/validate_evidence.py",
+            "scripts/validate_package.py"
+          ],
+          "assets": [
+            "templates/contradiction-map.md",
+            "templates/evidence-map.md",
+            "templates/peer-review.md",
+            "templates/report.html.j2",
+            "templates/report.md",
+            "templates/source-register.md"
+          ],
+          "reports": [
+            "reports/benchmark_methodology.md",
+            "reports/intent-context.json",
+            "reports/intent-confidence.json",
+            "reports/intent-confidence.md",
+            "reports/reference-synthesis.json",
+            "reports/reference-synthesis.md",
+            "reports/output-risk-profile.json",
+            "reports/output-risk-profile.md",
+            "reports/artifact-design-profile.json",
+            "reports/artifact-design-profile.md",
+            "reports/prompt-quality-profile.json",
+            "reports/prompt-quality-profile.md",
+            "reports/system-model.json",
+            "reports/system-model.md",
+            "reports/iteration-directions.json",
+            "reports/iteration-directions.md",
+            "reports/skill-overview.json",
+            "reports/skill-overview.html",
+            "reports/output_quality_scorecard.json",
+            "reports/output_quality_scorecard.md",
+            "reports/output_execution_runs.json",
+            "reports/output_execution_runs.md",
+            "reports/output_blind_review_pack.json",
+            "reports/output_blind_review_pack.md",
+            "reports/output_blind_answer_key.json",
+            "reports/output_review_adjudication.json",
+            "reports/output_review_adjudication.md",
+            "reports/review_annotations.json",
+            "reports/review_annotations.md",
+            "reports/conformance_matrix.json",
+            "reports/conformance_matrix.md",
+            "reports/security_trust_report.json",
+            "reports/security_trust_report.md",
+            "reports/runtime_permission_probes.json",
+            "reports/runtime_permission_probes.md",
+            "reports/skill_atlas.json",
+            "reports/skill_atlas.html"
+          ],
+          "counts": {
+            "references": 9,
+            "scripts": 13,
+            "assets": 6,
+            "reports": 37
+          }
+        },
+        "eval_plan": {
+          "trigger": [
+            "evals/adversarial_cases.json",
+            "evals/checklist.md",
+            "evals/confusion/route_cases.json",
+            "evals/evals.json",
+            "evals/failure-cases.md",
+            "evals/output/cases.jsonl",
+            "evals/output/fixtures/closed-corpus-source.md",
+            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/schema.json",
+            "evals/packaging_expectations.json",
+            "evals/semantic_config.json",
+            "evals/trigger_cases.json"
+          ],
+          "output": [
+            "evals/output/cases.jsonl",
+            "evals/output/fixtures/closed-corpus-source.md",
+            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/schema.json"
+          ],
+          "adversarial": [],
+          "baseline": "without_skill",
+          "counts": {
+            "trigger": 12,
+            "output": 4,
+            "adversarial": 0,
+            "baseline": 1
+          }
+        },
+        "risk": {
+          "output_risk": "medium",
+          "execution_risk": "medium",
+          "trust_boundary": "team"
+        },
+        "governance": {
+          "owner": "陈旭",
+          "maturity": "library",
+          "review_cadence": "quarterly",
+          "review_due": "2026-09-21"
+        },
+        "runtime": {
+          "activation": {
+            "mode": "manual",
+            "paths": []
+          },
+          "execution": {
+            "context": "inline",
+            "shell": "bash"
+          },
+          "trust": {
+            "source_tier": "local",
+            "remote_inline_execution": "forbid",
+            "remote_metadata_policy": "allow-metadata-only"
+          },
+          "adapter_targets": [
+            "openai",
+            "claude",
+            "agent-skills",
+            "vscode",
+            "generic"
+          ],
+          "canonical_format": "agent-skills"
+        },
+        "permissions": {
+          "schema_version": "1.0",
+          "source": "reports/security_trust_report.json",
+          "source_available": true,
+          "declared_capabilities": [
+            "file_write",
+            "subprocess"
+          ],
+          "review_required": true,
+          "capabilities": {
+            "network": {
+              "required": false,
+              "script_count": 0,
+              "scripts": [],
+              "review_reason": ""
+            },
+            "file_write": {
+              "required": true,
+              "script_count": 7,
+              "scripts": [
+                "scripts/export_report.py",
+                "scripts/init_research_package.py",
+                "scripts/merge_claim_ledger.py",
+                "scripts/normalize_retrieval.py",
+                "scripts/render_audit_views.py",
+                "scripts/sanitize_release_archive.py",
+                "scripts/validate_package.py"
+              ],
+              "review_reason": "Scripts write local files or generated artifacts."
+            },
+            "subprocess": {
+              "required": true,
+              "script_count": 2,
+              "scripts": [
+                "scripts/export_report.py",
+                "scripts/run_checks.py"
+              ],
+              "review_reason": "Scripts spawn local commands and need operator review."
+            },
+            "interactive": {
+              "required": false,
+              "script_count": 0,
+              "scripts": [],
+              "review_reason": ""
+            }
+          },
+          "network_policy": {
+            "source": "security/network_policy.json",
+            "covered_scripts": [],
+            "missing_scripts": [],
+            "mismatches": []
+          },
+          "help_smoke": {
+            "enabled": true,
+            "checked_count": 11,
+            "failed_count": 0,
+            "failed_scripts": []
+          },
+          "trust_summary": {
+            "secret_findings": 0,
+            "network_script_count": 0,
+            "file_write_script_count": 7,
+            "subprocess_script_count": 2,
+            "interactive_script_count": 0,
+            "help_smoke_failed_count": 0
+          }
+        },
+        "source_files_count": 6,
+        "target": "openai",
+        "target_permission_contract": {
+          "schema_version": "1.0",
+          "target": "openai",
+          "permission_model": "metadata-only",
+          "native_enforcement": false,
+          "representation": "targets/openai/agents/openai.yaml::compatibility.permission_contract plus adapter.json",
+          "review_required": true,
+          "declared_capabilities": [
+            "file_write",
+            "subprocess"
+          ],
+          "capability_counts": {
+            "network": 0,
+            "file_write": 7,
+            "subprocess": 2,
+            "interactive": 0
+          },
+          "evidence": "reports/security_trust_report.json",
+          "operator_note": "OpenAI target carries permission metadata for reviewer visibility; host enforcement remains outside the package."
+        },
+        "target_native_contract": {
+          "schema_version": "1.0",
+          "target": "openai",
+          "native_surface": "OpenAI-style interface metadata plus neutral Agent Skills source",
+          "activation": {
+            "policy": "Use frontmatter description for catalog routing and targets/openai/agents/openai.yaml for display name, default prompt, and compatibility metadata.",
+            "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+            "manual_activation_supported": true,
+            "automatic_activation_note": "Depends on the target client route/catalog implementation."
+          },
+          "resources": {
+            "strategy": "Ship the neutral source tree and expose OpenAI-facing interface metadata as a generated companion file.",
+            "counts": {
+              "references": 9,
+              "scripts": 13,
+              "assets": 6,
+              "reports": 37
+            },
+            "generated_files": [
+              "targets/openai/adapter.json",
+              "targets/openai/agents/openai.yaml"
+            ]
+          },
+          "scripts": {
+            "strategy": "Keep scripts as local package resources; expose help-smoke and permission metadata for reviewer approval before execution.",
+            "script_count": 13,
+            "help_smoke_failed_count": 0
+          },
+          "permissions": {
+            "enforcement": "metadata-only",
+            "native_enforcement": false,
+            "declared_capabilities": [
+              "file_write",
+              "subprocess"
+            ],
+            "review_required": true
+          },
+          "review": {
+            "artifacts": [
+              "targets/openai/agents/openai.yaml",
+              "targets/openai/adapter.json",
+              "reports/review-studio.html"
+            ],
+            "fallback_behavior": "If OpenAI-native metadata is ignored, the package remains readable as neutral Agent Skills source.",
+            "unsupported_native_features": [
+              "client-native permission prompts",
+              "provider-executed scripts",
+              "client-native script permission prompts are represented as permission contract metadata"
+            ]
+          },
+          "install_scope": "plugin or skill package consumer"
+        },
+        "degradation_strategy": "Use host search tools and preserve the canonical evidence and output contracts.",
+        "target_runtime": {
+          "adapter_mode": "metadata-adapter",
+          "generated_files": [
+            "targets/openai/adapter.json",
+            "targets/openai/agents/openai.yaml"
+          ],
+          "metadata_mapping": {
+            "display_name": "targets/openai/agents/openai.yaml::interface.display_name",
+            "default_prompt": "targets/openai/agents/openai.yaml::interface.default_prompt",
+            "activation": "targets/openai/agents/openai.yaml::compatibility.activation_mode",
+            "execution": "targets/openai/agents/openai.yaml::compatibility.execution_context",
+            "trust": "targets/openai/agents/openai.yaml::compatibility.trust_level",
+            "permissions": "targets/openai/agents/openai.yaml::compatibility.permission_contract",
+            "degradation": "targets/openai/agents/openai.yaml::compatibility.degradation_strategy"
+          },
+          "preserved_semantics": [
+            "trigger",
+            "workflow-counts",
+            "resources",
+            "eval-plan",
+            "risk",
+            "governance",
+            "runtime",
+            "trust",
+            "permissions"
+          ],
+          "native_surface": "OpenAI-style interface metadata plus neutral Agent Skills source"
+        }
+      },
+      "permission_contract": {
+        "schema_version": "1.0",
+        "source": "reports/security_trust_report.json",
+        "source_available": true,
+        "declared_capabilities": [
+          "file_write",
+          "subprocess"
+        ],
+        "review_required": true,
+        "capabilities": {
+          "network": {
+            "required": false,
+            "script_count": 0,
+            "scripts": [],
+            "review_reason": ""
+          },
+          "file_write": {
+            "required": true,
+            "script_count": 7,
+            "scripts": [
+              "scripts/export_report.py",
+              "scripts/init_research_package.py",
+              "scripts/merge_claim_ledger.py",
+              "scripts/normalize_retrieval.py",
+              "scripts/render_audit_views.py",
+              "scripts/sanitize_release_archive.py",
+              "scripts/validate_package.py"
+            ],
+            "review_reason": "Scripts write local files or generated artifacts."
+          },
+          "subprocess": {
+            "required": true,
+            "script_count": 2,
+            "scripts": [
+              "scripts/export_report.py",
+              "scripts/run_checks.py"
+            ],
+            "review_reason": "Scripts spawn local commands and need operator review."
+          },
+          "interactive": {
+            "required": false,
+            "script_count": 0,
+            "scripts": [],
+            "review_reason": ""
+          }
+        },
+        "network_policy": {
+          "source": "security/network_policy.json",
+          "covered_scripts": [],
+          "missing_scripts": [],
+          "mismatches": []
+        },
+        "help_smoke": {
+          "enabled": true,
+          "checked_count": 11,
+          "failed_count": 0,
+          "failed_scripts": []
+        },
+        "trust_summary": {
+          "secret_findings": 0,
+          "network_script_count": 0,
+          "file_write_script_count": 7,
+          "subprocess_script_count": 2,
+          "interactive_script_count": 0,
+          "help_smoke_failed_count": 0
+        }
+      },
+      "target_permission_contract": {
+        "schema_version": "1.0",
+        "target": "openai",
+        "permission_model": "metadata-only",
+        "native_enforcement": false,
+        "representation": "targets/openai/agents/openai.yaml::compatibility.permission_contract plus adapter.json",
+        "review_required": true,
+        "declared_capabilities": [
+          "file_write",
+          "subprocess"
+        ],
+        "capability_counts": {
+          "network": 0,
+          "file_write": 7,
+          "subprocess": 2,
+          "interactive": 0
+        },
+        "evidence": "reports/security_trust_report.json",
+        "operator_note": "OpenAI target carries permission metadata for reviewer visibility; host enforcement remains outside the package."
+      },
+      "target_native_contract": {
+        "schema_version": "1.0",
+        "target": "openai",
+        "native_surface": "OpenAI-style interface metadata plus neutral Agent Skills source",
+        "activation": {
+          "policy": "Use frontmatter description for catalog routing and targets/openai/agents/openai.yaml for display name, default prompt, and compatibility metadata.",
+          "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "manual_activation_supported": true,
+          "automatic_activation_note": "Depends on the target client route/catalog implementation."
+        },
+        "resources": {
+          "strategy": "Ship the neutral source tree and expose OpenAI-facing interface metadata as a generated companion file.",
+          "counts": {
+            "references": 9,
+            "scripts": 13,
+            "assets": 6,
+            "reports": 37
+          },
+          "generated_files": [
+            "targets/openai/adapter.json",
+            "targets/openai/agents/openai.yaml"
+          ]
+        },
+        "scripts": {
+          "strategy": "Keep scripts as local package resources; expose help-smoke and permission metadata for reviewer approval before execution.",
+          "script_count": 13,
+          "help_smoke_failed_count": 0
+        },
+        "permissions": {
+          "enforcement": "metadata-only",
+          "native_enforcement": false,
+          "declared_capabilities": [
+            "file_write",
+            "subprocess"
+          ],
+          "review_required": true
+        },
+        "review": {
+          "artifacts": [
+            "targets/openai/agents/openai.yaml",
+            "targets/openai/adapter.json",
+            "reports/review-studio.html"
+          ],
+          "fallback_behavior": "If OpenAI-native metadata is ignored, the package remains readable as neutral Agent Skills source.",
+          "unsupported_native_features": [
+            "client-native permission prompts",
+            "provider-executed scripts",
+            "client-native script permission prompts are represented as permission contract metadata"
+          ]
+        },
+        "install_scope": "plugin or skill package consumer"
+      },
+      "target_transform": {
+        "target": "openai",
+        "adapter_mode": "metadata-adapter",
+        "generated_files": [
+          "targets/openai/adapter.json",
+          "targets/openai/agents/openai.yaml"
+        ],
+        "metadata_mapping": {
+          "display_name": "targets/openai/agents/openai.yaml::interface.display_name",
+          "default_prompt": "targets/openai/agents/openai.yaml::interface.default_prompt",
+          "activation": "targets/openai/agents/openai.yaml::compatibility.activation_mode",
+          "execution": "targets/openai/agents/openai.yaml::compatibility.execution_context",
+          "trust": "targets/openai/agents/openai.yaml::compatibility.trust_level",
+          "permissions": "targets/openai/agents/openai.yaml::compatibility.permission_contract",
+          "degradation": "targets/openai/agents/openai.yaml::compatibility.degradation_strategy"
+        },
+        "preserved_semantics": [
+          "trigger",
+          "workflow-counts",
+          "resources",
+          "eval-plan",
+          "risk",
+          "governance",
+          "runtime",
+          "trust",
+          "permissions"
+        ],
+        "degradation_strategy": "Use host search tools and preserve the canonical evidence and output contracts.",
+        "permission_representation": "targets/openai/agents/openai.yaml::compatibility.permission_contract plus adapter.json",
+        "native_surface": "OpenAI-style interface metadata plus neutral Agent Skills source",
+        "activation_policy": "Use frontmatter description for catalog routing and targets/openai/agents/openai.yaml for display name, default prompt, and compatibility metadata.",
+        "resource_strategy": "Ship the neutral source tree and expose OpenAI-facing interface metadata as a generated companion file.",
+        "script_strategy": "Keep scripts as local package resources; expose help-smoke and permission metadata for reviewer approval before execution.",
+        "permission_enforcement": "metadata-only"
+      },
+      "unsupported_features": [
+        "client-native script permission prompts are represented as permission contract metadata"
+      ],
+      "warnings": [],
+      "failures": []
+    },
+    {
+      "schema_version": "1.0",
+      "target": "claude",
+      "status": "pass",
+      "compiler": {
+        "name": "yao-skill-ir-compiler",
+        "schema_version": "1.0",
+        "source": "skill-ir",
+        "ir_source": "reports/skill-ir.json",
+        "ir_schema_version": "2.0.0"
+      },
+      "source": {
+        "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+        "canonical_metadata": "agents/interface.yaml",
+        "declared_targets": [
+          "openai",
+          "claude",
+          "agent-skills",
+          "vscode",
+          "generic"
+        ]
+      },
+      "compiled_contract": {
+        "name": "storm-deepresearch-skill",
+        "title": "STORM DeepResearch",
+        "version": "0.4.0",
+        "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+        "job_to_be_done": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
+        "trigger": {
+          "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "should_trigger": [
+            "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
+            "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
+            "Compare competing technical claims and explain what evidence would change the conclusion.",
+            "Create an investment pre-mortem where every material factual claim is traceable to a real source.",
+            "Perform a current literature and industry review with explicit source freshness and limitations."
+          ],
+          "should_not_trigger": [
+            "Find the official release date of this single product and answer in one sentence.",
+            "Brainstorm five fictional expert reactions without doing external research.",
+            "Translate this supplied report into Chinese without adding new information.",
+            "Rewrite this paragraph to sound clearer and more concise.",
+            "Summarize this one document in 200 words without creating a research package.",
+            "Quick factual lookup",
+            "Simple summarization",
+            "Evidence-free expert role-play",
+            "Personalized medical, legal, or investment advice"
+          ],
+          "edge_cases": [
+            "Explain how STORM works, but do not run a research workflow.",
+            "Review these medical studies without giving me personalized treatment advice.",
+            "Use only the files I supplied and do not retrieve anything from the internet.",
+            "Give me a quick answer now and separately tell me whether a deep report would be useful.",
+            "Create a sourced presentation; research is needed, but another skill should own slide production."
+          ]
+        },
+        "workflow": {
+          "steps": [
+            "Normalize the brief and lock `length_contract`.",
+            "Generate questions with the [protocol](references/research-protocol.md) and [STORM mapping](references/storm-workflow-mapping.md).",
+            "Retrieve through an approved [adapter](references/retrieval-adapters.md); memory is not evidence.",
+            "Merge ledgers monotonically; close claims under the [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policies.",
+            "Preserve contradictions and unknowns.",
+            "Map every answered question and material claim into `report_outline`.",
+            "Draft `report.md`, review, export, and validate."
+          ],
+          "decision_points": [
+            "Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.",
+            "Initialize a fresh workspace-scoped run; reject existing or escaping paths.",
+            "Use `closed_corpus` for supplied-only material; otherwise approved host search. For high-stakes topics, avoid personalized advice.",
+            "Ask one focused clarification when the real job, output, or exclusion boundary is unclear.",
+            "Escalate visible tradeoffs when benchmark patterns conflict with local privacy, naming, or governance constraints.",
+            "Do not silently broaden the skill into adjacent jobs just because the examples are nearby."
+          ],
+          "failure_modes": [
+            "Tables can render as dense grids with weak hierarchy or poor mobile readability.",
+            "Long bullets can make the output look complete while hiding the actual decision logic.",
+            "Footnote markers or dense citation notes can interrupt the reading flow.",
+            "Evidence can be over-attached to obvious statements and under-attached to risky claims.",
+            "Commands can omit environment assumptions, working directory, or rollback notes.",
+            "Code snippets can look runnable while missing required inputs.",
+            "Users start invoking the skill for adjacent one-off or explanation-only requests.",
+            "Outputs remain valid but become generic, cluttered, or weakly aligned with the user's domain.",
+            "Borrowed benchmark patterns no longer fit the local job or add ceremony without payoff.",
+            "Skill usage becomes team-critical while ownership, review cadence, or rollback evidence stays informal."
+          ]
+        },
+        "resources": {
+          "references": [
+            "references/claim-evidence-policy.md",
+            "references/export-workflow.md",
+            "references/output-path-policy.md",
+            "references/quality-gates.md",
+            "references/report-writing.md",
+            "references/research-protocol.md",
+            "references/retrieval-adapters.md",
+            "references/source-and-evidence-policy.md",
+            "references/storm-workflow-mapping.md"
+          ],
+          "scripts": [
+            "scripts/contract_io.py",
+            "scripts/export_report.py",
+            "scripts/init_research_package.py",
+            "scripts/local_output_eval_runner.py",
+            "scripts/merge_claim_ledger.py",
+            "scripts/normalize_retrieval.py",
+            "scripts/output_paths.py",
+            "scripts/render_audit_views.py",
+            "scripts/run_checks.py",
+            "scripts/sanitize_release_archive.py",
+            "scripts/validate_contracts.py",
+            "scripts/validate_evidence.py",
+            "scripts/validate_package.py"
+          ],
+          "assets": [
+            "templates/contradiction-map.md",
+            "templates/evidence-map.md",
+            "templates/peer-review.md",
+            "templates/report.html.j2",
+            "templates/report.md",
+            "templates/source-register.md"
+          ],
+          "reports": [
+            "reports/benchmark_methodology.md",
+            "reports/intent-context.json",
+            "reports/intent-confidence.json",
+            "reports/intent-confidence.md",
+            "reports/reference-synthesis.json",
+            "reports/reference-synthesis.md",
+            "reports/output-risk-profile.json",
+            "reports/output-risk-profile.md",
+            "reports/artifact-design-profile.json",
+            "reports/artifact-design-profile.md",
+            "reports/prompt-quality-profile.json",
+            "reports/prompt-quality-profile.md",
+            "reports/system-model.json",
+            "reports/system-model.md",
+            "reports/iteration-directions.json",
+            "reports/iteration-directions.md",
+            "reports/skill-overview.json",
+            "reports/skill-overview.html",
+            "reports/output_quality_scorecard.json",
+            "reports/output_quality_scorecard.md",
+            "reports/output_execution_runs.json",
+            "reports/output_execution_runs.md",
+            "reports/output_blind_review_pack.json",
+            "reports/output_blind_review_pack.md",
+            "reports/output_blind_answer_key.json",
+            "reports/output_review_adjudication.json",
+            "reports/output_review_adjudication.md",
+            "reports/review_annotations.json",
+            "reports/review_annotations.md",
+            "reports/conformance_matrix.json",
+            "reports/conformance_matrix.md",
+            "reports/security_trust_report.json",
+            "reports/security_trust_report.md",
+            "reports/runtime_permission_probes.json",
+            "reports/runtime_permission_probes.md",
+            "reports/skill_atlas.json",
+            "reports/skill_atlas.html"
+          ],
+          "counts": {
+            "references": 9,
+            "scripts": 13,
+            "assets": 6,
+            "reports": 37
+          }
+        },
+        "eval_plan": {
+          "trigger": [
+            "evals/adversarial_cases.json",
+            "evals/checklist.md",
+            "evals/confusion/route_cases.json",
+            "evals/evals.json",
+            "evals/failure-cases.md",
+            "evals/output/cases.jsonl",
+            "evals/output/fixtures/closed-corpus-source.md",
+            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/schema.json",
+            "evals/packaging_expectations.json",
+            "evals/semantic_config.json",
+            "evals/trigger_cases.json"
+          ],
+          "output": [
+            "evals/output/cases.jsonl",
+            "evals/output/fixtures/closed-corpus-source.md",
+            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/schema.json"
+          ],
+          "adversarial": [],
+          "baseline": "without_skill",
+          "counts": {
+            "trigger": 12,
+            "output": 4,
+            "adversarial": 0,
+            "baseline": 1
+          }
+        },
+        "risk": {
+          "output_risk": "medium",
+          "execution_risk": "medium",
+          "trust_boundary": "team"
+        },
+        "governance": {
+          "owner": "陈旭",
+          "maturity": "library",
+          "review_cadence": "quarterly",
+          "review_due": "2026-09-21"
+        },
+        "runtime": {
+          "activation": {
+            "mode": "manual",
+            "paths": []
+          },
+          "execution": {
+            "context": "inline",
+            "shell": "bash"
+          },
+          "trust": {
+            "source_tier": "local",
+            "remote_inline_execution": "forbid",
+            "remote_metadata_policy": "allow-metadata-only"
+          },
+          "adapter_targets": [
+            "openai",
+            "claude",
+            "agent-skills",
+            "vscode",
+            "generic"
+          ],
+          "canonical_format": "agent-skills"
+        },
+        "permissions": {
+          "schema_version": "1.0",
+          "source": "reports/security_trust_report.json",
+          "source_available": true,
+          "declared_capabilities": [
+            "file_write",
+            "subprocess"
+          ],
+          "review_required": true,
+          "capabilities": {
+            "network": {
+              "required": false,
+              "script_count": 0,
+              "scripts": [],
+              "review_reason": ""
+            },
+            "file_write": {
+              "required": true,
+              "script_count": 7,
+              "scripts": [
+                "scripts/export_report.py",
+                "scripts/init_research_package.py",
+                "scripts/merge_claim_ledger.py",
+                "scripts/normalize_retrieval.py",
+                "scripts/render_audit_views.py",
+                "scripts/sanitize_release_archive.py",
+                "scripts/validate_package.py"
+              ],
+              "review_reason": "Scripts write local files or generated artifacts."
+            },
+            "subprocess": {
+              "required": true,
+              "script_count": 2,
+              "scripts": [
+                "scripts/export_report.py",
+                "scripts/run_checks.py"
+              ],
+              "review_reason": "Scripts spawn local commands and need operator review."
+            },
+            "interactive": {
+              "required": false,
+              "script_count": 0,
+              "scripts": [],
+              "review_reason": ""
+            }
+          },
+          "network_policy": {
+            "source": "security/network_policy.json",
+            "covered_scripts": [],
+            "missing_scripts": [],
+            "mismatches": []
+          },
+          "help_smoke": {
+            "enabled": true,
+            "checked_count": 11,
+            "failed_count": 0,
+            "failed_scripts": []
+          },
+          "trust_summary": {
+            "secret_findings": 0,
+            "network_script_count": 0,
+            "file_write_script_count": 7,
+            "subprocess_script_count": 2,
+            "interactive_script_count": 0,
+            "help_smoke_failed_count": 0
+          }
+        },
+        "source_files_count": 6,
+        "target": "claude",
+        "target_permission_contract": {
+          "schema_version": "1.0",
+          "target": "claude",
+          "permission_model": "neutral-source-plus-adapter",
+          "native_enforcement": false,
+          "representation": "targets/claude/adapter.json::target_permission_contract and README notes",
+          "review_required": true,
+          "declared_capabilities": [
+            "file_write",
+            "subprocess"
+          ],
+          "capability_counts": {
+            "network": 0,
+            "file_write": 7,
+            "subprocess": 2,
+            "interactive": 0
+          },
+          "evidence": "reports/security_trust_report.json",
+          "operator_note": "Claude-compatible package keeps permission intent in adapter metadata for install review."
+        },
+        "target_native_contract": {
+          "schema_version": "1.0",
+          "target": "claude",
+          "native_surface": "Claude-compatible neutral source folder with adapter notes",
+          "activation": {
+            "policy": "Use SKILL.md frontmatter description as the primary activation contract and adapter.json for review metadata.",
+            "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+            "manual_activation_supported": true,
+            "automatic_activation_note": "Depends on the target client route/catalog implementation."
+          },
+          "resources": {
+            "strategy": "Preserve the source tree directly; write target notes in targets/claude/README.md.",
+            "counts": {
+              "references": 9,
+              "scripts": 13,
+              "assets": 6,
+              "reports": 37
+            },
+            "generated_files": [
+              "targets/claude/adapter.json",
+              "targets/claude/README.md"
+            ]
+          },
+          "scripts": {
+            "strategy": "Scripts remain local package resources and must be reviewed through trust and permission reports before use.",
+            "script_count": 13,
+            "help_smoke_failed_count": 0
+          },
+          "permissions": {
+            "enforcement": "metadata-fallback",
+            "native_enforcement": false,
+            "declared_capabilities": [
+              "file_write",
+              "subprocess"
+            ],
+            "review_required": true
+          },
+          "review": {
+            "artifacts": [
+              "targets/claude/README.md",
+              "targets/claude/adapter.json",
+              "reports/review-studio.html"
+            ],
+            "fallback_behavior": "If Claude-specific metadata is not consumed, SKILL.md and references remain the source of truth.",
+            "unsupported_native_features": [
+              "vendor-native permission enforcement",
+              "provider-specific execution transforms",
+              "vendor-native metadata fields are carried as adapter JSON and README notes"
+            ]
+          },
+          "install_scope": "user or project skill directory"
+        },
+        "degradation_strategy": "Use host search tools and preserve the canonical evidence and output contracts.",
+        "target_runtime": {
+          "adapter_mode": "neutral-source-plus-adapter",
+          "generated_files": [
+            "targets/claude/adapter.json",
+            "targets/claude/README.md"
+          ],
+          "metadata_mapping": {
+            "display_name": "targets/claude/adapter.json::display_name",
+            "default_prompt": "targets/claude/adapter.json::default_prompt",
+            "activation": "targets/claude/adapter.json::activation_mode",
+            "execution": "targets/claude/adapter.json::execution_context",
+            "trust": "targets/claude/adapter.json::trust_level",
+            "permissions": "targets/claude/adapter.json::target_permission_contract",
+            "degradation": "targets/claude/adapter.json::degradation_strategy"
+          },
+          "preserved_semantics": [
+            "trigger",
+            "workflow-counts",
+            "resources",
+            "eval-plan",
+            "risk",
+            "governance",
+            "runtime",
+            "trust",
+            "permissions"
+          ],
+          "native_surface": "Claude-compatible neutral source folder with adapter notes"
+        }
+      },
+      "permission_contract": {
+        "schema_version": "1.0",
+        "source": "reports/security_trust_report.json",
+        "source_available": true,
+        "declared_capabilities": [
+          "file_write",
+          "subprocess"
+        ],
+        "review_required": true,
+        "capabilities": {
+          "network": {
+            "required": false,
+            "script_count": 0,
+            "scripts": [],
+            "review_reason": ""
+          },
+          "file_write": {
+            "required": true,
+            "script_count": 7,
+            "scripts": [
+              "scripts/export_report.py",
+              "scripts/init_research_package.py",
+              "scripts/merge_claim_ledger.py",
+              "scripts/normalize_retrieval.py",
+              "scripts/render_audit_views.py",
+              "scripts/sanitize_release_archive.py",
+              "scripts/validate_package.py"
+            ],
+            "review_reason": "Scripts write local files or generated artifacts."
+          },
+          "subprocess": {
+            "required": true,
+            "script_count": 2,
+            "scripts": [
+              "scripts/export_report.py",
+              "scripts/run_checks.py"
+            ],
+            "review_reason": "Scripts spawn local commands and need operator review."
+          },
+          "interactive": {
+            "required": false,
+            "script_count": 0,
+            "scripts": [],
+            "review_reason": ""
+          }
+        },
+        "network_policy": {
+          "source": "security/network_policy.json",
+          "covered_scripts": [],
+          "missing_scripts": [],
+          "mismatches": []
+        },
+        "help_smoke": {
+          "enabled": true,
+          "checked_count": 11,
+          "failed_count": 0,
+          "failed_scripts": []
+        },
+        "trust_summary": {
+          "secret_findings": 0,
+          "network_script_count": 0,
+          "file_write_script_count": 7,
+          "subprocess_script_count": 2,
+          "interactive_script_count": 0,
+          "help_smoke_failed_count": 0
+        }
+      },
+      "target_permission_contract": {
+        "schema_version": "1.0",
+        "target": "claude",
+        "permission_model": "neutral-source-plus-adapter",
+        "native_enforcement": false,
+        "representation": "targets/claude/adapter.json::target_permission_contract and README notes",
+        "review_required": true,
+        "declared_capabilities": [
+          "file_write",
+          "subprocess"
+        ],
+        "capability_counts": {
+          "network": 0,
+          "file_write": 7,
+          "subprocess": 2,
+          "interactive": 0
+        },
+        "evidence": "reports/security_trust_report.json",
+        "operator_note": "Claude-compatible package keeps permission intent in adapter metadata for install review."
+      },
+      "target_native_contract": {
+        "schema_version": "1.0",
+        "target": "claude",
+        "native_surface": "Claude-compatible neutral source folder with adapter notes",
+        "activation": {
+          "policy": "Use SKILL.md frontmatter description as the primary activation contract and adapter.json for review metadata.",
+          "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "manual_activation_supported": true,
+          "automatic_activation_note": "Depends on the target client route/catalog implementation."
+        },
+        "resources": {
+          "strategy": "Preserve the source tree directly; write target notes in targets/claude/README.md.",
+          "counts": {
+            "references": 9,
+            "scripts": 13,
+            "assets": 6,
+            "reports": 37
+          },
+          "generated_files": [
+            "targets/claude/adapter.json",
+            "targets/claude/README.md"
+          ]
+        },
+        "scripts": {
+          "strategy": "Scripts remain local package resources and must be reviewed through trust and permission reports before use.",
+          "script_count": 13,
+          "help_smoke_failed_count": 0
+        },
+        "permissions": {
+          "enforcement": "metadata-fallback",
+          "native_enforcement": false,
+          "declared_capabilities": [
+            "file_write",
+            "subprocess"
+          ],
+          "review_required": true
+        },
+        "review": {
+          "artifacts": [
+            "targets/claude/README.md",
+            "targets/claude/adapter.json",
+            "reports/review-studio.html"
+          ],
+          "fallback_behavior": "If Claude-specific metadata is not consumed, SKILL.md and references remain the source of truth.",
+          "unsupported_native_features": [
+            "vendor-native permission enforcement",
+            "provider-specific execution transforms",
+            "vendor-native metadata fields are carried as adapter JSON and README notes"
+          ]
+        },
+        "install_scope": "user or project skill directory"
+      },
+      "target_transform": {
+        "target": "claude",
+        "adapter_mode": "neutral-source-plus-adapter",
+        "generated_files": [
+          "targets/claude/adapter.json",
+          "targets/claude/README.md"
+        ],
+        "metadata_mapping": {
+          "display_name": "targets/claude/adapter.json::display_name",
+          "default_prompt": "targets/claude/adapter.json::default_prompt",
+          "activation": "targets/claude/adapter.json::activation_mode",
+          "execution": "targets/claude/adapter.json::execution_context",
+          "trust": "targets/claude/adapter.json::trust_level",
+          "permissions": "targets/claude/adapter.json::target_permission_contract",
+          "degradation": "targets/claude/adapter.json::degradation_strategy"
+        },
+        "preserved_semantics": [
+          "trigger",
+          "workflow-counts",
+          "resources",
+          "eval-plan",
+          "risk",
+          "governance",
+          "runtime",
+          "trust",
+          "permissions"
+        ],
+        "degradation_strategy": "Use host search tools and preserve the canonical evidence and output contracts.",
+        "permission_representation": "targets/claude/adapter.json::target_permission_contract and README notes",
+        "native_surface": "Claude-compatible neutral source folder with adapter notes",
+        "activation_policy": "Use SKILL.md frontmatter description as the primary activation contract and adapter.json for review metadata.",
+        "resource_strategy": "Preserve the source tree directly; write target notes in targets/claude/README.md.",
+        "script_strategy": "Scripts remain local package resources and must be reviewed through trust and permission reports before use.",
+        "permission_enforcement": "metadata-fallback"
+      },
+      "unsupported_features": [
+        "vendor-native metadata fields are carried as adapter JSON and README notes"
+      ],
+      "warnings": [],
+      "failures": []
+    },
+    {
+      "schema_version": "1.0",
+      "target": "agent-skills",
+      "status": "pass",
+      "compiler": {
+        "name": "yao-skill-ir-compiler",
+        "schema_version": "1.0",
+        "source": "skill-ir",
+        "ir_source": "reports/skill-ir.json",
+        "ir_schema_version": "2.0.0"
+      },
+      "source": {
+        "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+        "canonical_metadata": "agents/interface.yaml",
+        "declared_targets": [
+          "openai",
+          "claude",
+          "agent-skills",
+          "vscode",
+          "generic"
+        ]
+      },
+      "compiled_contract": {
+        "name": "storm-deepresearch-skill",
+        "title": "STORM DeepResearch",
+        "version": "0.4.0",
+        "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+        "job_to_be_done": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
+        "trigger": {
+          "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "should_trigger": [
+            "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
+            "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
+            "Compare competing technical claims and explain what evidence would change the conclusion.",
+            "Create an investment pre-mortem where every material factual claim is traceable to a real source.",
+            "Perform a current literature and industry review with explicit source freshness and limitations."
+          ],
+          "should_not_trigger": [
+            "Find the official release date of this single product and answer in one sentence.",
+            "Brainstorm five fictional expert reactions without doing external research.",
+            "Translate this supplied report into Chinese without adding new information.",
+            "Rewrite this paragraph to sound clearer and more concise.",
+            "Summarize this one document in 200 words without creating a research package.",
+            "Quick factual lookup",
+            "Simple summarization",
+            "Evidence-free expert role-play",
+            "Personalized medical, legal, or investment advice"
+          ],
+          "edge_cases": [
+            "Explain how STORM works, but do not run a research workflow.",
+            "Review these medical studies without giving me personalized treatment advice.",
+            "Use only the files I supplied and do not retrieve anything from the internet.",
+            "Give me a quick answer now and separately tell me whether a deep report would be useful.",
+            "Create a sourced presentation; research is needed, but another skill should own slide production."
+          ]
+        },
+        "workflow": {
+          "steps": [
+            "Normalize the brief and lock `length_contract`.",
+            "Generate questions with the [protocol](references/research-protocol.md) and [STORM mapping](references/storm-workflow-mapping.md).",
+            "Retrieve through an approved [adapter](references/retrieval-adapters.md); memory is not evidence.",
+            "Merge ledgers monotonically; close claims under the [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policies.",
+            "Preserve contradictions and unknowns.",
+            "Map every answered question and material claim into `report_outline`.",
+            "Draft `report.md`, review, export, and validate."
+          ],
+          "decision_points": [
+            "Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.",
+            "Initialize a fresh workspace-scoped run; reject existing or escaping paths.",
+            "Use `closed_corpus` for supplied-only material; otherwise approved host search. For high-stakes topics, avoid personalized advice.",
+            "Ask one focused clarification when the real job, output, or exclusion boundary is unclear.",
+            "Escalate visible tradeoffs when benchmark patterns conflict with local privacy, naming, or governance constraints.",
+            "Do not silently broaden the skill into adjacent jobs just because the examples are nearby."
+          ],
+          "failure_modes": [
+            "Tables can render as dense grids with weak hierarchy or poor mobile readability.",
+            "Long bullets can make the output look complete while hiding the actual decision logic.",
+            "Footnote markers or dense citation notes can interrupt the reading flow.",
+            "Evidence can be over-attached to obvious statements and under-attached to risky claims.",
+            "Commands can omit environment assumptions, working directory, or rollback notes.",
+            "Code snippets can look runnable while missing required inputs.",
+            "Users start invoking the skill for adjacent one-off or explanation-only requests.",
+            "Outputs remain valid but become generic, cluttered, or weakly aligned with the user's domain.",
+            "Borrowed benchmark patterns no longer fit the local job or add ceremony without payoff.",
+            "Skill usage becomes team-critical while ownership, review cadence, or rollback evidence stays informal."
+          ]
+        },
+        "resources": {
+          "references": [
+            "references/claim-evidence-policy.md",
+            "references/export-workflow.md",
+            "references/output-path-policy.md",
+            "references/quality-gates.md",
+            "references/report-writing.md",
+            "references/research-protocol.md",
+            "references/retrieval-adapters.md",
+            "references/source-and-evidence-policy.md",
+            "references/storm-workflow-mapping.md"
+          ],
+          "scripts": [
+            "scripts/contract_io.py",
+            "scripts/export_report.py",
+            "scripts/init_research_package.py",
+            "scripts/local_output_eval_runner.py",
+            "scripts/merge_claim_ledger.py",
+            "scripts/normalize_retrieval.py",
+            "scripts/output_paths.py",
+            "scripts/render_audit_views.py",
+            "scripts/run_checks.py",
+            "scripts/sanitize_release_archive.py",
+            "scripts/validate_contracts.py",
+            "scripts/validate_evidence.py",
+            "scripts/validate_package.py"
+          ],
+          "assets": [
+            "templates/contradiction-map.md",
+            "templates/evidence-map.md",
+            "templates/peer-review.md",
+            "templates/report.html.j2",
+            "templates/report.md",
+            "templates/source-register.md"
+          ],
+          "reports": [
+            "reports/benchmark_methodology.md",
+            "reports/intent-context.json",
+            "reports/intent-confidence.json",
+            "reports/intent-confidence.md",
+            "reports/reference-synthesis.json",
+            "reports/reference-synthesis.md",
+            "reports/output-risk-profile.json",
+            "reports/output-risk-profile.md",
+            "reports/artifact-design-profile.json",
+            "reports/artifact-design-profile.md",
+            "reports/prompt-quality-profile.json",
+            "reports/prompt-quality-profile.md",
+            "reports/system-model.json",
+            "reports/system-model.md",
+            "reports/iteration-directions.json",
+            "reports/iteration-directions.md",
+            "reports/skill-overview.json",
+            "reports/skill-overview.html",
+            "reports/output_quality_scorecard.json",
+            "reports/output_quality_scorecard.md",
+            "reports/output_execution_runs.json",
+            "reports/output_execution_runs.md",
+            "reports/output_blind_review_pack.json",
+            "reports/output_blind_review_pack.md",
+            "reports/output_blind_answer_key.json",
+            "reports/output_review_adjudication.json",
+            "reports/output_review_adjudication.md",
+            "reports/review_annotations.json",
+            "reports/review_annotations.md",
+            "reports/conformance_matrix.json",
+            "reports/conformance_matrix.md",
+            "reports/security_trust_report.json",
+            "reports/security_trust_report.md",
+            "reports/runtime_permission_probes.json",
+            "reports/runtime_permission_probes.md",
+            "reports/skill_atlas.json",
+            "reports/skill_atlas.html"
+          ],
+          "counts": {
+            "references": 9,
+            "scripts": 13,
+            "assets": 6,
+            "reports": 37
+          }
+        },
+        "eval_plan": {
+          "trigger": [
+            "evals/adversarial_cases.json",
+            "evals/checklist.md",
+            "evals/confusion/route_cases.json",
+            "evals/evals.json",
+            "evals/failure-cases.md",
+            "evals/output/cases.jsonl",
+            "evals/output/fixtures/closed-corpus-source.md",
+            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/schema.json",
+            "evals/packaging_expectations.json",
+            "evals/semantic_config.json",
+            "evals/trigger_cases.json"
+          ],
+          "output": [
+            "evals/output/cases.jsonl",
+            "evals/output/fixtures/closed-corpus-source.md",
+            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/schema.json"
+          ],
+          "adversarial": [],
+          "baseline": "without_skill",
+          "counts": {
+            "trigger": 12,
+            "output": 4,
+            "adversarial": 0,
+            "baseline": 1
+          }
+        },
+        "risk": {
+          "output_risk": "medium",
+          "execution_risk": "medium",
+          "trust_boundary": "team"
+        },
+        "governance": {
+          "owner": "陈旭",
+          "maturity": "library",
+          "review_cadence": "quarterly",
+          "review_due": "2026-09-21"
+        },
+        "runtime": {
+          "activation": {
+            "mode": "manual",
+            "paths": []
+          },
+          "execution": {
+            "context": "inline",
+            "shell": "bash"
+          },
+          "trust": {
+            "source_tier": "local",
+            "remote_inline_execution": "forbid",
+            "remote_metadata_policy": "allow-metadata-only"
+          },
+          "adapter_targets": [
+            "openai",
+            "claude",
+            "agent-skills",
+            "vscode",
+            "generic"
+          ],
+          "canonical_format": "agent-skills"
+        },
+        "permissions": {
+          "schema_version": "1.0",
+          "source": "reports/security_trust_report.json",
+          "source_available": true,
+          "declared_capabilities": [
+            "file_write",
+            "subprocess"
+          ],
+          "review_required": true,
+          "capabilities": {
+            "network": {
+              "required": false,
+              "script_count": 0,
+              "scripts": [],
+              "review_reason": ""
+            },
+            "file_write": {
+              "required": true,
+              "script_count": 7,
+              "scripts": [
+                "scripts/export_report.py",
+                "scripts/init_research_package.py",
+                "scripts/merge_claim_ledger.py",
+                "scripts/normalize_retrieval.py",
+                "scripts/render_audit_views.py",
+                "scripts/sanitize_release_archive.py",
+                "scripts/validate_package.py"
+              ],
+              "review_reason": "Scripts write local files or generated artifacts."
+            },
+            "subprocess": {
+              "required": true,
+              "script_count": 2,
+              "scripts": [
+                "scripts/export_report.py",
+                "scripts/run_checks.py"
+              ],
+              "review_reason": "Scripts spawn local commands and need operator review."
+            },
+            "interactive": {
+              "required": false,
+              "script_count": 0,
+              "scripts": [],
+              "review_reason": ""
+            }
+          },
+          "network_policy": {
+            "source": "security/network_policy.json",
+            "covered_scripts": [],
+            "missing_scripts": [],
+            "mismatches": []
+          },
+          "help_smoke": {
+            "enabled": true,
+            "checked_count": 11,
+            "failed_count": 0,
+            "failed_scripts": []
+          },
+          "trust_summary": {
+            "secret_findings": 0,
+            "network_script_count": 0,
+            "file_write_script_count": 7,
+            "subprocess_script_count": 2,
+            "interactive_script_count": 0,
+            "help_smoke_failed_count": 0
+          }
+        },
+        "source_files_count": 6,
+        "target": "agent-skills",
+        "target_permission_contract": {
+          "schema_version": "1.0",
+          "target": "agent-skills",
+          "permission_model": "metadata-only",
+          "native_enforcement": false,
+          "representation": "adapter metadata",
+          "review_required": true,
+          "declared_capabilities": [
+            "file_write",
+            "subprocess"
+          ],
+          "capability_counts": {
+            "network": 0,
+            "file_write": 7,
+            "subprocess": 2,
+            "interactive": 0
+          },
+          "evidence": "reports/security_trust_report.json",
+          "operator_note": "Permission semantics are preserved as metadata for reviewer visibility."
+        },
+        "target_native_contract": {
+          "schema_version": "1.0",
+          "target": "agent-skills",
+          "native_surface": "Agent Skills standard source tree",
+          "activation": {
+            "policy": "Use SKILL.md frontmatter name and description for progressive disclosure.",
+            "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+            "manual_activation_supported": true,
+            "automatic_activation_note": "Depends on the target client route/catalog implementation."
+          },
+          "resources": {
+            "strategy": "Keep optional directories as relative resources next to SKILL.md.",
+            "counts": {
+              "references": 9,
+              "scripts": 13,
+              "assets": 6,
+              "reports": 37
+            },
+            "generated_files": [
+              "SKILL.md",
+              "agents/interface.yaml"
+            ]
+          },
+          "scripts": {
+            "strategy": "Scripts remain local optional resources and should advertise --help when executable.",
+            "script_count": 13,
+            "help_smoke_failed_count": 0
+          },
+          "permissions": {
+            "enforcement": "consumer-enforced-or-metadata-only",
+            "native_enforcement": false,
+            "declared_capabilities": [
+              "file_write",
+              "subprocess"
+            ],
+            "review_required": true
+          },
+          "review": {
+            "artifacts": [
+              "SKILL.md",
+              "agents/interface.yaml",
+              "reports/review-studio.html"
+            ],
+            "fallback_behavior": "The source tree itself is the target artifact.",
+            "unsupported_native_features": []
+          },
+          "install_scope": "Agent Skills source root"
+        },
+        "degradation_strategy": "Use the canonical SKILL.md and relative package resources; the host must enforce declared permissions.",
+        "target_runtime": {
+          "adapter_mode": "neutral-agent-skills-source",
+          "generated_files": [
+            "SKILL.md",
+            "agents/interface.yaml"
+          ],
+          "metadata_mapping": {
+            "name": "SKILL.md::frontmatter.name",
+            "description": "SKILL.md::frontmatter.description",
+            "interface": "agents/interface.yaml",
+            "manifest": "manifest.json"
+          },
+          "preserved_semantics": [
+            "trigger",
+            "workflow",
+            "resources",
+            "eval-plan",
+            "risk",
+            "governance",
+            "runtime",
+            "trust",
+            "permissions"
+          ],
+          "native_surface": "Agent Skills standard source tree"
+        }
+      },
+      "permission_contract": {
+        "schema_version": "1.0",
+        "source": "reports/security_trust_report.json",
+        "source_available": true,
+        "declared_capabilities": [
+          "file_write",
+          "subprocess"
+        ],
+        "review_required": true,
+        "capabilities": {
+          "network": {
+            "required": false,
+            "script_count": 0,
+            "scripts": [],
+            "review_reason": ""
+          },
+          "file_write": {
+            "required": true,
+            "script_count": 7,
+            "scripts": [
+              "scripts/export_report.py",
+              "scripts/init_research_package.py",
+              "scripts/merge_claim_ledger.py",
+              "scripts/normalize_retrieval.py",
+              "scripts/render_audit_views.py",
+              "scripts/sanitize_release_archive.py",
+              "scripts/validate_package.py"
+            ],
+            "review_reason": "Scripts write local files or generated artifacts."
+          },
+          "subprocess": {
+            "required": true,
+            "script_count": 2,
+            "scripts": [
+              "scripts/export_report.py",
+              "scripts/run_checks.py"
+            ],
+            "review_reason": "Scripts spawn local commands and need operator review."
+          },
+          "interactive": {
+            "required": false,
+            "script_count": 0,
+            "scripts": [],
+            "review_reason": ""
+          }
+        },
+        "network_policy": {
+          "source": "security/network_policy.json",
+          "covered_scripts": [],
+          "missing_scripts": [],
+          "mismatches": []
+        },
+        "help_smoke": {
+          "enabled": true,
+          "checked_count": 11,
+          "failed_count": 0,
+          "failed_scripts": []
+        },
+        "trust_summary": {
+          "secret_findings": 0,
+          "network_script_count": 0,
+          "file_write_script_count": 7,
+          "subprocess_script_count": 2,
+          "interactive_script_count": 0,
+          "help_smoke_failed_count": 0
+        }
+      },
+      "target_permission_contract": {
+        "schema_version": "1.0",
+        "target": "agent-skills",
+        "permission_model": "metadata-only",
+        "native_enforcement": false,
+        "representation": "adapter metadata",
+        "review_required": true,
+        "declared_capabilities": [
+          "file_write",
+          "subprocess"
+        ],
+        "capability_counts": {
+          "network": 0,
+          "file_write": 7,
+          "subprocess": 2,
+          "interactive": 0
+        },
+        "evidence": "reports/security_trust_report.json",
+        "operator_note": "Permission semantics are preserved as metadata for reviewer visibility."
+      },
+      "target_native_contract": {
+        "schema_version": "1.0",
+        "target": "agent-skills",
+        "native_surface": "Agent Skills standard source tree",
+        "activation": {
+          "policy": "Use SKILL.md frontmatter name and description for progressive disclosure.",
+          "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "manual_activation_supported": true,
+          "automatic_activation_note": "Depends on the target client route/catalog implementation."
+        },
+        "resources": {
+          "strategy": "Keep optional directories as relative resources next to SKILL.md.",
+          "counts": {
+            "references": 9,
+            "scripts": 13,
+            "assets": 6,
+            "reports": 37
+          },
+          "generated_files": [
+            "SKILL.md",
+            "agents/interface.yaml"
+          ]
+        },
+        "scripts": {
+          "strategy": "Scripts remain local optional resources and should advertise --help when executable.",
+          "script_count": 13,
+          "help_smoke_failed_count": 0
+        },
+        "permissions": {
+          "enforcement": "consumer-enforced-or-metadata-only",
+          "native_enforcement": false,
+          "declared_capabilities": [
+            "file_write",
+            "subprocess"
+          ],
+          "review_required": true
+        },
+        "review": {
+          "artifacts": [
+            "SKILL.md",
+            "agents/interface.yaml",
+            "reports/review-studio.html"
+          ],
+          "fallback_behavior": "The source tree itself is the target artifact.",
+          "unsupported_native_features": []
+        },
+        "install_scope": "Agent Skills source root"
+      },
+      "target_transform": {
+        "target": "agent-skills",
+        "adapter_mode": "neutral-agent-skills-source",
+        "generated_files": [
+          "SKILL.md",
+          "agents/interface.yaml"
+        ],
+        "metadata_mapping": {
+          "name": "SKILL.md::frontmatter.name",
+          "description": "SKILL.md::frontmatter.description",
+          "interface": "agents/interface.yaml",
+          "manifest": "manifest.json"
+        },
+        "preserved_semantics": [
+          "trigger",
+          "workflow",
+          "resources",
+          "eval-plan",
+          "risk",
+          "governance",
+          "runtime",
+          "trust",
+          "permissions"
+        ],
+        "degradation_strategy": "Use the canonical SKILL.md and relative package resources; the host must enforce declared permissions.",
+        "permission_representation": "adapter metadata",
+        "native_surface": "Agent Skills standard source tree",
+        "activation_policy": "Use SKILL.md frontmatter name and description for progressive disclosure.",
+        "resource_strategy": "Keep optional directories as relative resources next to SKILL.md.",
+        "script_strategy": "Scripts remain local optional resources and should advertise --help when executable.",
+        "permission_enforcement": "consumer-enforced-or-metadata-only"
+      },
+      "unsupported_features": [],
+      "warnings": [],
+      "failures": []
+    },
+    {
+      "schema_version": "1.0",
+      "target": "vscode",
+      "status": "pass",
+      "compiler": {
+        "name": "yao-skill-ir-compiler",
+        "schema_version": "1.0",
+        "source": "skill-ir",
+        "ir_source": "reports/skill-ir.json",
+        "ir_schema_version": "2.0.0"
+      },
+      "source": {
+        "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+        "canonical_metadata": "agents/interface.yaml",
+        "declared_targets": [
+          "openai",
+          "claude",
+          "agent-skills",
+          "vscode",
+          "generic"
+        ]
+      },
+      "compiled_contract": {
+        "name": "storm-deepresearch-skill",
+        "title": "STORM DeepResearch",
+        "version": "0.4.0",
+        "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+        "job_to_be_done": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
+        "trigger": {
+          "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "should_trigger": [
+            "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
+            "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
+            "Compare competing technical claims and explain what evidence would change the conclusion.",
+            "Create an investment pre-mortem where every material factual claim is traceable to a real source.",
+            "Perform a current literature and industry review with explicit source freshness and limitations."
+          ],
+          "should_not_trigger": [
+            "Find the official release date of this single product and answer in one sentence.",
+            "Brainstorm five fictional expert reactions without doing external research.",
+            "Translate this supplied report into Chinese without adding new information.",
+            "Rewrite this paragraph to sound clearer and more concise.",
+            "Summarize this one document in 200 words without creating a research package.",
+            "Quick factual lookup",
+            "Simple summarization",
+            "Evidence-free expert role-play",
+            "Personalized medical, legal, or investment advice"
+          ],
+          "edge_cases": [
+            "Explain how STORM works, but do not run a research workflow.",
+            "Review these medical studies without giving me personalized treatment advice.",
+            "Use only the files I supplied and do not retrieve anything from the internet.",
+            "Give me a quick answer now and separately tell me whether a deep report would be useful.",
+            "Create a sourced presentation; research is needed, but another skill should own slide production."
+          ]
+        },
+        "workflow": {
+          "steps": [
+            "Normalize the brief and lock `length_contract`.",
+            "Generate questions with the [protocol](references/research-protocol.md) and [STORM mapping](references/storm-workflow-mapping.md).",
+            "Retrieve through an approved [adapter](references/retrieval-adapters.md); memory is not evidence.",
+            "Merge ledgers monotonically; close claims under the [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policies.",
+            "Preserve contradictions and unknowns.",
+            "Map every answered question and material claim into `report_outline`.",
+            "Draft `report.md`, review, export, and validate."
+          ],
+          "decision_points": [
+            "Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.",
+            "Initialize a fresh workspace-scoped run; reject existing or escaping paths.",
+            "Use `closed_corpus` for supplied-only material; otherwise approved host search. For high-stakes topics, avoid personalized advice.",
+            "Ask one focused clarification when the real job, output, or exclusion boundary is unclear.",
+            "Escalate visible tradeoffs when benchmark patterns conflict with local privacy, naming, or governance constraints.",
+            "Do not silently broaden the skill into adjacent jobs just because the examples are nearby."
+          ],
+          "failure_modes": [
+            "Tables can render as dense grids with weak hierarchy or poor mobile readability.",
+            "Long bullets can make the output look complete while hiding the actual decision logic.",
+            "Footnote markers or dense citation notes can interrupt the reading flow.",
+            "Evidence can be over-attached to obvious statements and under-attached to risky claims.",
+            "Commands can omit environment assumptions, working directory, or rollback notes.",
+            "Code snippets can look runnable while missing required inputs.",
+            "Users start invoking the skill for adjacent one-off or explanation-only requests.",
+            "Outputs remain valid but become generic, cluttered, or weakly aligned with the user's domain.",
+            "Borrowed benchmark patterns no longer fit the local job or add ceremony without payoff.",
+            "Skill usage becomes team-critical while ownership, review cadence, or rollback evidence stays informal."
+          ]
+        },
+        "resources": {
+          "references": [
+            "references/claim-evidence-policy.md",
+            "references/export-workflow.md",
+            "references/output-path-policy.md",
+            "references/quality-gates.md",
+            "references/report-writing.md",
+            "references/research-protocol.md",
+            "references/retrieval-adapters.md",
+            "references/source-and-evidence-policy.md",
+            "references/storm-workflow-mapping.md"
+          ],
+          "scripts": [
+            "scripts/contract_io.py",
+            "scripts/export_report.py",
+            "scripts/init_research_package.py",
+            "scripts/local_output_eval_runner.py",
+            "scripts/merge_claim_ledger.py",
+            "scripts/normalize_retrieval.py",
+            "scripts/output_paths.py",
+            "scripts/render_audit_views.py",
+            "scripts/run_checks.py",
+            "scripts/sanitize_release_archive.py",
+            "scripts/validate_contracts.py",
+            "scripts/validate_evidence.py",
+            "scripts/validate_package.py"
+          ],
+          "assets": [
+            "templates/contradiction-map.md",
+            "templates/evidence-map.md",
+            "templates/peer-review.md",
+            "templates/report.html.j2",
+            "templates/report.md",
+            "templates/source-register.md"
+          ],
+          "reports": [
+            "reports/benchmark_methodology.md",
+            "reports/intent-context.json",
+            "reports/intent-confidence.json",
+            "reports/intent-confidence.md",
+            "reports/reference-synthesis.json",
+            "reports/reference-synthesis.md",
+            "reports/output-risk-profile.json",
+            "reports/output-risk-profile.md",
+            "reports/artifact-design-profile.json",
+            "reports/artifact-design-profile.md",
+            "reports/prompt-quality-profile.json",
+            "reports/prompt-quality-profile.md",
+            "reports/system-model.json",
+            "reports/system-model.md",
+            "reports/iteration-directions.json",
+            "reports/iteration-directions.md",
+            "reports/skill-overview.json",
+            "reports/skill-overview.html",
+            "reports/output_quality_scorecard.json",
+            "reports/output_quality_scorecard.md",
+            "reports/output_execution_runs.json",
+            "reports/output_execution_runs.md",
+            "reports/output_blind_review_pack.json",
+            "reports/output_blind_review_pack.md",
+            "reports/output_blind_answer_key.json",
+            "reports/output_review_adjudication.json",
+            "reports/output_review_adjudication.md",
+            "reports/review_annotations.json",
+            "reports/review_annotations.md",
+            "reports/conformance_matrix.json",
+            "reports/conformance_matrix.md",
+            "reports/security_trust_report.json",
+            "reports/security_trust_report.md",
+            "reports/runtime_permission_probes.json",
+            "reports/runtime_permission_probes.md",
+            "reports/skill_atlas.json",
+            "reports/skill_atlas.html"
+          ],
+          "counts": {
+            "references": 9,
+            "scripts": 13,
+            "assets": 6,
+            "reports": 37
+          }
+        },
+        "eval_plan": {
+          "trigger": [
+            "evals/adversarial_cases.json",
+            "evals/checklist.md",
+            "evals/confusion/route_cases.json",
+            "evals/evals.json",
+            "evals/failure-cases.md",
+            "evals/output/cases.jsonl",
+            "evals/output/fixtures/closed-corpus-source.md",
+            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/schema.json",
+            "evals/packaging_expectations.json",
+            "evals/semantic_config.json",
+            "evals/trigger_cases.json"
+          ],
+          "output": [
+            "evals/output/cases.jsonl",
+            "evals/output/fixtures/closed-corpus-source.md",
+            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/schema.json"
+          ],
+          "adversarial": [],
+          "baseline": "without_skill",
+          "counts": {
+            "trigger": 12,
+            "output": 4,
+            "adversarial": 0,
+            "baseline": 1
+          }
+        },
+        "risk": {
+          "output_risk": "medium",
+          "execution_risk": "medium",
+          "trust_boundary": "team"
+        },
+        "governance": {
+          "owner": "陈旭",
+          "maturity": "library",
+          "review_cadence": "quarterly",
+          "review_due": "2026-09-21"
+        },
+        "runtime": {
+          "activation": {
+            "mode": "manual",
+            "paths": []
+          },
+          "execution": {
+            "context": "inline",
+            "shell": "bash"
+          },
+          "trust": {
+            "source_tier": "local",
+            "remote_inline_execution": "forbid",
+            "remote_metadata_policy": "allow-metadata-only"
+          },
+          "adapter_targets": [
+            "openai",
+            "claude",
+            "agent-skills",
+            "vscode",
+            "generic"
+          ],
+          "canonical_format": "agent-skills"
+        },
+        "permissions": {
+          "schema_version": "1.0",
+          "source": "reports/security_trust_report.json",
+          "source_available": true,
+          "declared_capabilities": [
+            "file_write",
+            "subprocess"
+          ],
+          "review_required": true,
+          "capabilities": {
+            "network": {
+              "required": false,
+              "script_count": 0,
+              "scripts": [],
+              "review_reason": ""
+            },
+            "file_write": {
+              "required": true,
+              "script_count": 7,
+              "scripts": [
+                "scripts/export_report.py",
+                "scripts/init_research_package.py",
+                "scripts/merge_claim_ledger.py",
+                "scripts/normalize_retrieval.py",
+                "scripts/render_audit_views.py",
+                "scripts/sanitize_release_archive.py",
+                "scripts/validate_package.py"
+              ],
+              "review_reason": "Scripts write local files or generated artifacts."
+            },
+            "subprocess": {
+              "required": true,
+              "script_count": 2,
+              "scripts": [
+                "scripts/export_report.py",
+                "scripts/run_checks.py"
+              ],
+              "review_reason": "Scripts spawn local commands and need operator review."
+            },
+            "interactive": {
+              "required": false,
+              "script_count": 0,
+              "scripts": [],
+              "review_reason": ""
+            }
+          },
+          "network_policy": {
+            "source": "security/network_policy.json",
+            "covered_scripts": [],
+            "missing_scripts": [],
+            "mismatches": []
+          },
+          "help_smoke": {
+            "enabled": true,
+            "checked_count": 11,
+            "failed_count": 0,
+            "failed_scripts": []
+          },
+          "trust_summary": {
+            "secret_findings": 0,
+            "network_script_count": 0,
+            "file_write_script_count": 7,
+            "subprocess_script_count": 2,
+            "interactive_script_count": 0,
+            "help_smoke_failed_count": 0
+          }
+        },
+        "source_files_count": 6,
+        "target": "vscode",
+        "target_permission_contract": {
+          "schema_version": "1.0",
+          "target": "vscode",
+          "permission_model": "vscode-workspace-trust-plus-metadata",
+          "native_enforcement": false,
+          "representation": "targets/vscode/adapter.json::target_permission_contract and targets/vscode/README.md install notes",
+          "review_required": true,
+          "declared_capabilities": [
+            "file_write",
+            "subprocess"
+          ],
+          "capability_counts": {
+            "network": 0,
+            "file_write": 7,
+            "subprocess": 2,
+            "interactive": 0
+          },
+          "evidence": "reports/security_trust_report.json",
+          "operator_note": "VS Code target relies on project or user skill installation plus VS Code workspace trust; Yao preserves permission metadata for reviewer and installer checks."
+        },
+        "target_native_contract": {
+          "schema_version": "1.0",
+          "target": "vscode",
+          "native_surface": "VS Code/Copilot Agent Skills project or user scope",
+          "activation": {
+            "policy": "Use folder name plus SKILL.md name/description; keep description under platform limits.",
+            "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+            "manual_activation_supported": true,
+            "automatic_activation_note": "Depends on the target client route/catalog implementation."
+          },
+          "resources": {
+            "strategy": "Install as project or user scoped skill source, preserving relative references and scripts.",
+            "counts": {
+              "references": 9,
+              "scripts": 13,
+              "assets": 6,
+              "reports": 37
+            },
+            "generated_files": [
+              "targets/vscode/adapter.json",
+              "targets/vscode/README.md"
+            ]
+          },
+          "scripts": {
+            "strategy": "Scripts require workspace trust and operator/client approval outside this compiler.",
+            "script_count": 13,
+            "help_smoke_failed_count": 0
+          },
+          "permissions": {
+            "enforcement": "client-or-workspace-trust",
+            "native_enforcement": false,
+            "declared_capabilities": [
+              "file_write",
+              "subprocess"
+            ],
+            "review_required": true
+          },
+          "review": {
+            "artifacts": [
+              "SKILL.md",
+              "agents/interface.yaml",
+              "reports/review-studio.html"
+            ],
+            "fallback_behavior": "If VS Code scope is not installed, use the neutral Agent Skills source.",
+            "unsupported_native_features": [
+              "automatic VS Code installation",
+              "VS Code installation scope is documented but not installed by this compiler"
+            ]
+          },
+          "install_scope": "VS Code user or project skills directory"
+        },
+        "degradation_strategy": "Use workspace-trusted local tools and preserve the canonical evidence and output contracts.",
+        "target_runtime": {
+          "adapter_mode": "vscode-agent-skills-adapter",
+          "generated_files": [
+            "targets/vscode/adapter.json",
+            "targets/vscode/README.md"
+          ],
+          "metadata_mapping": {
+            "name": "folder-name-and-SKILL.md::frontmatter.name",
+            "description": "SKILL.md::frontmatter.description",
+            "interface": "agents/interface.yaml",
+            "permissions": "targets/vscode/adapter.json::target_permission_contract",
+            "install_scope": "targets/vscode/README.md"
+          },
+          "preserved_semantics": [
+            "trigger",
+            "workflow",
+            "resources",
+            "eval-plan",
+            "risk",
+            "governance",
+            "runtime",
+            "trust",
+            "permissions"
+          ],
+          "native_surface": "VS Code/Copilot Agent Skills project or user scope"
+        }
+      },
+      "permission_contract": {
+        "schema_version": "1.0",
+        "source": "reports/security_trust_report.json",
+        "source_available": true,
+        "declared_capabilities": [
+          "file_write",
+          "subprocess"
+        ],
+        "review_required": true,
+        "capabilities": {
+          "network": {
+            "required": false,
+            "script_count": 0,
+            "scripts": [],
+            "review_reason": ""
+          },
+          "file_write": {
+            "required": true,
+            "script_count": 7,
+            "scripts": [
+              "scripts/export_report.py",
+              "scripts/init_research_package.py",
+              "scripts/merge_claim_ledger.py",
+              "scripts/normalize_retrieval.py",
+              "scripts/render_audit_views.py",
+              "scripts/sanitize_release_archive.py",
+              "scripts/validate_package.py"
+            ],
+            "review_reason": "Scripts write local files or generated artifacts."
+          },
+          "subprocess": {
+            "required": true,
+            "script_count": 2,
+            "scripts": [
+              "scripts/export_report.py",
+              "scripts/run_checks.py"
+            ],
+            "review_reason": "Scripts spawn local commands and need operator review."
+          },
+          "interactive": {
+            "required": false,
+            "script_count": 0,
+            "scripts": [],
+            "review_reason": ""
+          }
+        },
+        "network_policy": {
+          "source": "security/network_policy.json",
+          "covered_scripts": [],
+          "missing_scripts": [],
+          "mismatches": []
+        },
+        "help_smoke": {
+          "enabled": true,
+          "checked_count": 11,
+          "failed_count": 0,
+          "failed_scripts": []
+        },
+        "trust_summary": {
+          "secret_findings": 0,
+          "network_script_count": 0,
+          "file_write_script_count": 7,
+          "subprocess_script_count": 2,
+          "interactive_script_count": 0,
+          "help_smoke_failed_count": 0
+        }
+      },
+      "target_permission_contract": {
+        "schema_version": "1.0",
+        "target": "vscode",
+        "permission_model": "vscode-workspace-trust-plus-metadata",
+        "native_enforcement": false,
+        "representation": "targets/vscode/adapter.json::target_permission_contract and targets/vscode/README.md install notes",
+        "review_required": true,
+        "declared_capabilities": [
+          "file_write",
+          "subprocess"
+        ],
+        "capability_counts": {
+          "network": 0,
+          "file_write": 7,
+          "subprocess": 2,
+          "interactive": 0
+        },
+        "evidence": "reports/security_trust_report.json",
+        "operator_note": "VS Code target relies on project or user skill installation plus VS Code workspace trust; Yao preserves permission metadata for reviewer and installer checks."
+      },
+      "target_native_contract": {
+        "schema_version": "1.0",
+        "target": "vscode",
+        "native_surface": "VS Code/Copilot Agent Skills project or user scope",
+        "activation": {
+          "policy": "Use folder name plus SKILL.md name/description; keep description under platform limits.",
+          "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "manual_activation_supported": true,
+          "automatic_activation_note": "Depends on the target client route/catalog implementation."
+        },
+        "resources": {
+          "strategy": "Install as project or user scoped skill source, preserving relative references and scripts.",
+          "counts": {
+            "references": 9,
+            "scripts": 13,
+            "assets": 6,
+            "reports": 37
+          },
+          "generated_files": [
+            "targets/vscode/adapter.json",
+            "targets/vscode/README.md"
+          ]
+        },
+        "scripts": {
+          "strategy": "Scripts require workspace trust and operator/client approval outside this compiler.",
+          "script_count": 13,
+          "help_smoke_failed_count": 0
+        },
+        "permissions": {
+          "enforcement": "client-or-workspace-trust",
+          "native_enforcement": false,
+          "declared_capabilities": [
+            "file_write",
+            "subprocess"
+          ],
+          "review_required": true
+        },
+        "review": {
+          "artifacts": [
+            "SKILL.md",
+            "agents/interface.yaml",
+            "reports/review-studio.html"
+          ],
+          "fallback_behavior": "If VS Code scope is not installed, use the neutral Agent Skills source.",
+          "unsupported_native_features": [
+            "automatic VS Code installation",
+            "VS Code installation scope is documented but not installed by this compiler"
+          ]
+        },
+        "install_scope": "VS Code user or project skills directory"
+      },
+      "target_transform": {
+        "target": "vscode",
+        "adapter_mode": "vscode-agent-skills-adapter",
+        "generated_files": [
+          "targets/vscode/adapter.json",
+          "targets/vscode/README.md"
+        ],
+        "metadata_mapping": {
+          "name": "folder-name-and-SKILL.md::frontmatter.name",
+          "description": "SKILL.md::frontmatter.description",
+          "interface": "agents/interface.yaml",
+          "permissions": "targets/vscode/adapter.json::target_permission_contract",
+          "install_scope": "targets/vscode/README.md"
+        },
+        "preserved_semantics": [
+          "trigger",
+          "workflow",
+          "resources",
+          "eval-plan",
+          "risk",
+          "governance",
+          "runtime",
+          "trust",
+          "permissions"
+        ],
+        "degradation_strategy": "Use workspace-trusted local tools and preserve the canonical evidence and output contracts.",
+        "permission_representation": "targets/vscode/adapter.json::target_permission_contract and targets/vscode/README.md install notes",
+        "native_surface": "VS Code/Copilot Agent Skills project or user scope",
+        "activation_policy": "Use folder name plus SKILL.md name/description; keep description under platform limits.",
+        "resource_strategy": "Install as project or user scoped skill source, preserving relative references and scripts.",
+        "script_strategy": "Scripts require workspace trust and operator/client approval outside this compiler.",
+        "permission_enforcement": "client-or-workspace-trust"
+      },
+      "unsupported_features": [
+        "VS Code installation scope is documented but not installed by this compiler"
+      ],
+      "warnings": [],
+      "failures": []
+    },
+    {
+      "schema_version": "1.0",
+      "target": "generic",
+      "status": "pass",
+      "compiler": {
+        "name": "yao-skill-ir-compiler",
+        "schema_version": "1.0",
+        "source": "skill-ir",
+        "ir_source": "reports/skill-ir.json",
+        "ir_schema_version": "2.0.0"
+      },
+      "source": {
+        "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+        "canonical_metadata": "agents/interface.yaml",
+        "declared_targets": [
+          "openai",
+          "claude",
+          "agent-skills",
+          "vscode",
+          "generic"
+        ]
+      },
+      "compiled_contract": {
+        "name": "storm-deepresearch-skill",
+        "title": "STORM DeepResearch",
+        "version": "0.4.0",
+        "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+        "job_to_be_done": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
+        "trigger": {
+          "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "should_trigger": [
+            "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
+            "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
+            "Compare competing technical claims and explain what evidence would change the conclusion.",
+            "Create an investment pre-mortem where every material factual claim is traceable to a real source.",
+            "Perform a current literature and industry review with explicit source freshness and limitations."
+          ],
+          "should_not_trigger": [
+            "Find the official release date of this single product and answer in one sentence.",
+            "Brainstorm five fictional expert reactions without doing external research.",
+            "Translate this supplied report into Chinese without adding new information.",
+            "Rewrite this paragraph to sound clearer and more concise.",
+            "Summarize this one document in 200 words without creating a research package.",
+            "Quick factual lookup",
+            "Simple summarization",
+            "Evidence-free expert role-play",
+            "Personalized medical, legal, or investment advice"
+          ],
+          "edge_cases": [
+            "Explain how STORM works, but do not run a research workflow.",
+            "Review these medical studies without giving me personalized treatment advice.",
+            "Use only the files I supplied and do not retrieve anything from the internet.",
+            "Give me a quick answer now and separately tell me whether a deep report would be useful.",
+            "Create a sourced presentation; research is needed, but another skill should own slide production."
+          ]
+        },
+        "workflow": {
+          "steps": [
+            "Normalize the brief and lock `length_contract`.",
+            "Generate questions with the [protocol](references/research-protocol.md) and [STORM mapping](references/storm-workflow-mapping.md).",
+            "Retrieve through an approved [adapter](references/retrieval-adapters.md); memory is not evidence.",
+            "Merge ledgers monotonically; close claims under the [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policies.",
+            "Preserve contradictions and unknowns.",
+            "Map every answered question and material claim into `report_outline`.",
+            "Draft `report.md`, review, export, and validate."
+          ],
+          "decision_points": [
+            "Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.",
+            "Initialize a fresh workspace-scoped run; reject existing or escaping paths.",
+            "Use `closed_corpus` for supplied-only material; otherwise approved host search. For high-stakes topics, avoid personalized advice.",
+            "Ask one focused clarification when the real job, output, or exclusion boundary is unclear.",
+            "Escalate visible tradeoffs when benchmark patterns conflict with local privacy, naming, or governance constraints.",
+            "Do not silently broaden the skill into adjacent jobs just because the examples are nearby."
+          ],
+          "failure_modes": [
+            "Tables can render as dense grids with weak hierarchy or poor mobile readability.",
+            "Long bullets can make the output look complete while hiding the actual decision logic.",
+            "Footnote markers or dense citation notes can interrupt the reading flow.",
+            "Evidence can be over-attached to obvious statements and under-attached to risky claims.",
+            "Commands can omit environment assumptions, working directory, or rollback notes.",
+            "Code snippets can look runnable while missing required inputs.",
+            "Users start invoking the skill for adjacent one-off or explanation-only requests.",
+            "Outputs remain valid but become generic, cluttered, or weakly aligned with the user's domain.",
+            "Borrowed benchmark patterns no longer fit the local job or add ceremony without payoff.",
+            "Skill usage becomes team-critical while ownership, review cadence, or rollback evidence stays informal."
+          ]
+        },
+        "resources": {
+          "references": [
+            "references/claim-evidence-policy.md",
+            "references/export-workflow.md",
+            "references/output-path-policy.md",
+            "references/quality-gates.md",
+            "references/report-writing.md",
+            "references/research-protocol.md",
+            "references/retrieval-adapters.md",
+            "references/source-and-evidence-policy.md",
+            "references/storm-workflow-mapping.md"
+          ],
+          "scripts": [
+            "scripts/contract_io.py",
+            "scripts/export_report.py",
+            "scripts/init_research_package.py",
+            "scripts/local_output_eval_runner.py",
+            "scripts/merge_claim_ledger.py",
+            "scripts/normalize_retrieval.py",
+            "scripts/output_paths.py",
+            "scripts/render_audit_views.py",
+            "scripts/run_checks.py",
+            "scripts/sanitize_release_archive.py",
+            "scripts/validate_contracts.py",
+            "scripts/validate_evidence.py",
+            "scripts/validate_package.py"
+          ],
+          "assets": [
+            "templates/contradiction-map.md",
+            "templates/evidence-map.md",
+            "templates/peer-review.md",
+            "templates/report.html.j2",
+            "templates/report.md",
+            "templates/source-register.md"
+          ],
+          "reports": [
+            "reports/benchmark_methodology.md",
+            "reports/intent-context.json",
+            "reports/intent-confidence.json",
+            "reports/intent-confidence.md",
+            "reports/reference-synthesis.json",
+            "reports/reference-synthesis.md",
+            "reports/output-risk-profile.json",
+            "reports/output-risk-profile.md",
+            "reports/artifact-design-profile.json",
+            "reports/artifact-design-profile.md",
+            "reports/prompt-quality-profile.json",
+            "reports/prompt-quality-profile.md",
+            "reports/system-model.json",
+            "reports/system-model.md",
+            "reports/iteration-directions.json",
+            "reports/iteration-directions.md",
+            "reports/skill-overview.json",
+            "reports/skill-overview.html",
+            "reports/output_quality_scorecard.json",
+            "reports/output_quality_scorecard.md",
+            "reports/output_execution_runs.json",
+            "reports/output_execution_runs.md",
+            "reports/output_blind_review_pack.json",
+            "reports/output_blind_review_pack.md",
+            "reports/output_blind_answer_key.json",
+            "reports/output_review_adjudication.json",
+            "reports/output_review_adjudication.md",
+            "reports/review_annotations.json",
+            "reports/review_annotations.md",
+            "reports/conformance_matrix.json",
+            "reports/conformance_matrix.md",
+            "reports/security_trust_report.json",
+            "reports/security_trust_report.md",
+            "reports/runtime_permission_probes.json",
+            "reports/runtime_permission_probes.md",
+            "reports/skill_atlas.json",
+            "reports/skill_atlas.html"
+          ],
+          "counts": {
+            "references": 9,
+            "scripts": 13,
+            "assets": 6,
+            "reports": 37
+          }
+        },
+        "eval_plan": {
+          "trigger": [
+            "evals/adversarial_cases.json",
+            "evals/checklist.md",
+            "evals/confusion/route_cases.json",
+            "evals/evals.json",
+            "evals/failure-cases.md",
+            "evals/output/cases.jsonl",
+            "evals/output/fixtures/closed-corpus-source.md",
+            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/schema.json",
+            "evals/packaging_expectations.json",
+            "evals/semantic_config.json",
+            "evals/trigger_cases.json"
+          ],
+          "output": [
+            "evals/output/cases.jsonl",
+            "evals/output/fixtures/closed-corpus-source.md",
+            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/schema.json"
+          ],
+          "adversarial": [],
+          "baseline": "without_skill",
+          "counts": {
+            "trigger": 12,
+            "output": 4,
+            "adversarial": 0,
+            "baseline": 1
+          }
+        },
+        "risk": {
+          "output_risk": "medium",
+          "execution_risk": "medium",
+          "trust_boundary": "team"
+        },
+        "governance": {
+          "owner": "陈旭",
+          "maturity": "library",
+          "review_cadence": "quarterly",
+          "review_due": "2026-09-21"
+        },
+        "runtime": {
+          "activation": {
+            "mode": "manual",
+            "paths": []
+          },
+          "execution": {
+            "context": "inline",
+            "shell": "bash"
+          },
+          "trust": {
+            "source_tier": "local",
+            "remote_inline_execution": "forbid",
+            "remote_metadata_policy": "allow-metadata-only"
+          },
+          "adapter_targets": [
+            "openai",
+            "claude",
+            "agent-skills",
+            "vscode",
+            "generic"
+          ],
+          "canonical_format": "agent-skills"
+        },
+        "permissions": {
+          "schema_version": "1.0",
+          "source": "reports/security_trust_report.json",
+          "source_available": true,
+          "declared_capabilities": [
+            "file_write",
+            "subprocess"
+          ],
+          "review_required": true,
+          "capabilities": {
+            "network": {
+              "required": false,
+              "script_count": 0,
+              "scripts": [],
+              "review_reason": ""
+            },
+            "file_write": {
+              "required": true,
+              "script_count": 7,
+              "scripts": [
+                "scripts/export_report.py",
+                "scripts/init_research_package.py",
+                "scripts/merge_claim_ledger.py",
+                "scripts/normalize_retrieval.py",
+                "scripts/render_audit_views.py",
+                "scripts/sanitize_release_archive.py",
+                "scripts/validate_package.py"
+              ],
+              "review_reason": "Scripts write local files or generated artifacts."
+            },
+            "subprocess": {
+              "required": true,
+              "script_count": 2,
+              "scripts": [
+                "scripts/export_report.py",
+                "scripts/run_checks.py"
+              ],
+              "review_reason": "Scripts spawn local commands and need operator review."
+            },
+            "interactive": {
+              "required": false,
+              "script_count": 0,
+              "scripts": [],
+              "review_reason": ""
+            }
+          },
+          "network_policy": {
+            "source": "security/network_policy.json",
+            "covered_scripts": [],
+            "missing_scripts": [],
+            "mismatches": []
+          },
+          "help_smoke": {
+            "enabled": true,
+            "checked_count": 11,
+            "failed_count": 0,
+            "failed_scripts": []
+          },
+          "trust_summary": {
+            "secret_findings": 0,
+            "network_script_count": 0,
+            "file_write_script_count": 7,
+            "subprocess_script_count": 2,
+            "interactive_script_count": 0,
+            "help_smoke_failed_count": 0
+          }
+        },
+        "source_files_count": 6,
+        "target": "generic",
+        "target_permission_contract": {
+          "schema_version": "1.0",
+          "target": "generic",
+          "permission_model": "agent-skills-compatible-metadata",
+          "native_enforcement": false,
+          "representation": "targets/generic/adapter.json::target_permission_contract",
+          "review_required": true,
+          "declared_capabilities": [
+            "file_write",
+            "subprocess"
+          ],
+          "capability_counts": {
+            "network": 0,
+            "file_write": 7,
+            "subprocess": 2,
+            "interactive": 0
+          },
+          "evidence": "reports/security_trust_report.json",
+          "operator_note": "Generic target exposes permission metadata for downstream clients to enforce or review."
+        },
+        "target_native_contract": {
+          "schema_version": "1.0",
+          "target": "generic",
+          "native_surface": "Agent Skills compatible neutral package",
+          "activation": {
+            "policy": "Use SKILL.md name and description; consumers decide automatic or manual activation.",
+            "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+            "manual_activation_supported": true,
+            "automatic_activation_note": "Depends on the target client route/catalog implementation."
+          },
+          "resources": {
+            "strategy": "Preserve references, scripts, assets, evals, reports, and adapter metadata as relative package resources.",
+            "counts": {
+              "references": 9,
+              "scripts": 13,
+              "assets": 6,
+              "reports": 37
+            },
+            "generated_files": [
+              "targets/generic/adapter.json"
+            ]
+          },
+          "scripts": {
+            "strategy": "Expose script and permission metadata for downstream clients or installers to enforce.",
+            "script_count": 13,
+            "help_smoke_failed_count": 0
+          },
+          "permissions": {
+            "enforcement": "consumer-enforced-or-metadata-only",
+            "native_enforcement": false,
+            "declared_capabilities": [
+              "file_write",
+              "subprocess"
+            ],
+            "review_required": true
+          },
+          "review": {
+            "artifacts": [
+              "targets/generic/adapter.json",
+              "reports/review-studio.html"
+            ],
+            "fallback_behavior": "Neutral source is the runtime fallback.",
+            "unsupported_native_features": []
+          },
+          "install_scope": "generic Agent Skills compatible root"
+        },
+        "degradation_strategy": "Require an approved retrieval adapter or closed corpus; never simulate retrieved evidence.",
+        "target_runtime": {
+          "adapter_mode": "agent-skills-compatible",
+          "generated_files": [
+            "targets/generic/adapter.json"
+          ],
+          "metadata_mapping": {
+            "display_name": "targets/generic/adapter.json::display_name",
+            "default_prompt": "targets/generic/adapter.json::default_prompt",
+            "activation": "targets/generic/adapter.json::activation_mode",
+            "execution": "targets/generic/adapter.json::execution_context",
+            "trust": "targets/generic/adapter.json::trust_level",
+            "permissions": "targets/generic/adapter.json::target_permission_contract",
+            "degradation": "targets/generic/adapter.json::degradation_strategy"
+          },
+          "preserved_semantics": [
+            "trigger",
+            "workflow-counts",
+            "resources",
+            "eval-plan",
+            "risk",
+            "governance",
+            "runtime",
+            "trust",
+            "permissions"
+          ],
+          "native_surface": "Agent Skills compatible neutral package"
+        }
+      },
+      "permission_contract": {
+        "schema_version": "1.0",
+        "source": "reports/security_trust_report.json",
+        "source_available": true,
+        "declared_capabilities": [
+          "file_write",
+          "subprocess"
+        ],
+        "review_required": true,
+        "capabilities": {
+          "network": {
+            "required": false,
+            "script_count": 0,
+            "scripts": [],
+            "review_reason": ""
+          },
+          "file_write": {
+            "required": true,
+            "script_count": 7,
+            "scripts": [
+              "scripts/export_report.py",
+              "scripts/init_research_package.py",
+              "scripts/merge_claim_ledger.py",
+              "scripts/normalize_retrieval.py",
+              "scripts/render_audit_views.py",
+              "scripts/sanitize_release_archive.py",
+              "scripts/validate_package.py"
+            ],
+            "review_reason": "Scripts write local files or generated artifacts."
+          },
+          "subprocess": {
+            "required": true,
+            "script_count": 2,
+            "scripts": [
+              "scripts/export_report.py",
+              "scripts/run_checks.py"
+            ],
+            "review_reason": "Scripts spawn local commands and need operator review."
+          },
+          "interactive": {
+            "required": false,
+            "script_count": 0,
+            "scripts": [],
+            "review_reason": ""
+          }
+        },
+        "network_policy": {
+          "source": "security/network_policy.json",
+          "covered_scripts": [],
+          "missing_scripts": [],
+          "mismatches": []
+        },
+        "help_smoke": {
+          "enabled": true,
+          "checked_count": 11,
+          "failed_count": 0,
+          "failed_scripts": []
+        },
+        "trust_summary": {
+          "secret_findings": 0,
+          "network_script_count": 0,
+          "file_write_script_count": 7,
+          "subprocess_script_count": 2,
+          "interactive_script_count": 0,
+          "help_smoke_failed_count": 0
+        }
+      },
+      "target_permission_contract": {
+        "schema_version": "1.0",
+        "target": "generic",
+        "permission_model": "agent-skills-compatible-metadata",
+        "native_enforcement": false,
+        "representation": "targets/generic/adapter.json::target_permission_contract",
+        "review_required": true,
+        "declared_capabilities": [
+          "file_write",
+          "subprocess"
+        ],
+        "capability_counts": {
+          "network": 0,
+          "file_write": 7,
+          "subprocess": 2,
+          "interactive": 0
+        },
+        "evidence": "reports/security_trust_report.json",
+        "operator_note": "Generic target exposes permission metadata for downstream clients to enforce or review."
+      },
+      "target_native_contract": {
+        "schema_version": "1.0",
+        "target": "generic",
+        "native_surface": "Agent Skills compatible neutral package",
+        "activation": {
+          "policy": "Use SKILL.md name and description; consumers decide automatic or manual activation.",
+          "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "manual_activation_supported": true,
+          "automatic_activation_note": "Depends on the target client route/catalog implementation."
+        },
+        "resources": {
+          "strategy": "Preserve references, scripts, assets, evals, reports, and adapter metadata as relative package resources.",
+          "counts": {
+            "references": 9,
+            "scripts": 13,
+            "assets": 6,
+            "reports": 37
+          },
+          "generated_files": [
+            "targets/generic/adapter.json"
+          ]
+        },
+        "scripts": {
+          "strategy": "Expose script and permission metadata for downstream clients or installers to enforce.",
+          "script_count": 13,
+          "help_smoke_failed_count": 0
+        },
+        "permissions": {
+          "enforcement": "consumer-enforced-or-metadata-only",
+          "native_enforcement": false,
+          "declared_capabilities": [
+            "file_write",
+            "subprocess"
+          ],
+          "review_required": true
+        },
+        "review": {
+          "artifacts": [
+            "targets/generic/adapter.json",
+            "reports/review-studio.html"
+          ],
+          "fallback_behavior": "Neutral source is the runtime fallback.",
+          "unsupported_native_features": []
+        },
+        "install_scope": "generic Agent Skills compatible root"
+      },
+      "target_transform": {
+        "target": "generic",
+        "adapter_mode": "agent-skills-compatible",
+        "generated_files": [
+          "targets/generic/adapter.json"
+        ],
+        "metadata_mapping": {
+          "display_name": "targets/generic/adapter.json::display_name",
+          "default_prompt": "targets/generic/adapter.json::default_prompt",
+          "activation": "targets/generic/adapter.json::activation_mode",
+          "execution": "targets/generic/adapter.json::execution_context",
+          "trust": "targets/generic/adapter.json::trust_level",
+          "permissions": "targets/generic/adapter.json::target_permission_contract",
+          "degradation": "targets/generic/adapter.json::degradation_strategy"
+        },
+        "preserved_semantics": [
+          "trigger",
+          "workflow-counts",
+          "resources",
+          "eval-plan",
+          "risk",
+          "governance",
+          "runtime",
+          "trust",
+          "permissions"
+        ],
+        "degradation_strategy": "Require an approved retrieval adapter or closed corpus; never simulate retrieved evidence.",
+        "permission_representation": "targets/generic/adapter.json::target_permission_contract",
+        "native_surface": "Agent Skills compatible neutral package",
+        "activation_policy": "Use SKILL.md name and description; consumers decide automatic or manual activation.",
+        "resource_strategy": "Preserve references, scripts, assets, evals, reports, and adapter metadata as relative package resources.",
+        "script_strategy": "Expose script and permission metadata for downstream clients or installers to enforce.",
+        "permission_enforcement": "consumer-enforced-or-metadata-only"
+      },
+      "unsupported_features": [],
+      "warnings": [],
+      "failures": []
+    }
+  ],
+  "failures": [],
+  "warnings": [],
+  "artifacts": {
+    "json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/compiled_targets.json",
+    "markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/compiled_targets.md"
+  }
+}

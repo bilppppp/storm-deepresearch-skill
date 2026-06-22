@@ -1,0 +1,50 @@
+{
+  "name": "storm-deepresearch-skill",
+  "version": "0.4.0",
+  "description": "A source-grounded long-form research library with STORM question utilization, auditable evidence, and validated Markdown, HTML, and PDF output.",
+  "owner": "陈旭",
+  "author": "陈旭",
+  "updated_at": "2026-06-22",
+  "review_due": "2026-09-21",
+  "review_cadence": "quarterly",
+  "status": "active",
+  "maturity_tier": "library",
+  "lifecycle_stage": "library",
+  "context_budget_tier": "library",
+  "category": "research",
+  "complexity_tier": "complex",
+  "license": "MIT-0",
+  "entrypoint": "SKILL.md",
+  "target_platforms": [
+    "openai",
+    "claude",
+    "agent-skills",
+    "vscode",
+    "generic"
+  ],
+  "factory_components": [
+    "agents",
+    "references",
+    "schemas",
+    "scripts",
+    "templates",
+    "evals",
+    "tests",
+    "examples",
+    "reports"
+  ],
+  "input_files": "Optional user-supplied documents, URLs, papers, or a closed-corpus file-backed fixture.",
+  "output_contract": "Fresh workspace-scoped run, no-clobber monotonic ledgers, evidence-led report outline, canonical Markdown, HTML, full-mode PDF, and strict validation.",
+  "rollback_boundary": "Restore the registry/examples 0.3.0 package snapshot; generated research runs remain outside the source rollback boundary.",
+  "tags": [
+    "research",
+    "deepresearch",
+    "storm",
+    "citations",
+    "evidence",
+    "markdown",
+    "html",
+    "pdf",
+    "anti-hallucination"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "status": "complete",
+  "perspectives": ["practitioner", "academic", "skeptic", "incentive analyst", "historian"],
+  "questions": [
+    {"question_id": "Q001", "perspective": "academic", "text": "What did the NAACL evaluation measure and how should its percentages be stated?", "status": "answered", "claim_ids": ["C001", "C002"], "disposition_note": "Used in What STORM Actually Proves."},
+    {"question_id": "Q002", "perspective": "skeptic", "text": "Which citation and reasoning failures remained in STORM outputs?", "status": "answered", "claim_ids": ["C003"], "disposition_note": "Used in Why Four Prompts Are Not Enough."},
+    {"question_id": "Q003", "perspective": "practitioner", "text": "Which deterministic artifacts are required for repeatable delivery?", "status": "answered", "claim_ids": ["C004", "C005"], "disposition_note": "Used in Recommended Library Architecture."},
+    {"question_id": "Q004", "perspective": "incentive analyst", "text": "Which shortcuts create polished reports without evidence closure?", "status": "answered", "claim_ids": ["C004", "C005"], "disposition_note": "Used in Recommended Library Architecture."},
+    {"question_id": "Q005", "perspective": "historian", "text": "Which parts of the 2024 method remain useful independent of current model choice?", "status": "answered", "claim_ids": ["C006"], "disposition_note": "Used in Contradictions and Uncertainties."}
+  ],
+  "source_priorities": ["peer-reviewed paper", "official implementation repository", "user-provided article"],
+  "stopping_conditions": ["Every material claim has a direct locator", "The article's numerical framing is checked against the paper", "Limitations and implementation boundary are explicit"],
+  "retrieval_budget": {"max_queries": 8, "max_sources": 12},
+  "report_outline": {
+    "status": "complete",
+    "unit": "words",
+    "minimum": 600,
+    "target": 900,
+    "maximum": 1400,
+    "sections": [
+      {"section_id": "SEC01", "title": "What STORM Actually Proves", "purpose": "Bound the paper's empirical claims.", "target_units": 250, "question_ids": ["Q001"], "claim_ids": ["C001", "C002"], "required_elements": ["claim", "evidence", "limitation", "change_condition"]},
+      {"section_id": "SEC02", "title": "Why Four Prompts Are Not Enough", "purpose": "Explain remaining citation and reasoning risks.", "target_units": 250, "question_ids": ["Q002"], "claim_ids": ["C003"], "required_elements": ["claim", "mechanism", "evidence", "limitation"]},
+      {"section_id": "SEC03", "title": "Recommended Library Architecture", "purpose": "Translate research principles into governed implementation.", "target_units": 300, "question_ids": ["Q003", "Q004"], "claim_ids": ["C004", "C005"], "required_elements": ["claim", "mechanism", "implication", "limitation"]},
+      {"section_id": "SEC04", "title": "Contradictions and Uncertainties", "purpose": "Resolve the article and paper framing conflict.", "target_units": 200, "question_ids": ["Q005"], "claim_ids": ["C006"], "required_elements": ["claim", "counterevidence", "limitation", "change_condition"]}
+    ]
+  }
+}

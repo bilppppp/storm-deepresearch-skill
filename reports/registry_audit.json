@@ -1,0 +1,92 @@
+{
+  "ok": true,
+  "schema_version": "2.0",
+  "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+  "registry_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/registry",
+  "package": {
+    "schema_version": "2.0",
+    "name": "storm-deepresearch-skill",
+    "version": "0.4.0",
+    "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+    "targets": [
+      "openai",
+      "claude",
+      "agent-skills",
+      "vscode",
+      "generic"
+    ],
+    "maturity": "library",
+    "owner": "陈旭",
+    "review_cadence": "quarterly",
+    "trust_level": "local",
+    "license": "MIT-0",
+    "checksums": {
+      "package_sha256": "a466c3583b90fb464ccba989c0fa3edf37c48d1546c6b374c8a0fc1e6a5f5808",
+      "archive_sha256": "01a606871576109d79d7085b8761c762af87c93beb5fdac1670790e27e88ea3a"
+    },
+    "compatibility": {
+      "openai": "pass",
+      "claude": "pass",
+      "agent-skills": "pass",
+      "vscode": "pass",
+      "generic": "pass"
+    },
+    "source": {
+      "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+      "skill_ir": "reports/skill-ir.json",
+      "ir_schema_version": "2.0.0",
+      "canonical_metadata": "agents/interface.yaml"
+    },
+    "artifacts": {
+      "overview_html": "reports/skill-overview.html",
+      "review_studio_html": "reports/review-studio.html",
+      "trust_report": "reports/security_trust_report.md",
+      "conformance_matrix": "reports/conformance_matrix.md",
+      "compiled_targets": "reports/compiled_targets.md",
+      "package_verification": "reports/package_verification.md",
+      "install_simulation": "reports/install_simulation.md",
+      "adoption_drift": "reports/adoption_drift_report.md",
+      "review_waivers": "reports/review_waivers.md",
+      "review_annotations": "reports/review_annotations.md",
+      "package_metadata": "registry/packages/storm-deepresearch-skill.json"
+    },
+    "distribution": {
+      "archive_verified": true,
+      "archive_sha256": "01a606871576109d79d7085b8761c762af87c93beb5fdac1670790e27e88ea3a",
+      "package_verification": "reports/package_verification.json",
+      "install_simulated": true,
+      "install_simulation": "reports/install_simulation.json"
+    },
+    "generated_at": "2026-06-22"
+  },
+  "index": {
+    "schema_version": "2.0",
+    "generated_at": "2026-06-22",
+    "package_count": 1,
+    "packages": [
+      {
+        "name": "storm-deepresearch-skill",
+        "version": "0.4.0",
+        "maturity": "library",
+        "owner": "陈旭",
+        "targets": [
+          "openai",
+          "claude",
+          "agent-skills",
+          "vscode",
+          "generic"
+        ],
+        "package_metadata": "registry/packages/storm-deepresearch-skill.json",
+        "package_sha256": "a466c3583b90fb464ccba989c0fa3edf37c48d1546c6b374c8a0fc1e6a5f5808"
+      }
+    ]
+  },
+  "failures": [],
+  "warnings": [],
+  "artifacts": {
+    "index": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/registry/index.json",
+    "package": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/registry/packages/storm-deepresearch-skill.json",
+    "json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/registry_audit.json",
+    "markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/registry_audit.md"
+  }
+}

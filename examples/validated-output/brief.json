@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "package_state": "rendered",
+  "topic": "From four STORM prompts to an evidence-governed research skill",
+  "research_question": "What must be added to a four-prompt STORM-inspired workflow before it can produce auditable deep research in Markdown, HTML, and PDF?",
+  "user_goal": "Design and verify a reusable anti-hallucination research skill",
+  "audience": "Agent-skill authors and advanced AI research users",
+  "decision_context": "Decide whether prompt chaining is sufficient for trustworthy reusable research",
+  "depth_level": "briefing",
+  "report_language": "en",
+  "length_contract": {
+    "unit": "words",
+    "minimum": 600,
+    "target": 900,
+    "maximum": 1400,
+    "content_standard": "evidence_led"
+  },
+  "geography": "global",
+  "timeframe": "STORM evidence published in 2024 and implementation state retrieved in 2026",
+  "source_policy": "external_allowed",
+  "freshness_policy": {"as_of": "2026-06-21", "max_age_days": 730},
+  "retrieval_mode": "host",
+  "output_mode": "full",
+  "uncertainty_tolerance": "low",
+  "user_materials": ["input/user-article-excerpt.txt"],
+  "assumptions": ["The target is a reusable Library skill, not a one-off briefing prompt."]
+}

@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "ok": true,
+  "generated_at": "2026-06-22",
+  "reviewer": "engineering-review",
+  "reviewed_at": "2026-06-22",
+  "summary": {"promote": 1, "keep_current": 0, "blocked": 0},
+  "targets": [{
+    "name": "storm-deepresearch-skill",
+    "from_version": "0.3.0",
+    "to_version": "0.4.0",
+    "release_scope": "local-library",
+    "promotion": {
+      "decision": "promote",
+      "all_local_gates_pass": true,
+      "route_clean": true,
+      "existing_human_output_review_complete": true,
+      "long_form_human_review_complete": false,
+      "provider_holdout_complete": false,
+      "world_class_claim_allowed": false,
+      "causes": [
+        "workspace_scoped_default_output_added",
+        "existing_run_reinitialization_blocked",
+        "symlink_resolved_containment_enforced",
+        "source_ledger_ids_preserved_by_atomic_merge",
+        "claim_ledger_records_preserved_by_atomic_merge",
+        "exports_and_validation_confined_to_package",
+        "five_target_conformance_and_distribution_checks_passed"
+      ],
+      "next_action": "Use 0.4.0 locally and review the first real workspace-scoped 8000-10000-character dossier before claiming long-form or cross-agent superiority."
+    },
+    "evidence": {
+      "unit_tests": "tests/test_validate_package.py",
+      "output_path_tests": "tests/test_output_paths.py",
+      "ledger_merge_tests": "tests/test_normalize_retrieval.py",
+      "claim_ledger_tests": "tests/test_merge_claim_ledger.py",
+      "library_contract_tests": "tests/test_library_contract.py",
+      "representative_package": "examples/validated-output/validation/validation-report.json",
+      "conformance_matrix": "reports/conformance_matrix.json",
+      "trust_report": "reports/security_trust_report.json",
+      "package_verification": "reports/package_verification.json",
+      "install_simulation": "reports/install_simulation.json",
+      "runtime_permissions": "reports/runtime_permission_probes.json",
+      "registry_audit": "reports/registry_audit.json",
+      "migration_guide": "docs/migration-v0.3-to-v0.4.md"
+    },
+    "residual_limits": [
+      "The first real 8000-10000-character dossier has not yet received human qualitative review.",
+      "The path boundary is tested locally; adversarial concurrent filesystem mutation is outside the current threat model.",
+      "No real provider model execution or provider holdout evidence is claimed.",
+      "Runtime permission enforcement uses installer metadata fallback on the tested clients.",
+      "No world-class or public superiority claim is permitted."
+    ]
+  }]
+}

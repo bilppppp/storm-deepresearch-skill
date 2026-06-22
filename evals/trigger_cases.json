@@ -1,0 +1,24 @@
+{
+  "recommended_threshold": 0.5,
+  "should_trigger": [
+    "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
+    "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
+    "Compare competing technical claims and explain what evidence would change the conclusion.",
+    "Create an investment pre-mortem where every material factual claim is traceable to a real source.",
+    "Perform a current literature and industry review with explicit source freshness and limitations."
+  ],
+  "should_not_trigger": [
+    "Find the official release date of this single product and answer in one sentence.",
+    "Brainstorm five fictional expert reactions without doing external research.",
+    "Translate this supplied report into Chinese without adding new information.",
+    "Rewrite this paragraph to sound clearer and more concise.",
+    "Summarize this one document in 200 words without creating a research package."
+  ],
+  "near_neighbor": [
+    "Explain how STORM works, but do not run a research workflow.",
+    "Review these medical studies without giving me personalized treatment advice.",
+    "Use only the files I supplied and do not retrieve anything from the internet.",
+    "Give me a quick answer now and separately tell me whether a deep report would be useful.",
+    "Create a sourced presentation; research is needed, but another skill should own slide production."
+  ]
+}

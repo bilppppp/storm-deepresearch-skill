@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "report-claim-map.schema.json",
+  "title": "Public Report Claim Map",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "mappings"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "mappings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["anchor", "fingerprint", "claim_ids"],
+        "properties": {
+          "anchor": {"type": "string", "minLength": 1},
+          "fingerprint": {"type": "string", "minLength": 1},
+          "claim_ids": {"type": "array", "items": {"type": "string", "pattern": "^C[0-9]{3}$"}, "minItems": 1, "uniqueItems": true}
+        }
+      }
+    }
+  }
+}

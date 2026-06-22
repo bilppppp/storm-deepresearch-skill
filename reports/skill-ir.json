@@ -1,0 +1,190 @@
+{
+  "schema_version": "2.0.0",
+  "name": "storm-deepresearch-skill",
+  "title": "STORM DeepResearch",
+  "job_to_be_done": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
+  "trigger_surface": {
+    "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+    "should_trigger": [
+      "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
+      "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
+      "Compare competing technical claims and explain what evidence would change the conclusion.",
+      "Create an investment pre-mortem where every material factual claim is traceable to a real source.",
+      "Perform a current literature and industry review with explicit source freshness and limitations."
+    ],
+    "should_not_trigger": [
+      "Find the official release date of this single product and answer in one sentence.",
+      "Brainstorm five fictional expert reactions without doing external research.",
+      "Translate this supplied report into Chinese without adding new information.",
+      "Rewrite this paragraph to sound clearer and more concise.",
+      "Summarize this one document in 200 words without creating a research package.",
+      "Quick factual lookup",
+      "Simple summarization",
+      "Evidence-free expert role-play",
+      "Personalized medical, legal, or investment advice"
+    ],
+    "edge_cases": [
+      "Explain how STORM works, but do not run a research workflow.",
+      "Review these medical studies without giving me personalized treatment advice.",
+      "Use only the files I supplied and do not retrieve anything from the internet.",
+      "Give me a quick answer now and separately tell me whether a deep report would be useful.",
+      "Create a sourced presentation; research is needed, but another skill should own slide production."
+    ]
+  },
+  "workflow": {
+    "steps": [
+      "Normalize the brief and lock `length_contract`.",
+      "Generate questions with the [protocol](references/research-protocol.md) and [STORM mapping](references/storm-workflow-mapping.md).",
+      "Retrieve through an approved [adapter](references/retrieval-adapters.md); memory is not evidence.",
+      "Merge ledgers monotonically; close claims under the [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policies.",
+      "Preserve contradictions and unknowns.",
+      "Map every answered question and material claim into `report_outline`.",
+      "Draft `report.md`, review, export, and validate."
+    ],
+    "decision_points": [
+      "Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.",
+      "Initialize a fresh workspace-scoped run; reject existing or escaping paths.",
+      "Use `closed_corpus` for supplied-only material; otherwise approved host search. For high-stakes topics, avoid personalized advice.",
+      "Ask one focused clarification when the real job, output, or exclusion boundary is unclear.",
+      "Escalate visible tradeoffs when benchmark patterns conflict with local privacy, naming, or governance constraints.",
+      "Do not silently broaden the skill into adjacent jobs just because the examples are nearby."
+    ],
+    "failure_modes": [
+      "Tables can render as dense grids with weak hierarchy or poor mobile readability.",
+      "Long bullets can make the output look complete while hiding the actual decision logic.",
+      "Footnote markers or dense citation notes can interrupt the reading flow.",
+      "Evidence can be over-attached to obvious statements and under-attached to risky claims.",
+      "Commands can omit environment assumptions, working directory, or rollback notes.",
+      "Code snippets can look runnable while missing required inputs.",
+      "Users start invoking the skill for adjacent one-off or explanation-only requests.",
+      "Outputs remain valid but become generic, cluttered, or weakly aligned with the user's domain.",
+      "Borrowed benchmark patterns no longer fit the local job or add ceremony without payoff.",
+      "Skill usage becomes team-critical while ownership, review cadence, or rollback evidence stays informal."
+    ]
+  },
+  "resources": {
+    "references": [
+      "references/claim-evidence-policy.md",
+      "references/export-workflow.md",
+      "references/output-path-policy.md",
+      "references/quality-gates.md",
+      "references/report-writing.md",
+      "references/research-protocol.md",
+      "references/retrieval-adapters.md",
+      "references/source-and-evidence-policy.md",
+      "references/storm-workflow-mapping.md"
+    ],
+    "scripts": [
+      "scripts/contract_io.py",
+      "scripts/export_report.py",
+      "scripts/init_research_package.py",
+      "scripts/local_output_eval_runner.py",
+      "scripts/merge_claim_ledger.py",
+      "scripts/normalize_retrieval.py",
+      "scripts/output_paths.py",
+      "scripts/render_audit_views.py",
+      "scripts/run_checks.py",
+      "scripts/sanitize_release_archive.py",
+      "scripts/validate_contracts.py",
+      "scripts/validate_evidence.py",
+      "scripts/validate_package.py"
+    ],
+    "assets": [
+      "templates/contradiction-map.md",
+      "templates/evidence-map.md",
+      "templates/peer-review.md",
+      "templates/report.html.j2",
+      "templates/report.md",
+      "templates/source-register.md"
+    ],
+    "reports": [
+      "reports/benchmark_methodology.md",
+      "reports/intent-context.json",
+      "reports/intent-confidence.json",
+      "reports/intent-confidence.md",
+      "reports/reference-synthesis.json",
+      "reports/reference-synthesis.md",
+      "reports/output-risk-profile.json",
+      "reports/output-risk-profile.md",
+      "reports/artifact-design-profile.json",
+      "reports/artifact-design-profile.md",
+      "reports/prompt-quality-profile.json",
+      "reports/prompt-quality-profile.md",
+      "reports/system-model.json",
+      "reports/system-model.md",
+      "reports/iteration-directions.json",
+      "reports/iteration-directions.md",
+      "reports/skill-overview.json",
+      "reports/skill-overview.html",
+      "reports/output_quality_scorecard.json",
+      "reports/output_quality_scorecard.md",
+      "reports/output_execution_runs.json",
+      "reports/output_execution_runs.md",
+      "reports/output_blind_review_pack.json",
+      "reports/output_blind_review_pack.md",
+      "reports/output_blind_answer_key.json",
+      "reports/output_review_adjudication.json",
+      "reports/output_review_adjudication.md",
+      "reports/review_annotations.json",
+      "reports/review_annotations.md",
+      "reports/conformance_matrix.json",
+      "reports/conformance_matrix.md",
+      "reports/security_trust_report.json",
+      "reports/security_trust_report.md",
+      "reports/runtime_permission_probes.json",
+      "reports/runtime_permission_probes.md",
+      "reports/skill_atlas.json",
+      "reports/skill_atlas.html"
+    ]
+  },
+  "eval_plan": {
+    "trigger": [
+      "evals/adversarial_cases.json",
+      "evals/checklist.md",
+      "evals/confusion/route_cases.json",
+      "evals/evals.json",
+      "evals/failure-cases.md",
+      "evals/output/cases.jsonl",
+      "evals/output/fixtures/closed-corpus-source.md",
+      "evals/output/fixtures/paper-excerpt.md",
+      "evals/output/schema.json",
+      "evals/packaging_expectations.json",
+      "evals/semantic_config.json",
+      "evals/trigger_cases.json"
+    ],
+    "output": [
+      "evals/output/cases.jsonl",
+      "evals/output/fixtures/closed-corpus-source.md",
+      "evals/output/fixtures/paper-excerpt.md",
+      "evals/output/schema.json"
+    ],
+    "adversarial": [],
+    "baseline": "without_skill"
+  },
+  "risk": {
+    "output_risk": "medium",
+    "execution_risk": "medium",
+    "trust_boundary": "team"
+  },
+  "governance": {
+    "owner": "陈旭",
+    "maturity": "library",
+    "review_cadence": "quarterly",
+    "review_due": "2026-09-21"
+  },
+  "targets": [
+    "openai",
+    "claude",
+    "agent-skills",
+    "vscode",
+    "generic"
+  ],
+  "source_files": [
+    "SKILL.md",
+    "manifest.json",
+    "agents/interface.yaml",
+    "reports/intent-context.json",
+    "reports/output-risk-profile.json",
+    "reports/system-model.json"
+  ]
+}

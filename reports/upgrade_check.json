@@ -1,0 +1,69 @@
+{
+  "ok": true,
+  "schema_version": "2.0",
+  "generated_at": "2026-06-22",
+  "previous": {
+    "name": "storm-deepresearch-skill",
+    "version": "0.3.0",
+    "targets": [
+      "openai",
+      "claude",
+      "agent-skills",
+      "vscode",
+      "generic"
+    ]
+  },
+  "current": {
+    "name": "storm-deepresearch-skill",
+    "version": "0.4.0",
+    "targets": [
+      "openai",
+      "claude",
+      "agent-skills",
+      "vscode",
+      "generic"
+    ]
+  },
+  "summary": {
+    "declared_bump": "minor",
+    "recommended_bump": "patch",
+    "breaking_change_count": 0,
+    "added_target_count": 0,
+    "metadata_change_count": 0,
+    "checksum_change_count": 2,
+    "failure_count": 0,
+    "warning_count": 0
+  },
+  "upgrade_diff": {
+    "name_changed": false,
+    "added_targets": [],
+    "removed_targets": [],
+    "compatibility_changes": [],
+    "metadata_changes": [],
+    "checksum_changes": [
+      {
+        "field": "archive_sha256",
+        "from": "21ac1a733c9d0ae651288fc430e40a318a0dae94fc2e765f4670589aed21877d",
+        "to": "01a606871576109d79d7085b8761c762af87c93beb5fdac1670790e27e88ea3a"
+      },
+      {
+        "field": "package_sha256",
+        "from": "950d02120d3cabc2750898358f1c1a52c297267600c8b63ac4bf3512d204e1be",
+        "to": "a466c3583b90fb464ccba989c0fa3edf37c48d1546c6b374c8a0fc1e6a5f5808"
+      }
+    ]
+  },
+  "release_notes": [
+    "Recommended version bump: patch.",
+    "Package or archive checksum changed; reviewers should verify package artifacts before release.",
+    "Package verification evidence: reports/package_verification.md."
+  ],
+  "failures": [],
+  "warnings": [],
+  "artifacts": {
+    "previous_package": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/registry/examples/storm-deepresearch-skill-0.3.0.json",
+    "current_package": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/registry_audit.json",
+    "json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/upgrade_check.json",
+    "markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/upgrade_check.md"
+  }
+}
