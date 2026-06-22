@@ -16,16 +16,20 @@ if __package__ in {None, ""}:
 from scripts.contract_io import (
     ContractError,
     load_json,
+    load_jsonl,
     validate_brief,
     validate_research_plan,
     validate_source_plan,
 )
 from scripts.harness_io import (
     atomic_promote,
+    atomic_write_text,
     atomic_write_json,
+    canonical_json_bytes,
     compute_skill_package_hash,
     sha256_file,
 )
+from scripts.normalize_retrieval import normalize_retrieval_records
 from scripts.output_paths import OutputPathError, package_child, select_new_output_dir
 from scripts.run_state import (
     ReceiptError,
@@ -37,6 +41,7 @@ from scripts.run_state import (
     latest_generation,
     verify_stage_precondition,
 )
+from scripts.source_evidence import SourceEvidenceError, resolve_snapshot
 
 
 SCRIPT_INTERFACE = "cli"
@@ -44,11 +49,16 @@ SCRIPT_INTERFACE_REASON = "The only supported public command surface for governe
 ROOT = Path(__file__).resolve().parents[1]
 EXIT_OK = 0
 EXIT_CONTRACT = 4
+EXIT_EVIDENCE = 5
 EXIT_STAGE = 8
 
 
 class CLIContractError(ValueError):
     """Raised when caller input does not satisfy a governed stage contract."""
+
+
+class RetrievalGateError(ValueError):
+    """Raised when captured retrieval evidence cannot close the plan."""
 
 
 def infer_language(topic: str, question: str, requested: str) -> str:
@@ -324,6 +334,99 @@ def command_plan(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _jsonl_text(records: list[dict[str, object]]) -> str:
+    return b"".join(canonical_json_bytes(record) for record in records).decode("utf-8")
+
+
+def _promote_retrieval_artifacts(
+    layout: RunLayout,
+    generation: int,
+    sources: list[dict[str, object]],
+    manifests: list[dict[str, object]],
+) -> tuple[Path, Path]:
+    staging = package_child(
+        layout.root, f"work/.staging/g{generation:04d}/retrieval-{uuid.uuid4().hex}"
+    )
+    staging.mkdir(parents=True, exist_ok=False)
+    staged_sources = staging / "source-register.jsonl"
+    staged_manifest = staging / "retrieval-manifest.jsonl"
+    atomic_write_text(staged_sources, _jsonl_text(sources))
+    atomic_write_text(staged_manifest, _jsonl_text(manifests))
+    source_path = layout.artifact(generation, "research/source-register.jsonl")
+    manifest_path = layout.artifact(generation, "research/retrieval-manifest.jsonl")
+    atomic_promote(staged_sources, source_path)
+    atomic_promote(staged_manifest, manifest_path)
+    staging.rmdir()
+    return source_path, manifest_path
+
+
+def _refresh_current_retrieval_view(
+    layout: RunLayout,
+    sources: list[dict[str, object]],
+    manifests: list[dict[str, object]],
+) -> None:
+    root = package_child(layout.root, "current/research")
+    atomic_write_text(root / "source-register.jsonl", _jsonl_text(sources))
+    atomic_write_text(root / "retrieval-manifest.jsonl", _jsonl_text(manifests))
+
+
+def command_ingest(args: argparse.Namespace) -> int:
+    layout = RunLayout(args.run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        raise StagePreconditionError("run has no generation")
+    package_hash = compute_skill_package_hash(ROOT)
+    verify_stage_precondition(layout, generation, Stage.RETRIEVAL, package_hash)
+    brief = verify_current_brief_view(layout, generation)
+    try:
+        records = load_jsonl(args.input_jsonl)
+        sources, manifests = normalize_retrieval_records(
+            records,
+            mode=str(brief["retrieval_mode"]),
+            cache_root=layout.evidence_cache(generation, "."),
+        )
+    except (ContractError, SourceEvidenceError, ValueError) as exc:
+        raise RetrievalGateError(str(exc)) from exc
+    source_plan_path = layout.artifact(generation, "research/source-plan.json")
+    source_plan = load_json(source_plan_path)
+    planned_ids = {
+        str(item.get("query_id"))
+        for item in source_plan.get("questions", [])
+        if isinstance(item, dict)
+    }
+    covered_ids = {str(item.get("query_id")) for item in manifests}
+    missing = sorted(planned_ids - covered_ids)
+    if missing:
+        raise RetrievalGateError(
+            "retrieval evidence does not cover planned questions: " + ", ".join(missing)
+        )
+    source_path, manifest_path = _promote_retrieval_artifacts(
+        layout, generation, sources, manifests
+    )
+    plan_path = layout.artifact(generation, "research/research-plan.json")
+    snapshot_paths = [
+        resolve_snapshot(
+            layout.evidence_cache(generation, "."), str(item["snapshot_ref"])
+        )
+        for item in manifests
+    ]
+    commit_stage_receipt(
+        layout,
+        generation=generation,
+        stage=Stage.RETRIEVAL,
+        package_hash=package_hash,
+        validator_hash=sha256_file(Path(__file__)),
+        input_artifacts={
+            "artifacts/research/research-plan.json": sha256_file(plan_path),
+            "artifacts/research/source-plan.json": sha256_file(source_plan_path),
+        },
+        output_paths=[source_path, manifest_path, *snapshot_paths],
+    )
+    _refresh_current_retrieval_view(layout, sources, manifests)
+    print(f"Ingested {len(sources)} sources into {layout.root}")
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -358,6 +461,11 @@ def build_parser() -> argparse.ArgumentParser:
     plan.add_argument("--plan-json", type=Path, required=True)
     plan.add_argument("--source-plan-json", type=Path, required=True)
     plan.set_defaults(handler=command_plan)
+
+    ingest = subparsers.add_parser("ingest", help="Validate and commit captured retrieval evidence.")
+    ingest.add_argument("run_dir", type=Path)
+    ingest.add_argument("--input-jsonl", type=Path, required=True)
+    ingest.set_defaults(handler=command_ingest)
     return parser
 
 
@@ -368,6 +476,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (StagePreconditionError, ReceiptError) as exc:
         print(f"Stage failed: {exc}", file=sys.stderr)
         return EXIT_STAGE
+    except RetrievalGateError as exc:
+        print(f"Retrieval failed: {exc}", file=sys.stderr)
+        return EXIT_EVIDENCE
     except (CLIContractError, ContractError, OutputPathError, OSError) as exc:
         print(f"Contract failed: {exc}", file=sys.stderr)
         return EXIT_CONTRACT

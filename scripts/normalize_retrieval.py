@@ -1,144 +1,105 @@
 #!/usr/bin/env python3
-"""Normalize adapter output into deterministic source records."""
+"""Normalize captured adapter records without committing authoritative run state."""
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
-import tempfile
-from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-try:
-    from .output_paths import OutputPathError, package_child, resolve_package_dir
-except ImportError:
-    from output_paths import OutputPathError, package_child, resolve_package_dir
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.contract_io import validate_source_record
+from scripts.harness_io import atomic_write_text, canonical_json_bytes
+from scripts.source_evidence import (
+    SourceEvidenceError,
+    canonicalize_public_url,
+    capture_retrieval_evidence,
+)
 
 
-TRACKING_KEYS = {"fbclid", "gclid", "mc_cid", "mc_eid"}
+SCRIPT_INTERFACE = "internal-worker-cli"
+SCRIPT_INTERFACE_REASON = "Produces validated staging records; only storm_research may commit receipts."
 ALLOWED_MODES = {"host", "provider", "closed_corpus"}
 
 
 def canonicalize_url(value: str) -> str:
-    parsed = urlsplit(value.strip())
-    if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
-        raise ValueError("url must be absolute HTTP or HTTPS")
-    host = parsed.hostname.lower()
-    if parsed.port:
-        host = f"{host}:{parsed.port}"
-    query = [
-        (key, item)
-        for key, item in parse_qsl(parsed.query, keep_blank_values=True)
-        if not key.lower().startswith("utm_") and key.lower() not in TRACKING_KEYS
-    ]
-    return urlunsplit((parsed.scheme.lower(), host, parsed.path or "/", urlencode(sorted(query)), ""))
-
-
-def normalize_retrieval_record(record: dict[str, Any], mode: str) -> dict[str, Any]:
-    if mode not in ALLOWED_MODES:
-        raise ValueError(f"unknown retrieval mode: {mode}")
-    url = str(record.get("url", "")).strip()
-    file_ref = str(record.get("file_ref", "")).strip()
-    if not url and not file_ref:
-        raise ValueError("retrieval record requires url or file_ref")
-    adapter = str(record.get("adapter", ""))
-    if adapter != mode:
-        raise ValueError(f"adapter {adapter or '<missing>'} is not allowed in {mode} mode")
-    required = ("query_id", "title", "publisher", "retrieved_at", "content_excerpt", "content_locator")
-    missing = [field for field in required if not str(record.get(field, "")).strip()]
-    if missing:
-        raise ValueError(f"retrieval record missing: {', '.join(missing)}")
-    try:
-        datetime.fromisoformat(str(record["retrieved_at"]).replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise ValueError("retrieved_at must be an ISO datetime") from exc
-    if file_ref and Path(file_ref).is_absolute():
-        raise ValueError("file_ref must be relative to the approved corpus root")
-    raw_artifact = record.get("raw_artifact")
-    if isinstance(raw_artifact, str) and Path(raw_artifact).is_absolute():
-        raise ValueError("raw_artifact must be relative")
-    return {
-        "query_id": str(record["query_id"]),
-        "canonical_url": canonicalize_url(url) if url else "",
-        "file_ref": file_ref,
-        "title": str(record["title"]).strip(),
-        "author_or_org": str(record["publisher"]).strip(),
-        "published_at": str(record.get("published_at", "")),
-        "retrieved_at": str(record["retrieved_at"]),
-        "content_excerpt": str(record["content_excerpt"]).strip(),
-        "content_locator": str(record["content_locator"]).strip(),
-        "adapter": adapter,
-        "source_type": str(record.get("source_type", "web")),
-        "primary_class": str(record.get("primary_class", "secondary")),
-        "reliability_tier": str(record.get("reliability_tier", "C")),
-        "freshness_status": str(record.get("freshness_status", "unknown")),
-        "reliability_notes": str(record.get("reliability_notes", "")),
-        "content_hash": str(record.get("content_hash", "")),
-    }
-
-
-def merge_source_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    by_identity: dict[str, dict[str, Any]] = {}
-    for record in records:
-        identity = str(record.get("canonical_url") or record.get("file_ref") or "")
-        if not identity:
-            raise ValueError("normalized retrieval record has no identity")
-        existing = by_identity.get(identity)
-        if existing is None or str(record.get("retrieved_at", "")) > str(existing.get("retrieved_at", "")):
-            by_identity[identity] = record
-    output = []
-    for index, identity in enumerate(sorted(by_identity), start=1):
-        record = by_identity[identity]
-        output.append({
-            "source_id": f"S{index:03d}",
-            "title": record["title"],
-            "author_or_org": record["author_or_org"],
-            "canonical_url": record.get("canonical_url", ""),
-            "file_ref": record.get("file_ref", ""),
-            "published_at": record.get("published_at", ""),
-            "retrieved_at": record["retrieved_at"],
-            "source_type": record.get("source_type", "web"),
-            "primary_class": record.get("primary_class", "secondary"),
-            "reliability_tier": record.get("reliability_tier", "C"),
-            "freshness_status": record.get("freshness_status", "unknown"),
-            "reliability_notes": record.get("reliability_notes", ""),
-            "content_hash": record.get("content_hash", ""),
-        })
-    return output
+    return canonicalize_public_url(value)
 
 
 def source_identity(record: dict[str, Any]) -> str:
-    identity = str(record.get("canonical_url") or record.get("file_ref") or "")
-    if not identity:
+    identity = record.get("canonical_url") or record.get("file_ref")
+    if not isinstance(identity, str) or not identity:
         raise ValueError("source record has no canonical URL or file reference")
     return identity
 
 
-def source_record(record: dict[str, Any], source_id: str) -> dict[str, Any]:
-    return {
+def _source_from_capture(
+    source_id: str, adapter_record: dict[str, Any], captured: dict[str, object]
+) -> dict[str, object]:
+    source = {
         "source_id": source_id,
-        "title": record["title"],
-        "author_or_org": record["author_or_org"],
-        "canonical_url": record.get("canonical_url", ""),
-        "file_ref": record.get("file_ref", ""),
-        "published_at": record.get("published_at", ""),
-        "retrieved_at": record["retrieved_at"],
-        "source_type": record.get("source_type", "web"),
-        "primary_class": record.get("primary_class", "secondary"),
-        "reliability_tier": record.get("reliability_tier", "C"),
-        "freshness_status": record.get("freshness_status", "unknown"),
-        "reliability_notes": record.get("reliability_notes", ""),
-        "content_hash": record.get("content_hash", ""),
+        "title": str(adapter_record.get("title", "")).strip(),
+        "author_or_org": str(adapter_record.get("publisher", "")).strip(),
+        "canonical_url": captured["canonical_url"],
+        "file_ref": captured["file_ref"],
+        "published_at": captured["published_at"],
+        "publication_date_status": captured["publication_date_status"],
+        "retrieved_at": captured["retrieved_at"],
+        "source_type": captured["source_type"],
+        "primary_class": captured["primary_class"],
+        "reliability_tier": captured["reliability_tier"],
+        "freshness_status": str(adapter_record.get("freshness_status", "unknown")),
+        "reliability_notes": captured["reliability_notes"],
+        "content_hash": captured["snapshot_sha256"],
     }
+    errors = validate_source_record(source)
+    if errors:
+        raise ValueError("invalid source record: " + "; ".join(errors))
+    return source
+
+
+def normalize_retrieval_records(
+    records: list[dict[str, object]], *, mode: str, cache_root: Path
+) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    """Return source and manifest records after deterministic evidence validation."""
+    if mode not in ALLOWED_MODES:
+        raise ValueError(f"unknown retrieval mode: {mode}")
+    by_identity: dict[str, tuple[dict[str, object], dict[str, object]]] = {}
+    for index, record in enumerate(records, start=1):
+        if not isinstance(record, dict):
+            raise ValueError(f"retrieval record {index} must be an object")
+        adapter = str(record.get("adapter", ""))
+        if adapter != mode:
+            raise ValueError(f"adapter {adapter or '<missing>'} is not allowed in {mode} mode")
+        captured = capture_retrieval_evidence(record, cache_root)
+        identity = source_identity(captured)
+        current = by_identity.get(identity)
+        if current is None or str(captured["retrieved_at"]) > str(current[1]["retrieved_at"]):
+            by_identity[identity] = (record, captured)
+    sources: list[dict[str, object]] = []
+    manifests: list[dict[str, object]] = []
+    for index, identity in enumerate(sorted(by_identity), start=1):
+        adapter_record, captured = by_identity[identity]
+        source_id = f"S{index:03d}"
+        manifest = dict(captured)
+        manifest["source_id"] = source_id
+        sources.append(_source_from_capture(source_id, adapter_record, manifest))
+        manifests.append(manifest)
+    return sources, manifests
+
+
+def source_record(record: dict[str, Any], source_id: str) -> dict[str, Any]:
+    result = dict(record)
+    result["source_id"] = source_id
+    return result
 
 
 def merge_source_ledger(
-    existing_sources: list[dict[str, Any]],
-    incoming_records: list[dict[str, Any]],
+    existing_sources: list[dict[str, Any]], incoming_records: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     """Merge sources monotonically while preserving every existing source ID."""
     output: list[dict[str, Any]] = []
@@ -152,6 +113,9 @@ def merge_source_ledger(
         identity = source_identity(source)
         if identity in index_by_identity:
             raise ValueError(f"existing source ledger has duplicate identity: {identity}")
+        errors = validate_source_record(source)
+        if errors:
+            raise ValueError(f"existing source {source_id} is invalid: {'; '.join(errors)}")
         used_ids.add(source_id)
         maximum_id = max(maximum_id, int(source_id[1:]))
         index_by_identity[identity] = len(output)
@@ -175,67 +139,51 @@ def merge_source_ledger(
         if maximum_id >= 999:
             raise ValueError("source ledger exhausted the S001-S999 ID range")
         maximum_id += 1
-        new_source = source_record(record, f"S{maximum_id:03d}")
-        index_by_identity[identity] = len(output)
-        output.append(new_source)
+        output.append(source_record(record, f"S{maximum_id:03d}"))
     return output
 
 
-def load_existing_ledger(path: Path) -> list[dict[str, Any]]:
-    if not path.exists() or not path.read_text(encoding="utf-8").strip():
-        return []
-    records: list[dict[str, Any]] = []
+def merge_source_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return merge_source_ledger([], records)
+
+
+def _load_jsonl(path: Path) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
     for line_number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
         if not raw.strip():
             continue
         payload = json.loads(raw)
         if not isinstance(payload, dict):
-            raise ValueError(f"existing source ledger line {line_number} is not a JSON object")
+            raise ValueError(f"line {line_number} is not a JSON object")
         records.append(payload)
     return records
 
 
-def atomic_write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, delete=False) as handle:
-        temporary = Path(handle.name)
-        for record in records:
-            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
-        handle.flush()
-        os.fsync(handle.fileno())
-    try:
-        os.replace(temporary, path)
-    except Exception:
-        temporary.unlink(missing_ok=True)
-        raise
+def _jsonl(records: list[dict[str, object]]) -> str:
+    return b"".join(canonical_json_bytes(record) for record in records).decode("utf-8")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input_jsonl", type=Path)
     parser.add_argument("--mode", choices=sorted(ALLOWED_MODES), required=True)
-    parser.add_argument("--package", type=Path, required=True)
+    parser.add_argument("--cache-root", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     try:
-        records = []
-        for line_number, raw in enumerate(args.input_jsonl.read_text(encoding="utf-8").splitlines(), start=1):
-            if not raw.strip():
-                continue
-            payload = json.loads(raw)
-            if not isinstance(payload, dict):
-                raise ValueError(f"line {line_number} is not a JSON object")
-            records.append(normalize_retrieval_record(payload, args.mode))
-        package = resolve_package_dir(args.package)
-        output = package_child(package, "research/source-register.jsonl")
-        if not output.is_file():
-            raise ValueError("source register is missing; initialize the research package first")
-        existing = load_existing_ledger(output)
-        sources = merge_source_ledger(existing, records)
-        atomic_write_jsonl(output, sources)
-    except (OSError, json.JSONDecodeError, OutputPathError, ValueError) as exc:
+        records = _load_jsonl(args.input_jsonl)
+        sources, manifests = normalize_retrieval_records(
+            records, mode=args.mode, cache_root=args.cache_root
+        )
+        if args.output_dir.exists() or args.output_dir.is_symlink():
+            raise ValueError(f"output directory already exists: {args.output_dir}")
+        args.output_dir.mkdir(parents=True, exist_ok=False)
+        atomic_write_text(args.output_dir / "source-records.jsonl", _jsonl(sources))
+        atomic_write_text(args.output_dir / "retrieval-manifest.jsonl", _jsonl(manifests))
+    except (OSError, json.JSONDecodeError, SourceEvidenceError, ValueError) as exc:
         print(f"Retrieval normalization failed: {exc}", file=sys.stderr)
         return 4
-    print(f"Merged {len(sources)} source records into {output}")
+    print(f"Normalized {len(sources)} source records into {args.output_dir}")
     return 0
 
 

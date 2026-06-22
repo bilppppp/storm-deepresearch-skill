@@ -7,7 +7,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.governed_fixtures import valid_research_plan_v2, valid_source_plan
+from tests.governed_fixtures import (
+    valid_adapter_record,
+    valid_research_plan_v2,
+    valid_source_plan,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -82,6 +86,30 @@ class StormResearchCLITests(unittest.TestCase):
             current = run / "current/research"
             self.assertEqual((current / "research-plan.json").read_bytes(), (artifacts / "research-plan.json").read_bytes())
 
+    def test_ingest_commits_only_when_every_question_has_captured_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace)
+            input_path = self.write_retrieval_inputs(run, workspace)
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(input_path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            research = run / "work/generations/g0001/artifacts/research"
+            self.assertTrue((research / "source-register.jsonl").is_file())
+            self.assertTrue((research / "retrieval-manifest.jsonl").is_file())
+            self.assertTrue((run / "state/generations/g0001/receipts/20-retrieval.json").is_file())
+            manifests = [json.loads(line) for line in (research / "retrieval-manifest.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertEqual({item["query_id"] for item in manifests}, {f"Q{i:03d}" for i in range(1, 11)})
+
+    def test_ingest_rejects_placeholder_source_without_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace)
+            input_path = self.write_retrieval_inputs(run, workspace, placeholder=True)
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(input_path))
+            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+            self.assertIn("reserved or placeholder domain", result.stderr)
+            self.assertFalse((run / "state/generations/g0001/receipts/20-retrieval.json").exists())
+
     def invoke_init(self, workspace: Path, *extra: str) -> subprocess.CompletedProcess[str]:
         return self.invoke(
             "init", "--topic", "Governed research", "--question",
@@ -94,12 +122,41 @@ class StormResearchCLITests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return workspace / "output" / "storm-deepresearch" / "test-run"
 
+    def planned_run(self, workspace: Path) -> Path:
+        run = self.initialized_run(workspace)
+        plan_path, source_plan_path = self.write_plans(workspace)
+        result = self.invoke(
+            "plan", str(run), "--plan-json", str(plan_path),
+            "--source-plan-json", str(source_plan_path),
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return run
+
     def write_plans(self, workspace: Path) -> tuple[Path, Path]:
         plan = workspace / "research-plan.json"
         source_plan = workspace / "source-plan.json"
         plan.write_text(json.dumps(valid_research_plan_v2()), encoding="utf-8")
         source_plan.write_text(json.dumps(valid_source_plan()), encoding="utf-8")
         return plan, source_plan
+
+    def write_retrieval_inputs(
+        self, run: Path, workspace: Path, *, placeholder: bool = False
+    ) -> Path:
+        cache = run / "work/generations/g0001/evidence-cache"
+        records = []
+        for index in range(1, 11):
+            record = valid_adapter_record(index)
+            if placeholder and index == 1:
+                record["url"] = "https://example.com/fake-paper"
+                record["final_url"] = record["url"]
+            (cache / f"source-{index}.txt").write_text(
+                f"Directly inspectable evidence excerpt {index}. Additional context.",
+                encoding="utf-8",
+            )
+            records.append(record)
+        path = workspace / "retrieval-inputs.jsonl"
+        path.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
+        return path
 
     def invoke(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(

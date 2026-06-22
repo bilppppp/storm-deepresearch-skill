@@ -141,6 +141,7 @@ def valid_source_plan(question_count: int = 10) -> dict[str, object]:
 def valid_retrieval_evidence() -> dict[str, object]:
     return {
         "schema_version": "2.0",
+        "source_id": "S001",
         "query_id": "Q001",
         "canonical_url": "https://www.nist.gov/test-fixtures/research-report",
         "final_url": "https://www.nist.gov/test-fixtures/research-report",
@@ -151,6 +152,7 @@ def valid_retrieval_evidence() -> dict[str, object]:
         "adapter": "host",
         "adapter_run_id": "host-run-1",
         "capture_level": "full_text",
+        "evidence_strength_ceiling": "strong",
         "snapshot_ref": "evidence-cache/Q001/source.html",
         "snapshot_sha256": "e" * 64,
         "normalized_text_sha256": "f" * 64,
@@ -164,6 +166,35 @@ def valid_retrieval_evidence() -> dict[str, object]:
         "primary_class": "primary",
         "reliability_tier": "A",
         "reliability_notes": "First-party publication; scope is limited to recorded facts.",
+    }
+
+
+def valid_adapter_record(index: int = 1) -> dict[str, object]:
+    return {
+        "query_id": f"Q{index:03d}",
+        "url": f"https://www.nist.gov/test-fixtures/research-report-{index}",
+        "final_url": f"https://www.nist.gov/test-fixtures/research-report-{index}",
+        "file_ref": None,
+        "title": f"Official research report {index}",
+        "publisher": "National Institute of Standards and Technology",
+        "published_at": "2026-05-01",
+        "publication_date_status": "known",
+        "retrieved_at": "2026-06-23T00:00:00Z",
+        "content_excerpt": f"Directly inspectable evidence excerpt {index}.",
+        "content_locator": "p:1",
+        "locator_type": "paragraph",
+        "adapter": "host",
+        "adapter_run_id": "host-run-1",
+        "capture_level": "full_text",
+        "evidence_strength_ceiling": "strong",
+        "raw_artifact": f"source-{index}.txt",
+        "observed_status": 200,
+        "content_type": "text/plain",
+        "source_type": "official",
+        "primary_class": "primary",
+        "reliability_tier": "A",
+        "freshness_status": "current",
+        "reliability_notes": "First-party source with inspectable full text.",
     }
 
 

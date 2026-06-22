@@ -218,7 +218,7 @@ def valid_source() -> dict[str, object]:
         "source_id": "S001",
         "title": "Official source",
         "author_or_org": "Example Org",
-        "canonical_url": "https://example.org/report",
+        "canonical_url": "https://www.nist.gov/test-fixtures/research-report",
         "file_ref": "",
         "published_at": "2026-05-01",
         "publication_date_status": "known",

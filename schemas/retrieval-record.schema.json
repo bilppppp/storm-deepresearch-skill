@@ -1,21 +1,40 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "retrieval-record.schema.json",
-  "title": "Retrieval Adapter Input Record",
+  "title": "Captured Retrieval Adapter Input Record",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "query_id", "title", "publisher", "published_at", "publication_date_status",
-    "retrieved_at", "content_excerpt", "content_locator", "adapter"
+    "query_id", "final_url", "file_ref", "title", "publisher", "published_at",
+    "publication_date_status", "retrieved_at", "content_excerpt", "content_locator",
+    "locator_type", "adapter", "adapter_run_id", "capture_level",
+    "evidence_strength_ceiling", "raw_artifact", "observed_status", "content_type",
+    "source_type", "primary_class", "reliability_tier", "freshness_status",
+    "reliability_notes"
   ],
   "oneOf": [
-    {"required": ["url"], "not": {"required": ["file_ref"]}},
-    {"required": ["file_ref"], "not": {"required": ["url"]}}
+    {
+      "required": ["url"],
+      "properties": {
+        "file_ref": {"type": "null"},
+        "final_url": {"type": "string", "format": "uri"},
+        "observed_status": {"type": "integer", "minimum": 100, "maximum": 599}
+      }
+    },
+    {
+      "not": {"required": ["url"]},
+      "properties": {
+        "file_ref": {"type": "string", "minLength": 1},
+        "final_url": {"type": "null"},
+        "observed_status": {"type": "null"}
+      }
+    }
   ],
   "properties": {
     "query_id": {"type": "string", "pattern": "^Q[0-9]{3}$"},
     "url": {"type": "string", "format": "uri"},
-    "file_ref": {"type": "string", "minLength": 1},
+    "final_url": {"type": ["string", "null"], "format": "uri"},
+    "file_ref": {"type": ["string", "null"]},
     "title": {"type": "string", "minLength": 1},
     "publisher": {"type": "string", "minLength": 1},
     "published_at": {"type": ["string", "null"], "format": "date"},
@@ -23,12 +42,20 @@
     "retrieved_at": {"type": "string", "format": "date-time"},
     "content_excerpt": {"type": "string", "minLength": 1},
     "content_locator": {"type": "string", "minLength": 1},
+    "locator_type": {"type": "string", "minLength": 1},
     "adapter": {"enum": ["host", "provider", "closed_corpus"]},
-    "source_type": {"type": "string"},
+    "adapter_run_id": {"type": "string", "minLength": 1},
+    "capture_level": {"enum": ["full_text", "official_data", "user_file", "search_snippet"]},
+    "evidence_strength_ceiling": {"enum": ["strong", "medium", "weak", "background"]},
+    "raw_artifact": {"type": "string", "minLength": 1},
+    "observed_status": {"type": ["integer", "null"], "minimum": 100, "maximum": 599},
+    "content_type": {"type": "string", "minLength": 1},
+    "source_type": {"type": "string", "minLength": 1},
     "primary_class": {"enum": ["primary", "secondary"]},
     "reliability_tier": {"enum": ["A", "B", "C", "D"]},
     "freshness_status": {"enum": ["current", "stale", "historical", "unknown"]},
-    "reliability_notes": {"type": "string"},
-    "raw_artifact": {"type": ["string", "null"]}
+    "reliability_notes": {"type": "string", "minLength": 1},
+    "snapshot_sha256": {"type": "string"},
+    "normalized_text_sha256": {"type": "string"}
   }
 }

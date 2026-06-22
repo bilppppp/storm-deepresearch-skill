@@ -26,6 +26,20 @@
     "reliability_notes": {"type": "string"},
     "content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
   },
+  "oneOf": [
+    {
+      "properties": {
+        "canonical_url": {"type": "string", "format": "uri"},
+        "file_ref": {"type": "null"}
+      }
+    },
+    {
+      "properties": {
+        "canonical_url": {"type": "null"},
+        "file_ref": {"type": "string", "minLength": 1}
+      }
+    }
+  ],
   "allOf": [
     {
       "if": {"properties": {"publication_date_status": {"const": "known"}}},

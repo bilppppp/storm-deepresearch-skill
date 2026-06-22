@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-The fixture verifies a canonical Markdown pipeline with 中文内容 and explicit evidence [Example source](https://example.org/report).
+The fixture verifies a canonical Markdown pipeline with 中文内容 and explicit evidence [NIST fixture source](https://www.nist.gov/test-fixtures/research-report).
 
 ## Research Question and Scope
 
@@ -42,4 +42,4 @@ This fixture tests rendering behavior, not the truth of an external research top
 
 ## References
 
-- Example Org. [Example source](https://example.org/report), 2026.
+- NIST. [NIST fixture source](https://www.nist.gov/test-fixtures/research-report), 2026.

@@ -63,9 +63,9 @@ AMENDMENT_FIELDS = {
 }
 SOURCE_PLAN_FIELDS = {"schema_version", "questions", "source_classes", "stopping_conditions", "exclusions"}
 RETRIEVAL_EVIDENCE_FIELDS = {
-    "schema_version", "query_id", "canonical_url", "final_url", "file_ref",
+    "schema_version", "source_id", "query_id", "canonical_url", "final_url", "file_ref",
     "observed_status", "content_type", "retrieved_at", "adapter", "adapter_run_id",
-    "capture_level", "snapshot_ref", "snapshot_sha256", "normalized_text_sha256",
+    "capture_level", "evidence_strength_ceiling", "snapshot_ref", "snapshot_sha256", "normalized_text_sha256",
     "locator_type", "locator", "excerpt", "excerpt_sha256", "published_at",
     "publication_date_status", "source_type", "primary_class", "reliability_tier",
     "reliability_notes",
@@ -460,6 +460,8 @@ def validate_source_plan(data: dict[str, Any]) -> list[str]:
 
 def validate_retrieval_evidence(data: dict[str, Any]) -> list[str]:
     errors = _strict_record(data, RETRIEVAL_EVIDENCE_FIELDS)
+    if not re.fullmatch(r"S\d{3}", str(data.get("source_id", ""))):
+        errors.append("source_id must match S followed by three digits")
     if not re.fullmatch(r"Q\d{3}", str(data.get("query_id", ""))):
         errors.append("query_id must match Q followed by three digits")
     url = data.get("canonical_url")
@@ -468,8 +470,11 @@ def validate_retrieval_evidence(data: dict[str, Any]) -> list[str]:
         errors.append("exactly one of canonical_url or file_ref is required")
     if url and not data.get("final_url"):
         errors.append("URL evidence requires final_url")
-    if not isinstance(data.get("observed_status"), int) or not 100 <= data.get("observed_status", 0) <= 599:
-        errors.append("observed_status must be an HTTP status")
+    observed_status = data.get("observed_status")
+    if url and (not isinstance(observed_status, int) or not 100 <= observed_status <= 599):
+        errors.append("URL evidence requires an HTTP observed_status")
+    if file_ref and observed_status is not None:
+        errors.append("file evidence requires null observed_status")
     for field in ("content_type", "adapter_run_id", "snapshot_ref", "locator_type", "locator", "excerpt", "source_type", "reliability_notes"):
         if not isinstance(data.get(field), str) or not data.get(field):
             errors.append(f"{field} must be a non-empty string")
@@ -477,6 +482,8 @@ def validate_retrieval_evidence(data: dict[str, Any]) -> list[str]:
         errors.append("adapter is invalid")
     if data.get("capture_level") not in {"full_text", "official_data", "user_file", "search_snippet"}:
         errors.append("capture_level is invalid")
+    if data.get("evidence_strength_ceiling") not in {"strong", "medium", "weak", "background"}:
+        errors.append("evidence_strength_ceiling is invalid")
     for field in ("snapshot_sha256", "normalized_text_sha256", "excerpt_sha256"):
         if not _is_sha256(data.get(field)):
             errors.append(f"{field} must be a SHA-256 value")
