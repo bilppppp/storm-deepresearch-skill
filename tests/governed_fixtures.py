@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 
 def valid_brief_v2() -> dict[str, object]:
     return {
@@ -185,3 +187,39 @@ def valid_release_manifest() -> dict[str, object]:
         "human_approval_sha256": "9" * 64,
         "files": {"report.md": "a" * 64},
     }
+
+
+def make_run_with_plan_receipt(
+    root: Path,
+    *,
+    package_hash: str = "a" * 64,
+    validator_hash: str = "b" * 64,
+):
+    from scripts.harness_io import atomic_write_json, sha256_file
+    from scripts.run_state import RunLayout, Stage, commit_stage_receipt, create_generation
+
+    layout = RunLayout(root)
+    create_generation(layout, 1)
+    brief = layout.generation_input(1, "brief.json")
+    atomic_write_json(brief, {"schema_version": "2.0"})
+    commit_stage_receipt(
+        layout,
+        generation=1,
+        stage=Stage.INIT,
+        package_hash=package_hash,
+        validator_hash=validator_hash,
+        input_artifacts={},
+        output_paths=[brief],
+    )
+    plan = layout.artifact(1, "research/research-plan.json")
+    atomic_write_json(plan, {"schema_version": "2.0"})
+    commit_stage_receipt(
+        layout,
+        generation=1,
+        stage=Stage.PLAN,
+        package_hash=package_hash,
+        validator_hash=validator_hash,
+        input_artifacts={"inputs/brief.json": sha256_file(brief)},
+        output_paths=[plan],
+    )
+    return layout
