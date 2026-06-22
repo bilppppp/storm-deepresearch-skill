@@ -3,17 +3,26 @@
   "$id": "semantic-review-record.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "review_id", "review_type", "reviewer_id", "independent", "target_sha256", "verdict", "reason", "allowable_scope", "findings", "reviewed_at"],
+  "required": [
+    "schema_version", "review_id", "review_type", "author_run_id", "reviewer_run_id",
+    "independent", "target_kind", "target_id", "target_sha256", "material", "verdict",
+    "reason", "allowable_scope", "required_action", "findings", "reviewed_at"
+  ],
   "properties": {
     "schema_version": {"const": "2.0"},
     "review_id": {"type": "string", "pattern": "^REV[0-9]{3}$"},
     "review_type": {"enum": ["claim_entailment", "report_assertion"]},
-    "reviewer_id": {"type": "string", "minLength": 1},
-    "independent": {"type": "boolean"},
+    "author_run_id": {"type": "string", "minLength": 1},
+    "reviewer_run_id": {"type": "string", "minLength": 1},
+    "independent": {"const": true},
+    "target_kind": {"enum": ["claim", "paragraph"]},
+    "target_id": {"type": "string", "minLength": 1},
     "target_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "material": {"type": "boolean"},
     "verdict": {"enum": ["supported", "overstated", "not_supported", "unclear"]},
     "reason": {"type": "string", "minLength": 1},
     "allowable_scope": {"type": ["string", "null"]},
+    "required_action": {"enum": ["none", "qualify", "remove", "rewrite", "add_evidence"]},
     "findings": {"type": "array", "items": {"type": "object"}},
     "reviewed_at": {"type": "string", "format": "date-time"}
   }

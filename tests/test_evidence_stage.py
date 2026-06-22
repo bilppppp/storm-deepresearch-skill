@@ -187,6 +187,16 @@ class EvidenceStageTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return run
 
+    def drafted_run(self, workspace: Path) -> Path:
+        run = self.evidenced_run(workspace)
+        draft, mapping = self.write_draft_inputs(run, workspace)
+        result = self.invoke(
+            "draft", str(run), "--draft-md", str(draft),
+            "--paragraph-map-jsonl", str(mapping),
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return run
+
     def write_draft_inputs(self, run: Path, workspace: Path) -> tuple[Path, Path]:
         research = run / "work/generations/g0001/artifacts/research"
         sources = [json.loads(line) for line in (research / "source-register.jsonl").read_text(encoding="utf-8").splitlines()]

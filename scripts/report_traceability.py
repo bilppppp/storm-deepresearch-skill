@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from scripts.contract_io import validate_paragraph_map_record
+from scripts.contract_io import validate_paragraph_map_record, validate_semantic_review_record
 from scripts.harness_io import sha256_bytes
 
 
@@ -242,3 +242,23 @@ def body_length(report: str, unit: str) -> int:
     if unit == "characters":
         return len(re.sub(r"\s+", "", body))
     return len(re.findall(r"\b[\w'-]+\b", body, flags=re.UNICODE))
+
+
+def validate_semantic_review(record: dict[str, Any]) -> list[str]:
+    return list(dict.fromkeys(validate_semantic_review_record(record)))
+
+
+def validate_review_bindings(
+    report: str, reviews: list[dict[str, Any]]
+) -> list[str]:
+    paragraphs = {paragraph.locator: paragraph for paragraph in extract_paragraphs(report)}
+    errors: list[str] = []
+    for review in reviews:
+        errors.extend(validate_semantic_review(review))
+        if review.get("target_kind") != "paragraph":
+            continue
+        target_id = str(review.get("target_id", ""))
+        paragraph = paragraphs.get(target_id)
+        if paragraph is None or paragraph.sha256 != review.get("target_sha256"):
+            errors.append(f"reviewed paragraph hash mismatch: {target_id}")
+    return list(dict.fromkeys(errors))

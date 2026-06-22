@@ -75,8 +75,9 @@ PARAGRAPH_MAP_FIELDS = {
     "citation_keys", "text_locator",
 }
 SEMANTIC_REVIEW_FIELDS = {
-    "schema_version", "review_id", "review_type", "reviewer_id", "independent",
-    "target_sha256", "verdict", "reason", "allowable_scope", "findings", "reviewed_at",
+    "schema_version", "review_id", "review_type", "author_run_id", "reviewer_run_id",
+    "independent", "target_kind", "target_id", "target_sha256", "material", "verdict",
+    "reason", "allowable_scope", "required_action", "findings", "reviewed_at",
 }
 HUMAN_APPROVAL_FIELDS = {
     "schema_version", "approval_id", "reviewer", "scope", "decision", "reason",
@@ -531,18 +532,33 @@ def validate_semantic_review_record(data: dict[str, Any]) -> list[str]:
         errors.append("review_id is invalid")
     if data.get("review_type") not in {"claim_entailment", "report_assertion"}:
         errors.append("review_type is invalid")
-    if not isinstance(data.get("reviewer_id"), str) or not data.get("reviewer_id"):
-        errors.append("reviewer_id must be a non-empty string")
+    for field in ("author_run_id", "reviewer_run_id", "target_id"):
+        if not isinstance(data.get(field), str) or not data.get(field):
+            errors.append(f"{field} must be a non-empty string")
     if not isinstance(data.get("independent"), bool):
         errors.append("independent must be boolean")
+    if data.get("author_run_id") == data.get("reviewer_run_id") or data.get("independent") is not True:
+        errors.append("reviewer must be independent")
+    if data.get("target_kind") not in {"claim", "paragraph"}:
+        errors.append("target_kind is invalid")
+    if data.get("review_type") == "claim_entailment" and data.get("target_kind") != "claim":
+        errors.append("claim_entailment review must target a claim")
+    if data.get("review_type") == "report_assertion" and data.get("target_kind") != "paragraph":
+        errors.append("report_assertion review must target a paragraph")
     if not _is_sha256(data.get("target_sha256")):
         errors.append("target_sha256 must be a SHA-256 value")
     if data.get("verdict") not in {"supported", "overstated", "not_supported", "unclear"}:
         errors.append("verdict is invalid")
+    if not isinstance(data.get("material"), bool):
+        errors.append("material must be boolean")
     if not isinstance(data.get("reason"), str) or not data.get("reason"):
         errors.append("reason must be a non-empty string")
     if data.get("allowable_scope") is not None and not isinstance(data.get("allowable_scope"), str):
         errors.append("allowable_scope must be null or string")
+    if data.get("required_action") not in {"none", "qualify", "remove", "rewrite", "add_evidence"}:
+        errors.append("required_action is invalid")
+    if data.get("verdict") != "supported" and data.get("required_action") == "none":
+        errors.append("non-supported verdict requires an action")
     if not isinstance(data.get("findings"), list):
         errors.append("findings must be an array")
     if not _valid_iso_datetime(data.get("reviewed_at")):

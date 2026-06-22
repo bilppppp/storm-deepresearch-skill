@@ -27,6 +27,7 @@ from scripts.harness_io import (
     atomic_write_text,
     atomic_write_json,
     canonical_json_bytes,
+    canonical_json_sha256,
     compute_skill_package_hash,
     sha256_file,
 )
@@ -46,9 +47,12 @@ from scripts.run_state import (
 from scripts.report_traceability import (
     body_length,
     citation_index,
+    extract_paragraphs,
     generate_references,
     has_handwritten_references,
     validate_report_traceability,
+    validate_review_bindings,
+    validate_semantic_review,
 )
 from scripts.source_evidence import SourceEvidenceError, resolve_snapshot
 from scripts.validate_evidence import validate_claim_closure
@@ -77,6 +81,10 @@ class EvidenceGateError(ValueError):
 
 class DraftGateError(ValueError):
     """Raised when a draft cannot be traced to governed Claims and citations."""
+
+
+class ReviewGateError(ValueError):
+    """Raised when independent semantic review is incomplete or non-passing."""
 
 
 def infer_language(topic: str, question: str, requested: str) -> str:
@@ -698,6 +706,192 @@ def command_draft(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _validate_revision_map(
+    payload: dict[str, object], reviews: list[dict[str, object]]
+) -> list[str]:
+    if set(payload) != {"schema_version", "revisions"} or payload.get("schema_version") != "2.0":
+        return ["revision map has invalid top-level contract"]
+    revisions = payload.get("revisions")
+    if not isinstance(revisions, list):
+        return ["revision map revisions must be an array"]
+    errors: list[str] = []
+    target_actions = {
+        str(review.get("target_sha256")): str(review.get("required_action"))
+        for review in reviews if review.get("required_action") != "none"
+    }
+    applied: set[str] = set()
+    fields = {"before_sha256", "after_sha256", "action", "status", "reason"}
+    for index, revision in enumerate(revisions, start=1):
+        if not isinstance(revision, dict) or set(revision) != fields:
+            errors.append(f"revision {index} has invalid fields")
+            continue
+        before = str(revision.get("before_sha256", ""))
+        if before not in target_actions:
+            errors.append(f"revision {index} does not resolve a review action")
+        elif revision.get("action") != target_actions[before]:
+            errors.append(f"revision {index} action does not match review")
+        if revision.get("status") != "applied":
+            errors.append(f"revision {index} is not applied")
+        applied.add(before)
+    missing = sorted(set(target_actions) - applied)
+    if missing:
+        errors.append("required review revisions are not applied")
+    return errors
+
+
+def _validate_review_set(
+    report: str,
+    claims: list[dict[str, object]],
+    claim_reviews: list[dict[str, object]],
+    paragraph_reviews: list[dict[str, object]],
+) -> list[str]:
+    errors: list[str] = []
+    all_reviews = [*claim_reviews, *paragraph_reviews]
+    review_ids: set[str] = set()
+    for review in all_reviews:
+        review_id = str(review.get("review_id", ""))
+        if review_id in review_ids:
+            errors.append(f"duplicate semantic review ID {review_id}")
+        review_ids.add(review_id)
+        errors.extend(validate_semantic_review(review))
+    claim_by_id = {str(claim.get("claim_id")): claim for claim in claims}
+    reviews_by_claim = {
+        str(review.get("target_id")): review
+        for review in claim_reviews if review.get("target_kind") == "claim"
+    }
+    for claim_id, claim in claim_by_id.items():
+        if not claim.get("material"):
+            continue
+        review = reviews_by_claim.get(claim_id)
+        if review is None:
+            errors.append(f"material claim {claim_id} lacks entailment review")
+            continue
+        if review.get("target_sha256") != canonical_json_sha256(claim):
+            errors.append(f"claim review hash mismatch: {claim_id}")
+        if review.get("verdict") != "supported":
+            errors.append(f"material review did not pass: {claim_id}")
+    errors.extend(validate_review_bindings(report, paragraph_reviews))
+    paragraph_review_by_id = {
+        str(review.get("target_id")): review
+        for review in paragraph_reviews if review.get("target_kind") == "paragraph"
+    }
+    for paragraph in extract_paragraphs(report):
+        review = paragraph_review_by_id.get(paragraph.locator)
+        if review is None:
+            errors.append(f"report paragraph lacks assertion audit: {paragraph.locator}")
+        elif review.get("verdict") != "supported":
+            errors.append(f"material review did not pass: {paragraph.locator}")
+    return list(dict.fromkeys(errors))
+
+
+def _peer_review_markdown(summary: dict[str, object]) -> str:
+    return (
+        "# Peer Review\n\n"
+        f"- Reviewer: {summary['reviewer_run_id']}\n"
+        f"- Claim reviews: {summary['claim_reviews']}\n"
+        f"- Paragraph audits: {summary['paragraph_reviews']}\n"
+        f"- Decision: {summary['decision']}\n"
+    )
+
+
+def _promote_review_artifacts(
+    layout: RunLayout,
+    generation: int,
+    report: str,
+    paragraph_map: list[dict[str, object]],
+    revision_map: dict[str, object],
+    peer_review: dict[str, object],
+) -> list[Path]:
+    staging = package_child(
+        layout.root, f"work/.staging/g{generation:04d}/review-{uuid.uuid4().hex}"
+    )
+    (staging / "research").mkdir(parents=True, exist_ok=False)
+    atomic_write_text(staging / "report.md", report)
+    atomic_write_text(
+        staging / "research/reviewed-paragraph-map.jsonl", _jsonl_text(paragraph_map)
+    )
+    atomic_write_json(staging / "research/revision-map.json", revision_map)
+    atomic_write_json(staging / "research/peer-review.json", peer_review)
+    atomic_write_text(
+        staging / "research/peer-review.md", _peer_review_markdown(peer_review["summary"])
+    )
+    relative_paths = [
+        "report.md", "research/reviewed-paragraph-map.jsonl", "research/revision-map.json",
+        "research/peer-review.json", "research/peer-review.md",
+    ]
+    outputs = []
+    for relative in relative_paths:
+        destination = layout.artifact(generation, relative)
+        atomic_promote(staging / relative, destination)
+        outputs.append(destination)
+    (staging / "research").rmdir()
+    staging.rmdir()
+    return outputs
+
+
+def command_review(args: argparse.Namespace) -> int:
+    layout = RunLayout(args.run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        raise StagePreconditionError("run has no generation")
+    package_hash = compute_skill_package_hash(ROOT)
+    verify_stage_precondition(layout, generation, Stage.REVIEW, package_hash)
+    report = args.revised_md.read_text(encoding="utf-8")
+    paragraph_map = load_jsonl(args.revised_paragraph_map_jsonl)
+    claim_reviews = load_jsonl(args.claim_reviews)
+    paragraph_reviews = load_jsonl(args.report_audit)
+    revision_map = load_json(args.revision_map)
+    claim_path = layout.artifact(generation, "research/claim-evidence-ledger.jsonl")
+    source_path = layout.artifact(generation, "research/source-register.jsonl")
+    draft_path = layout.artifact(generation, "drafts/report-v1.md")
+    draft_map_path = layout.artifact(generation, "research/paragraph-map.jsonl")
+    claims = load_jsonl(claim_path)
+    sources = load_jsonl(source_path)
+    errors = validate_report_traceability(report, paragraph_map, claims, sources)
+    errors.extend(_validate_review_set(report, claims, claim_reviews, paragraph_reviews))
+    errors.extend(_validate_revision_map(revision_map, [*claim_reviews, *paragraph_reviews]))
+    if errors:
+        raise ReviewGateError("; ".join(dict.fromkeys(errors)))
+    reviewer_ids = sorted({str(review["reviewer_run_id"]) for review in [*claim_reviews, *paragraph_reviews]})
+    summary = {
+        "reviewer_run_id": ", ".join(reviewer_ids),
+        "claim_reviews": len(claim_reviews),
+        "paragraph_reviews": len(paragraph_reviews),
+        "decision": "passed",
+    }
+    peer_review = {
+        "schema_version": "2.0",
+        "summary": summary,
+        "claim_reviews": claim_reviews,
+        "paragraph_reviews": paragraph_reviews,
+    }
+    outputs = _promote_review_artifacts(
+        layout, generation, report, paragraph_map, revision_map, peer_review
+    )
+    commit_stage_receipt(
+        layout,
+        generation=generation,
+        stage=Stage.REVIEW,
+        package_hash=package_hash,
+        validator_hash=sha256_file(Path(__file__)),
+        input_artifacts={
+            "artifacts/drafts/report-v1.md": sha256_file(draft_path),
+            "artifacts/research/paragraph-map.jsonl": sha256_file(draft_map_path),
+            "artifacts/research/claim-evidence-ledger.jsonl": sha256_file(claim_path),
+            "artifacts/research/source-register.jsonl": sha256_file(source_path),
+        },
+        output_paths=outputs,
+    )
+    atomic_write_text(package_child(layout.root, "current/report.md"), report)
+    atomic_write_json(package_child(layout.root, "current/research/peer-review.json"), peer_review)
+    atomic_write_text(
+        package_child(layout.root, "current/research/peer-review.md"),
+        _peer_review_markdown(summary),
+    )
+    print(f"Reviewed {layout.root}")
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -751,6 +945,15 @@ def build_parser() -> argparse.ArgumentParser:
     draft.add_argument("--draft-md", type=Path, required=True)
     draft.add_argument("--paragraph-map-jsonl", type=Path, required=True)
     draft.set_defaults(handler=command_draft)
+
+    review = subparsers.add_parser("review", help="Apply independent semantic review.")
+    review.add_argument("run_dir", type=Path)
+    review.add_argument("--claim-reviews", type=Path, required=True)
+    review.add_argument("--report-audit", type=Path, required=True)
+    review.add_argument("--revised-md", type=Path, required=True)
+    review.add_argument("--revised-paragraph-map-jsonl", type=Path, required=True)
+    review.add_argument("--revision-map", type=Path, required=True)
+    review.set_defaults(handler=command_review)
     return parser
 
 
@@ -761,7 +964,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (StagePreconditionError, ReceiptError) as exc:
         print(f"Stage failed: {exc}", file=sys.stderr)
         return EXIT_STAGE
-    except (RetrievalGateError, EvidenceGateError, DraftGateError) as exc:
+    except (RetrievalGateError, EvidenceGateError, DraftGateError, ReviewGateError) as exc:
         print(f"Evidence failed: {exc}", file=sys.stderr)
         return EXIT_EVIDENCE
     except (CLIContractError, ContractError, OutputPathError, OSError) as exc:
