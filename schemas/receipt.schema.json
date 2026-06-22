@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "receipt.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "run_id", "generation", "stage", "status",
+    "previous_receipt_sha256", "skill_package_sha256", "validator_sha256",
+    "input_artifacts", "output_artifacts", "checks", "completed_at", "receipt_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "run_id": {"type": "string", "minLength": 1},
+    "generation": {"type": "integer", "minimum": 1},
+    "stage": {"enum": ["init", "plan", "retrieval", "evidence", "draft", "review", "render", "validation", "release"]},
+    "status": {"const": "passed"},
+    "previous_receipt_sha256": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"},
+    "skill_package_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "validator_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "input_artifacts": {"$ref": "#/$defs/hashMap"},
+    "output_artifacts": {"$ref": "#/$defs/hashMap"},
+    "checks": {"type": "array", "items": {"type": "object"}},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "hashMap": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    }
+  }
+}

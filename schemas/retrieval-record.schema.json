@@ -1,18 +1,25 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "retrieval-record.schema.json",
-  "title": "Retrieval Adapter Record",
+  "title": "Retrieval Adapter Input Record",
   "type": "object",
   "additionalProperties": false,
-  "required": ["query_id", "title", "publisher", "retrieved_at", "content_excerpt", "content_locator", "adapter"],
-  "anyOf": [{"required": ["url"]}, {"required": ["file_ref"]}],
+  "required": [
+    "query_id", "title", "publisher", "published_at", "publication_date_status",
+    "retrieved_at", "content_excerpt", "content_locator", "adapter"
+  ],
+  "oneOf": [
+    {"required": ["url"], "not": {"required": ["file_ref"]}},
+    {"required": ["file_ref"], "not": {"required": ["url"]}}
+  ],
   "properties": {
     "query_id": {"type": "string", "pattern": "^Q[0-9]{3}$"},
-    "url": {"type": "string"},
-    "file_ref": {"type": "string"},
+    "url": {"type": "string", "format": "uri"},
+    "file_ref": {"type": "string", "minLength": 1},
     "title": {"type": "string", "minLength": 1},
     "publisher": {"type": "string", "minLength": 1},
-    "published_at": {"type": "string"},
+    "published_at": {"type": ["string", "null"], "format": "date"},
+    "publication_date_status": {"enum": ["known", "unknown"]},
     "retrieved_at": {"type": "string", "format": "date-time"},
     "content_excerpt": {"type": "string", "minLength": 1},
     "content_locator": {"type": "string", "minLength": 1},

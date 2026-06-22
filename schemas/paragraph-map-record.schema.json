@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "paragraph-map-record.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "paragraph_sha256", "paragraph_type", "claim_ids", "source_ids", "citation_keys", "text_locator"],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "paragraph_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "paragraph_type": {"enum": ["factual", "inference", "recommendation", "transition"]},
+    "claim_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^C[0-9]{3}$"}},
+    "source_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^S[0-9]{3}$"}},
+    "citation_keys": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "text_locator": {"type": "string", "minLength": 1}
+  }
+}

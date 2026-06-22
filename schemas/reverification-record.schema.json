@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reverification-record.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_id", "canonical_url", "checked_at", "status", "observed_status", "content_sha256", "reason"],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "source_id": {"type": "string", "pattern": "^S[0-9]{3}$"},
+    "canonical_url": {"type": "string", "format": "uri"},
+    "checked_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["current", "changed", "unavailable", "error"]},
+    "observed_status": {"type": ["integer", "null"], "minimum": 100, "maximum": 599},
+    "content_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "reason": {"type": "string", "minLength": 1}
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source-plan.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "questions", "source_classes", "stopping_conditions", "exclusions"],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "questions": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["query_id", "question", "evidence_need", "required_source_classes"],
+        "properties": {
+          "query_id": {"type": "string", "pattern": "^Q[0-9]{3}$"},
+          "question": {"type": "string", "minLength": 1},
+          "evidence_need": {"type": "string", "minLength": 1},
+          "required_source_classes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
+    "source_classes": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["class_id", "name", "can_prove", "cannot_prove", "priority"],
+        "properties": {
+          "class_id": {"type": "string", "minLength": 1},
+          "name": {"type": "string", "minLength": 1},
+          "can_prove": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "cannot_prove": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "priority": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "stopping_conditions": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "exclusions": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+  }
+}

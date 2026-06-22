@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import scripts.contract_io as contract_io
 from scripts.contract_io import (
     ContractError,
     load_json,
@@ -15,12 +16,63 @@ from scripts.contract_io import (
     validate_research_package,
     validate_source_record,
 )
+from tests.governed_fixtures import (
+    valid_amendment,
+    valid_brief_v2,
+    valid_human_approval,
+    valid_paragraph_map_record,
+    valid_receipt,
+    valid_release_manifest,
+    valid_retrieval_evidence,
+    valid_reverification_record,
+    valid_semantic_review_record,
+    valid_source_plan,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class ContractTests(unittest.TestCase):
+    def test_governed_schema_inventory_is_strict(self) -> None:
+        names = {
+            "receipt", "amendment", "source-plan", "retrieval-evidence",
+            "paragraph-map-record", "semantic-review-record", "human-approval",
+            "reverification-record", "release-manifest",
+        }
+        for name in names:
+            path = ROOT / "schemas" / f"{name}.schema.json"
+            self.assertTrue(path.is_file(), name)
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(payload["$schema"], "https://json-schema.org/draft/2020-12/schema")
+            self.assertFalse(payload["additionalProperties"], name)
+
+    def test_full_dossier_cannot_select_reduced_output(self) -> None:
+        brief = valid_brief_v2()
+        brief["output_mode"] = "reduced"
+        self.assertIn("full_dossier requires full output", validate_brief(brief))
+
+    def test_governed_record_validators_are_strict(self) -> None:
+        cases = {
+            "receipt": valid_receipt,
+            "amendment": valid_amendment,
+            "source_plan": valid_source_plan,
+            "retrieval_evidence": valid_retrieval_evidence,
+            "paragraph_map_record": valid_paragraph_map_record,
+            "semantic_review_record": valid_semantic_review_record,
+            "human_approval": valid_human_approval,
+            "reverification_record": valid_reverification_record,
+            "release_manifest": valid_release_manifest,
+        }
+        for name, builder in cases.items():
+            with self.subTest(name=name):
+                validator = getattr(contract_io, f"validate_{name}", None)
+                self.assertTrue(callable(validator), name)
+                payload = builder()
+                self.assertEqual(validator(payload), [])
+                payload["unexpected"] = True
+                self.assertIn("unknown fields: unexpected", validator(payload))
+
     def test_schema_files_are_strict_draft_2020_contracts(self) -> None:
         names = (
             "brief",
@@ -118,33 +170,12 @@ class ContractTests(unittest.TestCase):
 
 
 def valid_brief() -> dict[str, object]:
-    return {
-        "schema_version": "1.0",
-        "package_state": "initialized",
-        "topic": "Test topic",
-        "research_question": "What evidence answers the question?",
-        "user_goal": "Understand the evidence",
-        "audience": "General reader",
-        "decision_context": "",
-        "depth_level": "standard_report",
-        "report_language": "en",
-        "length_contract": {
-            "unit": "words",
-            "minimum": 3500,
-            "target": 5000,
-            "maximum": 7000,
-            "content_standard": "evidence_led",
-        },
-        "geography": "global",
-        "timeframe": "current",
-        "source_policy": "external_allowed",
-        "freshness_policy": {"as_of": "2026-06-21", "max_age_days": 365},
-        "retrieval_mode": "host",
-        "output_mode": "full",
-        "uncertainty_tolerance": "low",
-        "user_materials": [],
-        "assumptions": [],
-    }
+    brief = valid_brief_v2()
+    brief["topic"] = "Test topic"
+    brief["research_question"] = "What evidence answers the question?"
+    brief["user_goal"] = "Understand the evidence"
+    brief["depth_level"] = "standard_report"
+    return brief
 
 
 def valid_research_plan() -> dict[str, object]:
@@ -190,13 +221,14 @@ def valid_source() -> dict[str, object]:
         "canonical_url": "https://example.org/report",
         "file_ref": "",
         "published_at": "2026-05-01",
+        "publication_date_status": "known",
         "retrieved_at": "2026-06-21T10:00:00+08:00",
         "source_type": "official",
         "primary_class": "primary",
         "reliability_tier": "A",
         "freshness_status": "current",
         "reliability_notes": "First-party publication",
-        "content_hash": "",
+        "content_hash": "a" * 64,
     }
 
 

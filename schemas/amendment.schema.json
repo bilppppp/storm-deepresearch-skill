@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "amendment.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "run_id", "from_generation", "to_generation", "changes",
+    "initiator", "user_approval_evidence", "invalidation_start_stage", "created_at",
+    "amendment_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "run_id": {"type": "string", "minLength": 1},
+    "from_generation": {"type": "integer", "minimum": 1},
+    "to_generation": {"type": "integer", "minimum": 2},
+    "changes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "before", "after", "reason"],
+        "properties": {
+          "field": {"type": "string", "minLength": 1},
+          "before": {},
+          "after": {},
+          "reason": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "initiator": {"type": "string", "minLength": 1},
+    "user_approval_evidence": {"type": "string", "minLength": 1},
+    "invalidation_start_stage": {"enum": ["init", "plan", "retrieval", "evidence", "draft", "review", "render", "validation", "release"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "amendment_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

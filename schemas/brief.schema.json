@@ -1,23 +1,21 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "brief.schema.json",
-  "title": "STORM DeepResearch Brief",
+  "title": "STORM DeepResearch Governed Brief",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "schema_version", "package_state", "topic", "research_question", "user_goal",
-    "audience", "decision_context", "depth_level", "report_language", "length_contract", "geography", "timeframe",
+    "schema_version", "topic", "research_question", "user_goal", "audience",
+    "depth_level", "report_language", "length_contract", "geography", "timeframe",
     "source_policy", "freshness_policy", "retrieval_mode", "output_mode",
-    "uncertainty_tolerance", "user_materials", "assumptions"
+    "uncertainty_tolerance", "high_stakes", "user_materials", "assumptions"
   ],
   "properties": {
-    "schema_version": {"const": "1.0"},
-    "package_state": {"enum": ["initialized", "planned", "retrieving", "evidence_ready", "drafted", "reviewed", "rendered", "validated", "released", "blocked_input", "blocked_retrieval", "bounded_partial", "validation_failed"]},
+    "schema_version": {"const": "2.0"},
     "topic": {"type": "string", "minLength": 1},
     "research_question": {"type": "string", "minLength": 1},
     "user_goal": {"type": "string", "minLength": 1},
     "audience": {"type": "string", "minLength": 1},
-    "decision_context": {"type": "string"},
     "depth_level": {"enum": ["briefing", "standard_report", "full_dossier"]},
     "report_language": {"type": "string", "minLength": 2},
     "length_contract": {
@@ -47,7 +45,14 @@
     "retrieval_mode": {"enum": ["host", "provider", "closed_corpus"]},
     "output_mode": {"enum": ["full", "reduced"]},
     "uncertainty_tolerance": {"enum": ["low", "medium", "high"]},
+    "high_stakes": {"type": "boolean"},
     "user_materials": {"type": "array", "items": {"type": "string"}},
     "assumptions": {"type": "array", "items": {"type": "string"}}
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"depth_level": {"const": "full_dossier"}}},
+      "then": {"properties": {"output_mode": {"const": "full"}}}
+    }
+  ]
 }

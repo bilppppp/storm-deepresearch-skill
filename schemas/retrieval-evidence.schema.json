@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "retrieval-evidence.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "query_id", "canonical_url", "final_url", "file_ref",
+    "observed_status", "content_type", "retrieved_at", "adapter", "adapter_run_id",
+    "capture_level", "snapshot_ref", "snapshot_sha256", "normalized_text_sha256",
+    "locator_type", "locator", "excerpt", "excerpt_sha256", "published_at",
+    "publication_date_status", "source_type", "primary_class", "reliability_tier",
+    "reliability_notes"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "query_id": {"type": "string", "pattern": "^Q[0-9]{3}$"},
+    "canonical_url": {"type": ["string", "null"], "format": "uri"},
+    "final_url": {"type": ["string", "null"], "format": "uri"},
+    "file_ref": {"type": ["string", "null"]},
+    "observed_status": {"type": "integer", "minimum": 100, "maximum": 599},
+    "content_type": {"type": "string", "minLength": 1},
+    "retrieved_at": {"type": "string", "format": "date-time"},
+    "adapter": {"enum": ["host", "provider", "closed_corpus"]},
+    "adapter_run_id": {"type": "string", "minLength": 1},
+    "capture_level": {"enum": ["full_text", "official_data", "user_file", "search_snippet"]},
+    "snapshot_ref": {"type": "string", "minLength": 1},
+    "snapshot_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "normalized_text_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "locator_type": {"type": "string", "minLength": 1},
+    "locator": {"type": "string", "minLength": 1},
+    "excerpt": {"type": "string", "minLength": 1},
+    "excerpt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "published_at": {"type": ["string", "null"], "format": "date"},
+    "publication_date_status": {"enum": ["known", "unknown"]},
+    "source_type": {"type": "string", "minLength": 1},
+    "primary_class": {"enum": ["primary", "secondary"]},
+    "reliability_tier": {"enum": ["A", "B", "C", "D"]},
+    "reliability_notes": {"type": "string", "minLength": 1}
+  }
+}

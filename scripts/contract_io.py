@@ -18,10 +18,10 @@ class ContractError(ValueError):
 
 
 BRIEF_FIELDS = {
-    "schema_version", "package_state", "topic", "research_question", "user_goal", "audience",
-    "decision_context", "depth_level", "geography", "timeframe", "source_policy",
+    "schema_version", "topic", "research_question", "user_goal", "audience",
+    "depth_level", "geography", "timeframe", "source_policy",
     "freshness_policy", "retrieval_mode", "output_mode", "uncertainty_tolerance",
-    "report_language", "length_contract", "user_materials", "assumptions",
+    "report_language", "length_contract", "high_stakes", "user_materials", "assumptions",
 }
 RESEARCH_PLAN_FIELDS = {
     "schema_version", "status", "perspectives", "questions", "source_priorities",
@@ -41,17 +41,55 @@ REQUIRED_ELEMENTS = {
 }
 SOURCE_FIELDS = {
     "source_id", "title", "author_or_org", "canonical_url", "file_ref", "published_at",
-    "retrieved_at", "source_type", "primary_class", "reliability_tier", "freshness_status",
-    "reliability_notes", "content_hash",
+    "publication_date_status", "retrieved_at", "source_type", "primary_class",
+    "reliability_tier", "freshness_status", "reliability_notes", "content_hash",
 }
 CLAIM_FIELDS = {
     "claim_id", "claim_text", "claim_type", "material", "supporting_source_ids",
     "contradicting_source_ids", "evidence_locators", "evidence_strength", "confidence",
     "freshness_required", "reasoning_note", "tradeoffs", "limitation", "change_condition", "status",
 }
-PACKAGE_STATES = {
-    "initialized", "planned", "retrieving", "evidence_ready", "drafted", "reviewed", "rendered",
-    "validated", "released", "blocked_input", "blocked_retrieval", "bounded_partial", "validation_failed",
+SHA256_RE = re.compile(r"[0-9a-f]{64}")
+STAGES = {"init", "plan", "retrieval", "evidence", "draft", "review", "render", "validation", "release"}
+RECEIPT_FIELDS = {
+    "schema_version", "run_id", "generation", "stage", "status",
+    "previous_receipt_sha256", "skill_package_sha256", "validator_sha256",
+    "input_artifacts", "output_artifacts", "checks", "completed_at", "receipt_sha256",
+}
+AMENDMENT_FIELDS = {
+    "schema_version", "run_id", "from_generation", "to_generation", "changes",
+    "initiator", "user_approval_evidence", "invalidation_start_stage", "created_at",
+    "amendment_sha256",
+}
+SOURCE_PLAN_FIELDS = {"schema_version", "questions", "source_classes", "stopping_conditions", "exclusions"}
+RETRIEVAL_EVIDENCE_FIELDS = {
+    "schema_version", "query_id", "canonical_url", "final_url", "file_ref",
+    "observed_status", "content_type", "retrieved_at", "adapter", "adapter_run_id",
+    "capture_level", "snapshot_ref", "snapshot_sha256", "normalized_text_sha256",
+    "locator_type", "locator", "excerpt", "excerpt_sha256", "published_at",
+    "publication_date_status", "source_type", "primary_class", "reliability_tier",
+    "reliability_notes",
+}
+PARAGRAPH_MAP_FIELDS = {
+    "schema_version", "paragraph_sha256", "paragraph_type", "claim_ids", "source_ids",
+    "citation_keys", "text_locator",
+}
+SEMANTIC_REVIEW_FIELDS = {
+    "schema_version", "review_id", "review_type", "reviewer_id", "independent",
+    "target_sha256", "verdict", "reason", "allowable_scope", "findings", "reviewed_at",
+}
+HUMAN_APPROVAL_FIELDS = {
+    "schema_version", "approval_id", "reviewer", "scope", "decision", "reason",
+    "approved_artifact_sha256", "reviewed_at", "expires_at",
+}
+REVERIFICATION_FIELDS = {
+    "schema_version", "source_id", "canonical_url", "checked_at", "status",
+    "observed_status", "content_sha256", "reason",
+}
+RELEASE_MANIFEST_FIELDS = {
+    "schema_version", "run_id", "generation", "release_created_at",
+    "validation_receipt_sha256", "skill_package_sha256", "trust_report_sha256",
+    "human_approval_sha256", "files",
 }
 
 
@@ -110,12 +148,29 @@ def _valid_iso_datetime(value: object) -> bool:
     return True
 
 
+def _is_sha256(value: object, *, allow_empty: bool = False) -> bool:
+    return bool((allow_empty and value == "") or SHA256_RE.fullmatch(str(value)))
+
+
+def _strict_record(data: dict[str, Any], fields: set[str]) -> list[str]:
+    errors = _unknown_fields(data, fields) + _missing_fields(data, fields)
+    if data.get("schema_version") != "2.0":
+        errors.append("schema_version must be 2.0")
+    return errors
+
+
+def _validate_hash_map(value: object, field: str) -> list[str]:
+    if not isinstance(value, dict):
+        return [f"{field} must be an object"]
+    if not all(isinstance(path, str) and path and _is_sha256(digest) for path, digest in value.items()):
+        return [f"{field} must map paths to SHA-256 values"]
+    return []
+
+
 def validate_brief(data: dict[str, Any]) -> list[str]:
     errors = _unknown_fields(data, BRIEF_FIELDS) + _missing_fields(data, BRIEF_FIELDS)
-    if data.get("schema_version") != "1.0":
-        errors.append("schema_version must be 1.0")
-    if data.get("package_state") not in PACKAGE_STATES:
-        errors.append("package_state is invalid")
+    if data.get("schema_version") != "2.0":
+        errors.append("schema_version must be 2.0")
     for field in ("topic", "research_question", "user_goal", "audience", "geography", "timeframe"):
         if not isinstance(data.get(field), str) or not str(data.get(field)).strip():
             errors.append(f"{field} must be a non-empty string")
@@ -145,8 +200,12 @@ def validate_brief(data: dict[str, Any]) -> list[str]:
         errors.append("retrieval_mode is invalid")
     if data.get("output_mode") not in {"full", "reduced"}:
         errors.append("output_mode is invalid")
+    if data.get("depth_level") == "full_dossier" and data.get("output_mode") != "full":
+        errors.append("full_dossier requires full output")
     if data.get("uncertainty_tolerance") not in {"low", "medium", "high"}:
         errors.append("uncertainty_tolerance is invalid")
+    if not isinstance(data.get("high_stakes"), bool):
+        errors.append("high_stakes must be boolean")
     freshness = data.get("freshness_policy")
     if not isinstance(freshness, dict):
         errors.append("freshness_policy must be an object")
@@ -284,6 +343,14 @@ def validate_source_record(data: dict[str, Any]) -> list[str]:
         errors.append("source_id must match S followed by three digits")
     if not str(data.get("canonical_url", "")).strip() and not str(data.get("file_ref", "")).strip():
         errors.append("source requires canonical_url or file_ref")
+    publication_status = data.get("publication_date_status")
+    published_at = data.get("published_at")
+    if publication_status not in {"known", "unknown"}:
+        errors.append("publication_date_status is invalid")
+    elif publication_status == "known" and not _valid_iso_date(published_at):
+        errors.append("known publication date requires an ISO date")
+    elif publication_status == "unknown" and published_at is not None:
+        errors.append("unknown publication date requires null published_at")
     for field in ("title", "author_or_org", "source_type"):
         if not isinstance(data.get(field), str) or not str(data.get(field)).strip():
             errors.append(f"{field} must be a non-empty string")
@@ -295,6 +362,238 @@ def validate_source_record(data: dict[str, Any]) -> list[str]:
         errors.append("freshness_status is invalid")
     if not _valid_iso_datetime(data.get("retrieved_at")):
         errors.append("retrieved_at must be an ISO datetime")
+    if not _is_sha256(data.get("content_hash")):
+        errors.append("content_hash must be a SHA-256 value")
+    return errors
+
+
+def validate_receipt(data: dict[str, Any]) -> list[str]:
+    errors = _strict_record(data, RECEIPT_FIELDS)
+    if not isinstance(data.get("run_id"), str) or not data.get("run_id"):
+        errors.append("run_id must be a non-empty string")
+    if not isinstance(data.get("generation"), int) or data.get("generation", 0) < 1:
+        errors.append("generation must be a positive integer")
+    if data.get("stage") not in STAGES:
+        errors.append("stage is invalid")
+    if data.get("status") != "passed":
+        errors.append("receipt status must be passed")
+    if not _is_sha256(data.get("previous_receipt_sha256"), allow_empty=True):
+        errors.append("previous_receipt_sha256 must be empty or a SHA-256 value")
+    for field in ("skill_package_sha256", "validator_sha256", "receipt_sha256"):
+        if not _is_sha256(data.get(field)):
+            errors.append(f"{field} must be a SHA-256 value")
+    errors.extend(_validate_hash_map(data.get("input_artifacts"), "input_artifacts"))
+    errors.extend(_validate_hash_map(data.get("output_artifacts"), "output_artifacts"))
+    if not isinstance(data.get("checks"), list):
+        errors.append("checks must be an array")
+    if not _valid_iso_datetime(data.get("completed_at")):
+        errors.append("completed_at must be an ISO datetime")
+    return errors
+
+
+def validate_amendment(data: dict[str, Any]) -> list[str]:
+    errors = _strict_record(data, AMENDMENT_FIELDS)
+    if not isinstance(data.get("run_id"), str) or not data.get("run_id"):
+        errors.append("run_id must be a non-empty string")
+    before, after = data.get("from_generation"), data.get("to_generation")
+    if not isinstance(before, int) or not isinstance(after, int) or before < 1 or after != before + 1:
+        errors.append("to_generation must immediately follow from_generation")
+    changes = data.get("changes")
+    required = {"field", "before", "after", "reason"}
+    if not isinstance(changes, list) or not changes:
+        errors.append("changes must be a non-empty array")
+    else:
+        for index, change in enumerate(changes, start=1):
+            if not isinstance(change, dict) or set(change) != required:
+                errors.append(f"change {index} has invalid fields")
+            elif not str(change.get("field", "")).strip() or not str(change.get("reason", "")).strip():
+                errors.append(f"change {index} requires field and reason")
+    for field in ("initiator", "user_approval_evidence"):
+        if not isinstance(data.get(field), str) or not data.get(field):
+            errors.append(f"{field} must be a non-empty string")
+    if data.get("invalidation_start_stage") not in STAGES:
+        errors.append("invalidation_start_stage is invalid")
+    if not _valid_iso_datetime(data.get("created_at")):
+        errors.append("created_at must be an ISO datetime")
+    if not _is_sha256(data.get("amendment_sha256")):
+        errors.append("amendment_sha256 must be a SHA-256 value")
+    return errors
+
+
+def validate_source_plan(data: dict[str, Any]) -> list[str]:
+    errors = _strict_record(data, SOURCE_PLAN_FIELDS)
+    questions = data.get("questions")
+    if not isinstance(questions, list) or not questions:
+        errors.append("questions must be a non-empty array")
+    else:
+        fields = {"query_id", "question", "evidence_need", "required_source_classes"}
+        for index, question in enumerate(questions, start=1):
+            if not isinstance(question, dict) or set(question) != fields:
+                errors.append(f"source question {index} has invalid fields")
+            elif not re.fullmatch(r"Q\d{3}", str(question.get("query_id", ""))):
+                errors.append(f"source question {index} has invalid query_id")
+            elif not all(str(question.get(field, "")).strip() for field in ("question", "evidence_need")):
+                errors.append(f"source question {index} requires question and evidence_need")
+            elif not isinstance(question.get("required_source_classes"), list) or not question["required_source_classes"]:
+                errors.append(f"source question {index} requires source classes")
+    classes = data.get("source_classes")
+    if not isinstance(classes, list) or not classes:
+        errors.append("source_classes must be a non-empty array")
+    else:
+        fields = {"class_id", "name", "can_prove", "cannot_prove", "priority"}
+        for index, source_class in enumerate(classes, start=1):
+            if not isinstance(source_class, dict) or set(source_class) != fields:
+                errors.append(f"source class {index} has invalid fields")
+                continue
+            if not all(str(source_class.get(field, "")).strip() for field in ("class_id", "name")):
+                errors.append(f"source class {index} requires class_id and name")
+            if not all(isinstance(source_class.get(field), list) and source_class[field] for field in ("can_prove", "cannot_prove")):
+                errors.append(f"source class {index} requires proof boundaries")
+            if not isinstance(source_class.get("priority"), int) or source_class["priority"] < 1:
+                errors.append(f"source class {index} requires positive priority")
+    for field in ("stopping_conditions", "exclusions"):
+        value = data.get(field)
+        if not isinstance(value, list) or not value or not all(isinstance(item, str) and item.strip() for item in value):
+            errors.append(f"{field} must be a non-empty string array")
+    return errors
+
+
+def validate_retrieval_evidence(data: dict[str, Any]) -> list[str]:
+    errors = _strict_record(data, RETRIEVAL_EVIDENCE_FIELDS)
+    if not re.fullmatch(r"Q\d{3}", str(data.get("query_id", ""))):
+        errors.append("query_id must match Q followed by three digits")
+    url = data.get("canonical_url")
+    file_ref = data.get("file_ref")
+    if bool(url) == bool(file_ref):
+        errors.append("exactly one of canonical_url or file_ref is required")
+    if url and not data.get("final_url"):
+        errors.append("URL evidence requires final_url")
+    if not isinstance(data.get("observed_status"), int) or not 100 <= data.get("observed_status", 0) <= 599:
+        errors.append("observed_status must be an HTTP status")
+    for field in ("content_type", "adapter_run_id", "snapshot_ref", "locator_type", "locator", "excerpt", "source_type", "reliability_notes"):
+        if not isinstance(data.get(field), str) or not data.get(field):
+            errors.append(f"{field} must be a non-empty string")
+    if data.get("adapter") not in {"host", "provider", "closed_corpus"}:
+        errors.append("adapter is invalid")
+    if data.get("capture_level") not in {"full_text", "official_data", "user_file", "search_snippet"}:
+        errors.append("capture_level is invalid")
+    for field in ("snapshot_sha256", "normalized_text_sha256", "excerpt_sha256"):
+        if not _is_sha256(data.get(field)):
+            errors.append(f"{field} must be a SHA-256 value")
+    if not _valid_iso_datetime(data.get("retrieved_at")):
+        errors.append("retrieved_at must be an ISO datetime")
+    date_status, published_at = data.get("publication_date_status"), data.get("published_at")
+    if date_status == "known" and not _valid_iso_date(published_at):
+        errors.append("known publication date requires an ISO date")
+    elif date_status == "unknown" and published_at is not None:
+        errors.append("unknown publication date requires null published_at")
+    elif date_status not in {"known", "unknown"}:
+        errors.append("publication_date_status is invalid")
+    if data.get("primary_class") not in {"primary", "secondary"}:
+        errors.append("primary_class is invalid")
+    if data.get("reliability_tier") not in {"A", "B", "C", "D"}:
+        errors.append("reliability_tier is invalid")
+    return errors
+
+
+def validate_paragraph_map_record(data: dict[str, Any]) -> list[str]:
+    errors = _strict_record(data, PARAGRAPH_MAP_FIELDS)
+    if not _is_sha256(data.get("paragraph_sha256")):
+        errors.append("paragraph_sha256 must be a SHA-256 value")
+    paragraph_type = data.get("paragraph_type")
+    if paragraph_type not in {"factual", "inference", "recommendation", "transition"}:
+        errors.append("paragraph_type is invalid")
+    patterns = (("claim_ids", r"C\d{3}"), ("source_ids", r"S\d{3}"))
+    for field, pattern in patterns:
+        value = data.get(field)
+        if not isinstance(value, list) or not all(re.fullmatch(pattern, str(item)) for item in value):
+            errors.append(f"{field} contains invalid IDs")
+    keys = data.get("citation_keys")
+    if not isinstance(keys, list) or not all(isinstance(item, str) and item for item in keys):
+        errors.append("citation_keys must be a string array")
+    if paragraph_type == "factual" and not all(data.get(field) for field in ("claim_ids", "source_ids", "citation_keys")):
+        errors.append("factual paragraph requires claim, source, and citation mappings")
+    if not isinstance(data.get("text_locator"), str) or not data.get("text_locator"):
+        errors.append("text_locator must be a non-empty string")
+    return errors
+
+
+def validate_semantic_review_record(data: dict[str, Any]) -> list[str]:
+    errors = _strict_record(data, SEMANTIC_REVIEW_FIELDS)
+    if not re.fullmatch(r"REV\d{3}", str(data.get("review_id", ""))):
+        errors.append("review_id is invalid")
+    if data.get("review_type") not in {"claim_entailment", "report_assertion"}:
+        errors.append("review_type is invalid")
+    if not isinstance(data.get("reviewer_id"), str) or not data.get("reviewer_id"):
+        errors.append("reviewer_id must be a non-empty string")
+    if not isinstance(data.get("independent"), bool):
+        errors.append("independent must be boolean")
+    if not _is_sha256(data.get("target_sha256")):
+        errors.append("target_sha256 must be a SHA-256 value")
+    if data.get("verdict") not in {"supported", "overstated", "not_supported", "unclear"}:
+        errors.append("verdict is invalid")
+    if not isinstance(data.get("reason"), str) or not data.get("reason"):
+        errors.append("reason must be a non-empty string")
+    if data.get("allowable_scope") is not None and not isinstance(data.get("allowable_scope"), str):
+        errors.append("allowable_scope must be null or string")
+    if not isinstance(data.get("findings"), list):
+        errors.append("findings must be an array")
+    if not _valid_iso_datetime(data.get("reviewed_at")):
+        errors.append("reviewed_at must be an ISO datetime")
+    return errors
+
+
+def validate_human_approval(data: dict[str, Any]) -> list[str]:
+    errors = _strict_record(data, HUMAN_APPROVAL_FIELDS)
+    if not re.fullmatch(r"APP\d{3}", str(data.get("approval_id", ""))):
+        errors.append("approval_id is invalid")
+    for field in ("reviewer", "reason"):
+        if not isinstance(data.get(field), str) or not data.get(field):
+            errors.append(f"{field} must be a non-empty string")
+    if data.get("scope") not in {"internal_high_stakes", "public_release"}:
+        errors.append("scope is invalid")
+    if data.get("decision") not in {"approved", "rejected"}:
+        errors.append("decision is invalid")
+    if not _is_sha256(data.get("approved_artifact_sha256")):
+        errors.append("approved_artifact_sha256 must be a SHA-256 value")
+    if not _valid_iso_datetime(data.get("reviewed_at")):
+        errors.append("reviewed_at must be an ISO datetime")
+    if data.get("expires_at") is not None and not _valid_iso_datetime(data.get("expires_at")):
+        errors.append("expires_at must be null or an ISO datetime")
+    return errors
+
+
+def validate_reverification_record(data: dict[str, Any]) -> list[str]:
+    errors = _strict_record(data, REVERIFICATION_FIELDS)
+    if not re.fullmatch(r"S\d{3}", str(data.get("source_id", ""))):
+        errors.append("source_id must match S followed by three digits")
+    if not isinstance(data.get("canonical_url"), str) or not data.get("canonical_url"):
+        errors.append("canonical_url must be a non-empty string")
+    if not _valid_iso_datetime(data.get("checked_at")):
+        errors.append("checked_at must be an ISO datetime")
+    if data.get("status") not in {"current", "changed", "unavailable", "error"}:
+        errors.append("status is invalid")
+    if data.get("observed_status") is not None and not isinstance(data.get("observed_status"), int):
+        errors.append("observed_status must be null or integer")
+    if data.get("content_sha256") is not None and not _is_sha256(data.get("content_sha256")):
+        errors.append("content_sha256 must be null or a SHA-256 value")
+    if not isinstance(data.get("reason"), str) or not data.get("reason"):
+        errors.append("reason must be a non-empty string")
+    return errors
+
+
+def validate_release_manifest(data: dict[str, Any]) -> list[str]:
+    errors = _strict_record(data, RELEASE_MANIFEST_FIELDS)
+    if not isinstance(data.get("run_id"), str) or not data.get("run_id"):
+        errors.append("run_id must be a non-empty string")
+    if not isinstance(data.get("generation"), int) or data.get("generation", 0) < 1:
+        errors.append("generation must be a positive integer")
+    if not _valid_iso_datetime(data.get("release_created_at")):
+        errors.append("release_created_at must be an ISO datetime")
+    for field in ("validation_receipt_sha256", "skill_package_sha256", "trust_report_sha256", "human_approval_sha256"):
+        if not _is_sha256(data.get(field)):
+            errors.append(f"{field} must be a SHA-256 value")
+    errors.extend(_validate_hash_map(data.get("files"), "files"))
     return errors
 
 
