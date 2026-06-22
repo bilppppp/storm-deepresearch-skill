@@ -28,7 +28,6 @@ from scripts.harness_io import (
     atomic_write_text,
     atomic_write_json,
     canonical_json_bytes,
-    canonical_json_sha256,
     compute_skill_package_hash,
     sha256_file,
 )
@@ -49,15 +48,14 @@ from scripts.run_state import (
 from scripts.report_traceability import (
     body_length,
     citation_index,
-    extract_paragraphs,
     generate_references,
     has_handwritten_references,
     validate_report_traceability,
-    validate_review_bindings,
-    validate_semantic_review,
+    validate_review_set,
 )
 from scripts.source_evidence import SourceEvidenceError, resolve_snapshot
 from scripts.validate_evidence import validate_claim_closure
+from scripts.validate_package import validate_and_commit
 
 
 SCRIPT_INTERFACE = "cli"
@@ -752,43 +750,7 @@ def _validate_review_set(
     claim_reviews: list[dict[str, object]],
     paragraph_reviews: list[dict[str, object]],
 ) -> list[str]:
-    errors: list[str] = []
-    all_reviews = [*claim_reviews, *paragraph_reviews]
-    review_ids: set[str] = set()
-    for review in all_reviews:
-        review_id = str(review.get("review_id", ""))
-        if review_id in review_ids:
-            errors.append(f"duplicate semantic review ID {review_id}")
-        review_ids.add(review_id)
-        errors.extend(validate_semantic_review(review))
-    claim_by_id = {str(claim.get("claim_id")): claim for claim in claims}
-    reviews_by_claim = {
-        str(review.get("target_id")): review
-        for review in claim_reviews if review.get("target_kind") == "claim"
-    }
-    for claim_id, claim in claim_by_id.items():
-        if not claim.get("material"):
-            continue
-        review = reviews_by_claim.get(claim_id)
-        if review is None:
-            errors.append(f"material claim {claim_id} lacks entailment review")
-            continue
-        if review.get("target_sha256") != canonical_json_sha256(claim):
-            errors.append(f"claim review hash mismatch: {claim_id}")
-        if review.get("verdict") != "supported":
-            errors.append(f"material review did not pass: {claim_id}")
-    errors.extend(validate_review_bindings(report, paragraph_reviews))
-    paragraph_review_by_id = {
-        str(review.get("target_id")): review
-        for review in paragraph_reviews if review.get("target_kind") == "paragraph"
-    }
-    for paragraph in extract_paragraphs(report):
-        review = paragraph_review_by_id.get(paragraph.locator)
-        if review is None:
-            errors.append(f"report paragraph lacks assertion audit: {paragraph.locator}")
-        elif review.get("verdict") != "supported":
-            errors.append(f"material review did not pass: {paragraph.locator}")
-    return list(dict.fromkeys(errors))
+    return validate_review_set(report, claims, claim_reviews, paragraph_reviews)
 
 
 def _peer_review_markdown(summary: dict[str, object]) -> str:
@@ -971,6 +933,14 @@ def command_render(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def command_validate(args: argparse.Namespace) -> int:
+    checks, exit_code = validate_and_commit(args.run_dir)
+    for check in checks:
+        stream = sys.stderr if check.status == "fail" else sys.stdout
+        print(f"[{check.status.upper()}] {check.check_id}: {check.message}", file=stream)
+    return exit_code
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -1041,6 +1011,10 @@ def build_parser() -> argparse.ArgumentParser:
     render.add_argument("--pdf-renderer", choices=("auto", "weasyprint", "chromium", "none"), default="auto")
     render.add_argument("--chrome", type=Path, default=DEFAULT_CHROME)
     render.set_defaults(handler=command_render)
+
+    validate = subparsers.add_parser("validate", help="Recompute all offline governed gates.")
+    validate.add_argument("run_dir", type=Path)
+    validate.set_defaults(handler=command_validate)
     return parser
 
 

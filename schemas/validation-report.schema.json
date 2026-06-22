@@ -4,11 +4,12 @@
   "title": "Validation Report",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "ok", "package_state", "checks", "summary"],
+  "required": ["schema_version", "ok", "generation", "validated_through", "checks", "summary"],
   "properties": {
-    "schema_version": {"const": "1.0"},
-    "ok": {"type": "boolean"},
-    "package_state": {"type": "string"},
+    "schema_version": {"const": "2.0"},
+    "ok": {"const": true},
+    "generation": {"type": "integer", "minimum": 1},
+    "validated_through": {"const": "render"},
     "checks": {
       "type": "array",
       "items": {

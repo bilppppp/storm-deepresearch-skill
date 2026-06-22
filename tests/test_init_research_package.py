@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -21,7 +22,7 @@ class InitResearchPackageTests(unittest.TestCase):
             output = workspace / "output" / "storm-deepresearch" / "test-run"
             result = subprocess.run(
                 [
-                    "python3",
+                    sys.executable,
                     str(ROOT / "scripts" / "init_research_package.py"),
                     "--topic",
                     "Test topic",
@@ -56,7 +57,7 @@ class InitResearchPackageTests(unittest.TestCase):
             output = workspace / "output" / "storm-deepresearch" / "chinese-run"
             result = subprocess.run(
                 [
-                    "python3",
+                    sys.executable,
                     str(ROOT / "scripts" / "init_research_package.py"),
                     "--topic",
                     "人工智能研究治理",
@@ -88,7 +89,7 @@ class InitResearchPackageTests(unittest.TestCase):
             before = ledger.read_bytes()
             result = subprocess.run(
                 [
-                    "python3",
+                    sys.executable,
                     str(ROOT / "scripts" / "init_research_package.py"),
                     "--topic",
                     "Test topic",
@@ -112,7 +113,7 @@ class InitResearchPackageTests(unittest.TestCase):
             workspace = Path(tmp)
             result = subprocess.run(
                 [
-                    "python3",
+                    sys.executable,
                     str(ROOT / "scripts" / "init_research_package.py"),
                     "--topic",
                     "Default path",

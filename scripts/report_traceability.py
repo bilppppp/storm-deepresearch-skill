@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from scripts.contract_io import validate_paragraph_map_record, validate_semantic_review_record
-from scripts.harness_io import sha256_bytes
+from scripts.harness_io import canonical_json_sha256, sha256_bytes
 
 
 SCRIPT_INTERFACE = "internal-module"
@@ -261,4 +261,50 @@ def validate_review_bindings(
         paragraph = paragraphs.get(target_id)
         if paragraph is None or paragraph.sha256 != review.get("target_sha256"):
             errors.append(f"reviewed paragraph hash mismatch: {target_id}")
+    return list(dict.fromkeys(errors))
+
+
+def validate_review_set(
+    report: str,
+    claims: list[dict[str, Any]],
+    claim_reviews: list[dict[str, Any]],
+    paragraph_reviews: list[dict[str, Any]],
+) -> list[str]:
+    """Recompute independent semantic-review coverage and target bindings."""
+    errors: list[str] = []
+    all_reviews = [*claim_reviews, *paragraph_reviews]
+    review_ids: set[str] = set()
+    for review in all_reviews:
+        review_id = str(review.get("review_id", ""))
+        if review_id in review_ids:
+            errors.append(f"duplicate semantic review ID {review_id}")
+        review_ids.add(review_id)
+        errors.extend(validate_semantic_review(review))
+    reviews_by_claim = {
+        str(review.get("target_id")): review
+        for review in claim_reviews if review.get("target_kind") == "claim"
+    }
+    for claim in claims:
+        if not claim.get("material"):
+            continue
+        claim_id = str(claim.get("claim_id"))
+        review = reviews_by_claim.get(claim_id)
+        if review is None:
+            errors.append(f"material claim {claim_id} lacks entailment review")
+            continue
+        if review.get("target_sha256") != canonical_json_sha256(claim):
+            errors.append(f"claim review hash mismatch: {claim_id}")
+        if review.get("verdict") != "supported":
+            errors.append(f"material review did not pass: {claim_id}")
+    errors.extend(validate_review_bindings(report, paragraph_reviews))
+    reviews_by_paragraph = {
+        str(review.get("target_id")): review
+        for review in paragraph_reviews if review.get("target_kind") == "paragraph"
+    }
+    for paragraph in extract_paragraphs(report):
+        review = reviews_by_paragraph.get(paragraph.locator)
+        if review is None:
+            errors.append(f"report paragraph lacks assertion audit: {paragraph.locator}")
+        elif review.get("verdict") != "supported":
+            errors.append(f"material review did not pass: {paragraph.locator}")
     return list(dict.fromkeys(errors))

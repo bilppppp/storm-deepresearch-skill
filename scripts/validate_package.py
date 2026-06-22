@@ -1,49 +1,87 @@
 #!/usr/bin/env python3
-"""Strictly validate a STORM DeepResearch output package."""
+"""Validate a governed STORM run and commit validation authority on success."""
 from __future__ import annotations
 
 import argparse
-import hashlib
 import html
 import json
 import re
 import sys
+import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
-try:
-    from .contract_io import ContractError, load_json, load_jsonl, validate_research_package
-    from .output_paths import OutputPathError, package_child, resolve_package_dir
-    from .validate_evidence import compute_coverage, validate_claim_closure
-except ImportError:
-    from contract_io import ContractError, load_json, load_jsonl, validate_research_package
-    from output_paths import OutputPathError, package_child, resolve_package_dir
-    from validate_evidence import compute_coverage, validate_claim_closure
+from pypdf import PdfReader
+
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.contract_io import (
+    ContractError,
+    load_json,
+    load_jsonl,
+    validate_brief,
+    validate_report_outline,
+    validate_research_plan,
+    validate_source_plan,
+)
+from scripts.export_report import markdown_sections, markdown_title
+from scripts.harness_io import (
+    atomic_copy_file,
+    atomic_promote,
+    atomic_write_json,
+    atomic_write_text,
+    compute_skill_package_hash,
+    sha256_file,
+)
+from scripts.output_paths import OutputPathError, package_child
+from scripts.report_traceability import (
+    body_length,
+    validate_report_traceability,
+    validate_review_set,
+)
+from scripts.run_state import (
+    ReceiptError,
+    RunLayout,
+    Stage,
+    commit_stage_receipt,
+    latest_generation,
+    verify_receipt_chain,
+)
+from scripts.validate_evidence import compute_coverage, validate_claim_closure
 
 
+SCRIPT_INTERFACE = "public-worker-cli"
+SCRIPT_INTERFACE_REASON = "Offline governed validation and validation receipt commitment."
+ROOT = Path(__file__).resolve().parents[1]
 EXIT_CONTRACT = 4
 EXIT_EVIDENCE = 5
 EXIT_EXPORT = 6
 EXIT_SAFETY = 7
+EXIT_STAGE = 8
 
-REQUIRED = (
-    "brief.json",
-    "research/research-plan.json",
-    "research/source-register.jsonl",
-    "research/source-register.md",
-    "research/claim-evidence-ledger.jsonl",
-    "research/evidence-map.md",
-    "research/report-claim-map.json",
-    "research/perspective-questions.md",
-    "research/contradiction-ledger.json",
-    "research/contradiction-map.md",
-    "research/uncertainty-ledger.md",
-    "research/peer-review.md",
-    "report.md",
+RENDER_ARTIFACTS = {
+    "drafts/report-v1.md",
     "exports/report.html",
+    "exports/report.pdf",
+    "report.md",
+    "research/citation-index.json",
+    "research/claim-evidence-ledger.jsonl",
+    "research/contradiction-ledger.json",
+    "research/paragraph-map.jsonl",
+    "research/peer-review.json",
+    "research/peer-review.md",
+    "research/report-outline.json",
+    "research/research-plan.json",
+    "research/retrieval-manifest.jsonl",
+    "research/reviewed-paragraph-map.jsonl",
+    "research/revision-map.json",
+    "research/source-plan.json",
+    "research/source-register.jsonl",
+    "research/uncertainty-ledger.json",
     "validation/render-manifest.json",
-)
+}
 LOCAL_PATH_PATTERNS = (
     re.compile(r"/Users/[^\s<]+"),
     re.compile(r"/mnt/data/[^\s<]+"),
@@ -52,10 +90,9 @@ LOCAL_PATH_PATTERNS = (
 )
 TEMPLATE_MARKER = re.compile(r"(?:\{\{|\{%|\{#)")
 INTERNAL_ID = re.compile(r"\b[CS]\d{3}\b")
-REFERENCE_HEADING = re.compile(r"^##\s+(?:References|参考资料|参考文献)\s*$", re.IGNORECASE | re.MULTILINE)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Check:
     check_id: str
     severity: str
@@ -71,384 +108,448 @@ class Check:
         return payload
 
 
-def digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def markdown_title(text: str) -> str:
-    match = re.search(r"^#\s+(.+?)\s*$", text, re.MULTILINE)
-    return match.group(1).strip() if match else ""
-
-
-def markdown_sections(text: str) -> list[str]:
-    return [match.group(1).strip() for match in re.finditer(r"^##\s+(.+?)\s*$", text, re.MULTILINE)]
-
-
-def strip_tags(value: str) -> str:
-    return html.unescape(re.sub(r"<[^>]+>", "", value)).strip()
-
-
-def html_title(text: str) -> str:
-    match = re.search(r"<title>(.*?)</title>", text, re.IGNORECASE | re.DOTALL)
-    return strip_tags(match.group(1)) if match else ""
-
-
-def html_sections(text: str) -> list[str]:
-    return [strip_tags(value) for value in re.findall(r"<h2[^>]*>(.*?)</h2>", text, re.IGNORECASE | re.DOTALL)]
-
-
-def report_body(text: str) -> str:
-    reference = REFERENCE_HEADING.search(text)
-    body = text[:reference.start()] if reference else text
-    body = re.sub(r"```.*?```", " ", body, flags=re.DOTALL)
-    body = re.sub(r"!\[([^]]*)\]\([^)]+\)", r"\1", body)
-    body = re.sub(r"\[([^]]+)\]\([^)]+\)", r"\1", body)
-    body = re.sub(r"https?://\S+", " ", body)
-    body = re.sub(r"^\s*\|?\s*:?-{3,}.*$", " ", body, flags=re.MULTILINE)
-    body = re.sub(r"[#*_`>|]", " ", body)
-    return body
-
-
-def measure_report_units(text: str, unit: str) -> int:
-    body = report_body(text)
-    if unit == "words":
-        return len(re.findall(r"\b[\w]+(?:[-'][\w]+)*\b", body, flags=re.UNICODE))
-    return len(re.findall(r"\S", body, flags=re.UNICODE))
-
-
-def research_utilization_errors(
-    brief: dict[str, Any], plan: dict[str, Any], claims: list[dict[str, Any]], report_sections: list[str]
-) -> list[str]:
-    errors: list[str] = []
-    outline = plan.get("report_outline", {}) if isinstance(plan.get("report_outline"), dict) else {}
-    questions = plan.get("questions", []) if isinstance(plan.get("questions"), list) else []
-    sections = outline.get("sections", []) if isinstance(outline.get("sections"), list) else []
-    if plan.get("status") != "complete":
-        errors.append("research plan must be complete before release")
-    if outline.get("status") != "complete":
-        errors.append("report_outline must be complete before release")
-    if any(isinstance(question, dict) and question.get("status") == "planned" for question in questions):
-        errors.append("planned perspective questions remain without a recorded disposition")
-
-    thresholds = {
-        "briefing": (1, 1, 1, 1),
-        "standard_report": (3, 6, 4, 6),
-        "full_dossier": (5, 10, 6, 12),
-    }
-    min_perspectives, min_questions, min_sections, min_claims = thresholds.get(
-        str(brief.get("depth_level")), thresholds["standard_report"]
-    )
-    perspectives = {str(item).strip().casefold() for item in plan.get("perspectives", []) if str(item).strip()}
-    material_claims = [claim for claim in claims if claim.get("material")]
-    if len(perspectives) < min_perspectives:
-        errors.append(f"depth requires at least {min_perspectives} researched perspectives")
-    if len(questions) < min_questions:
-        errors.append(f"depth requires at least {min_questions} perspective questions")
-    if len(sections) < min_sections:
-        errors.append(f"depth requires at least {min_sections} evidence-planned report sections")
-    if len(material_claims) < min_claims:
-        errors.append(f"depth requires at least {min_claims} material claims")
-
-    outlined_claim_ids: set[str] = set()
-    for section in sections:
-        if not isinstance(section, dict):
-            continue
-        title = str(section.get("title", "")).strip()
-        if title and title not in report_sections:
-            errors.append(f"outlined section is missing from report.md: {title}")
-        if not section.get("question_ids"):
-            errors.append(f"outline section {section.get('section_id', '')} has no STORM questions")
-        if not section.get("claim_ids"):
-            errors.append(f"outline section {section.get('section_id', '')} has no evidence-backed claims")
-        outlined_claim_ids.update(str(item) for item in section.get("claim_ids", []))
-    missing_material = sorted(
-        str(claim.get("claim_id")) for claim in material_claims
-        if str(claim.get("claim_id")) not in outlined_claim_ids
-    )
-    if missing_material:
-        errors.append("material claims are absent from report_outline: " + ", ".join(missing_material))
-    target_sum = sum(
-        int(section.get("target_units", 0)) for section in sections
-        if isinstance(section, dict) and isinstance(section.get("target_units"), int)
-    )
-    if sections and target_sum < int(outline.get("minimum", 0) or 0):
-        errors.append("report_outline section budgets do not reach the minimum length contract")
-    if sections and target_sum > int(outline.get("maximum", 0) or 0):
-        errors.append("report_outline section budgets exceed the maximum length contract")
-    return errors
-
-
 def add_check(
-    checks: list[Check], check_id: str, passed: bool, path: str, success: str, failure: str,
-    repair: str, exit_code: int, severity: str = "error",
+    checks: list[Check],
+    check_id: str,
+    errors: Iterable[str],
+    path: str,
+    success: str,
+    repair: str,
+    exit_code: int,
 ) -> None:
+    failures = list(dict.fromkeys(str(error) for error in errors if str(error)))
     checks.append(Check(
         check_id=check_id,
-        severity="info" if passed else severity,
-        status="pass" if passed else "fail",
+        severity="error" if failures else "info",
+        status="fail" if failures else "pass",
         path=path,
-        message=success if passed else failure,
-        repair_command="" if passed else repair,
-        exit_code=0 if passed else exit_code,
+        message="; ".join(failures) if failures else success,
+        repair_command=repair if failures else "",
+        exit_code=exit_code if failures else 0,
     ))
 
 
-def write_reports(root: Path, checks: list[Check], ok: bool) -> None:
-    validation = package_child(root, "validation")
-    validation.mkdir(parents=True, exist_ok=True)
-    summary = {
-        "passed": sum(item.status == "pass" for item in checks),
-        "warnings": sum(item.status == "warn" for item in checks),
-        "failed": sum(item.status == "fail" for item in checks),
-    }
-    payload = {
-        "schema_version": "1.0",
-        "ok": ok,
-        "package_state": "validated" if ok else "validation_failed",
-        "checks": [item.public() for item in checks],
-        "summary": summary,
-    }
-    (validation / "validation-report.json").write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
-    lines = ["# Validation Report", "", f"**Status:** {'PASS' if ok else 'FAIL'}", ""]
-    for item in checks:
-        mark = "x" if item.status == "pass" else " "
-        lines.append(f"- [{mark}] `{item.check_id}` {item.message} (`{item.path}`)")
-        if item.repair_command:
-            lines.append(f"  Repair: `{item.repair_command}`")
-    lines.extend(["", f"Passed: {summary['passed']} | Warnings: {summary['warnings']} | Failed: {summary['failed']}"])
-    (validation / "validation-report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+def _files_under(root: Path) -> tuple[set[str], list[str]]:
+    files: set[str] = set()
+    unsafe: list[str] = []
+    for path in root.rglob("*"):
+        relative = path.relative_to(root).as_posix()
+        if path.is_symlink():
+            unsafe.append(f"symlink is forbidden in governed artifacts: {relative}")
+        elif path.is_file():
+            files.add(relative)
+    return files, unsafe
 
 
-def validate(root: Path) -> tuple[list[Check], int]:
+def _parse_artifacts(root: Path) -> list[str]:
+    errors: list[str] = []
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or path.is_symlink():
+            continue
+        relative = path.relative_to(root).as_posix()
+        try:
+            if path.suffix == ".json":
+                json.loads(path.read_text(encoding="utf-8"))
+            elif path.suffix == ".jsonl":
+                for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                    if line.strip():
+                        value = json.loads(line)
+                        if not isinstance(value, dict):
+                            errors.append(f"{relative}:{line_number} must contain a JSON object")
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            errors.append(f"{relative} is not valid JSON: {exc}")
+    return errors
+
+
+def _structural_checks(artifacts: Path, *, pdf_required: bool) -> tuple[list[Check], int]:
     checks: list[Check] = []
-    try:
-        root = resolve_package_dir(root)
-        boundary_paths = list(REQUIRED) + [
-            "exports/report.pdf",
-            "validation/validation-report.json",
-            "validation/validation-report.md",
-        ]
-        for relative in boundary_paths:
-            package_child(root, relative)
-    except OutputPathError as exc:
-        add_check(
-            checks,
-            "package-path-boundary",
-            False,
-            ".",
-            "all package paths remain inside the resolved research package",
-            str(exc),
-            "replace escaping symlinks with real directories inside the research package",
-            EXIT_SAFETY,
-        )
+    files, unsafe = _files_under(artifacts)
+    add_check(
+        checks, "artifact-boundary", unsafe, "artifacts/",
+        "artifact tree contains no symlinks", "replace symlinks with governed files", EXIT_SAFETY,
+    )
+    if unsafe:
         return checks, EXIT_SAFETY
-    for relative in REQUIRED:
-        path = root / relative
-        exists = path.is_file()
+    missing = sorted(RENDER_ARTIFACTS - files)
+    unexpected = sorted(files - RENDER_ARTIFACTS)
+    missing_non_pdf = [item for item in missing if item != "exports/report.pdf"]
+    add_check(
+        checks, "artifact-inventory", [
+            *(f"required artifact is missing: {item}" for item in missing_non_pdf),
+            *(f"undeclared artifact: {item}" for item in unexpected),
+        ], "artifacts/", "artifact inventory matches the rendered-stage allowlist",
+        "remove process files and recreate missing artifacts through the orchestrator", EXIT_CONTRACT,
+    )
+    if missing_non_pdf or unexpected:
+        return checks, EXIT_CONTRACT
+    add_check(
+        checks, "artifact-json", _parse_artifacts(artifacts), "artifacts/**/*.json*",
+        "all JSON and JSONL artifacts parse", "regenerate malformed contract artifacts", EXIT_CONTRACT,
+    )
+    if checks[-1].status == "fail":
+        return checks, EXIT_CONTRACT
+    if pdf_required and "exports/report.pdf" in missing:
         add_check(
-            checks, f"file:{relative}", exists, relative, f"{relative} exists", f"required file is missing: {relative}",
-            "python3 scripts/init_research_package.py --help", EXIT_CONTRACT if relative.startswith(("brief", "research/")) else EXIT_EXPORT,
+            checks, "pdf-presence", ["required PDF is missing"], "artifacts/exports/report.pdf",
+            "required PDF exists", "rerun render with a working PDF backend", EXIT_EXPORT,
         )
+        return checks, EXIT_EXPORT
+    return checks, 0
 
-    brief: dict[str, Any] = {}
-    plan: dict[str, Any] = {}
-    sources: list[dict[str, Any]] = []
-    claims: list[dict[str, Any]] = []
-    report_map: dict[str, Any] = {}
-    try:
-        brief = load_json(root / "brief.json")
-        plan = load_json(root / "research" / "research-plan.json")
-        sources = load_jsonl(root / "research" / "source-register.jsonl")
-        claims = load_jsonl(root / "research" / "claim-evidence-ledger.jsonl")
-        report_map = load_json(root / "research" / "report-claim-map.json")
-        contract_errors = validate_research_package(root)
-    except ContractError as exc:
-        contract_errors = [str(exc)]
-    relational_errors = [
-        item for item in contract_errors
-        if "unknown source_id" in item or "unknown claim_id" in item
-    ]
-    utilization_contract_errors = [item for item in contract_errors if "not used by report_outline" in item]
-    contract_errors = [
-        item for item in contract_errors
-        if item not in relational_errors and item not in utilization_contract_errors
+
+def _public_safety_checks(artifacts: Path) -> tuple[list[Check], int]:
+    checks: list[Check] = []
+    public_paths = (artifacts / "report.md", artifacts / "exports/report.html")
+    texts = [(path.relative_to(artifacts).as_posix(), path.read_text(encoding="utf-8")) for path in public_paths]
+    local_errors = [
+        f"local path leak in {relative}: {pattern.pattern}"
+        for relative, text in texts for pattern in LOCAL_PATH_PATTERNS if pattern.search(text)
     ]
     add_check(
-        checks, "contracts", not contract_errors, "brief.json; research/*.json*",
-        "research contracts are valid", "; ".join(contract_errors),
-        "python3 scripts/validate_contracts.py OUTPUT_DIR", EXIT_CONTRACT,
+        checks, "public-path-safety", local_errors, "report.md; exports/report.html",
+        "public outputs contain no local path leak", "remove local filesystem paths", EXIT_SAFETY,
+    )
+    id_errors = [f"internal audit ID leaked into {relative}" for relative, text in texts if INTERNAL_ID.search(text)]
+    add_check(
+        checks, "public-id-safety", id_errors, "report.md; exports/report.html",
+        "public outputs contain no internal source or Claim IDs", "replace audit IDs with generated citations", EXIT_SAFETY,
+    )
+    template_errors = [f"template marker remains in {relative}" for relative, text in texts if TEMPLATE_MARKER.search(text)]
+    add_check(
+        checks, "template-resolution", template_errors, "report.md; exports/report.html",
+        "public outputs contain no unresolved template markers", "resolve template values and rerender", EXIT_EXPORT,
+    )
+    failed = [check.exit_code for check in checks if check.status == "fail"]
+    return checks, max(failed, default=0)
+
+
+def _html_title(text: str) -> str:
+    match = re.search(r"<title>(.*?)</title>", text, re.IGNORECASE | re.DOTALL)
+    return html.unescape(re.sub(r"<[^>]+>", "", match.group(1))).strip() if match else ""
+
+
+def _html_sections(text: str) -> list[str]:
+    return [
+        html.unescape(re.sub(r"<[^>]+>", "", value)).strip()
+        for value in re.findall(r"<h2[^>]*>(.*?)</h2>", text, re.IGNORECASE | re.DOTALL)
+    ]
+
+
+def _validate_contradictions(payload: dict[str, Any], claims: list[dict[str, Any]]) -> list[str]:
+    if set(payload) != {"schema_version", "conflicts"} or payload.get("schema_version") != "2.0":
+        return ["contradiction ledger has invalid top-level contract"]
+    conflicts = payload.get("conflicts")
+    if not isinstance(conflicts, list):
+        return ["contradiction ledger conflicts must be an array"]
+    errors: list[str] = []
+    registered: set[str] = set()
+    fields = {"conflict_id", "claim_id", "source_ids", "analysis", "resolution_status", "change_condition"}
+    for index, conflict in enumerate(conflicts, start=1):
+        if not isinstance(conflict, dict) or set(conflict) != fields:
+            errors.append(f"contradiction {index} has invalid fields")
+            continue
+        registered.add(str(conflict.get("claim_id", "")))
+        if not str(conflict.get("analysis", "")).strip():
+            errors.append(f"contradiction {index} requires analysis")
+        if not isinstance(conflict.get("source_ids"), list) or len(conflict["source_ids"]) < 2:
+            errors.append(f"contradiction {index} requires opposing source IDs")
+    for claim in claims:
+        if claim.get("status") == "contested" and claim.get("claim_id") not in registered:
+            errors.append(f"contested claim {claim.get('claim_id')} is missing from contradiction ledger")
+    return errors
+
+
+def _validate_uncertainties(payload: dict[str, Any]) -> list[str]:
+    if set(payload) != {"schema_version", "uncertainties"} or payload.get("schema_version") != "2.0":
+        return ["uncertainty ledger has invalid top-level contract"]
+    records = payload.get("uncertainties")
+    if not isinstance(records, list):
+        return ["uncertainty ledger uncertainties must be an array"]
+    fields = {"uncertainty_id", "claim_id", "description", "impact", "next_evidence"}
+    errors: list[str] = []
+    for index, record in enumerate(records, start=1):
+        if not isinstance(record, dict) or set(record) != fields:
+            errors.append(f"uncertainty {index} has invalid fields")
+        elif not all(str(record.get(field, "")).strip() for field in ("uncertainty_id", "description", "impact", "next_evidence")):
+            errors.append(f"uncertainty {index} has empty required fields")
+    return errors
+
+
+def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
+    checks: list[Check] = []
+    brief = load_json(brief_path)
+    plan = load_json(artifacts / "research/research-plan.json")
+    source_plan = load_json(artifacts / "research/source-plan.json")
+    sources = load_jsonl(artifacts / "research/source-register.jsonl")
+    manifests = load_jsonl(artifacts / "research/retrieval-manifest.jsonl")
+    claims = load_jsonl(artifacts / "research/claim-evidence-ledger.jsonl")
+    outline = load_json(artifacts / "research/report-outline.json")
+    contradictions = load_json(artifacts / "research/contradiction-ledger.json")
+    uncertainties = load_json(artifacts / "research/uncertainty-ledger.json")
+    paragraph_map = load_jsonl(artifacts / "research/reviewed-paragraph-map.jsonl")
+    peer_review = load_json(artifacts / "research/peer-review.json")
+    report = (artifacts / "report.md").read_text(encoding="utf-8")
+
+    claim_ids = {str(item.get("claim_id")) for item in claims}
+    question_ids = {str(item.get("question_id")) for item in plan.get("questions", []) if isinstance(item, dict)}
+    contract_errors = validate_brief(brief)
+    contract_errors.extend(validate_research_plan(plan, brief, claim_ids))
+    contract_errors.extend(validate_source_plan(source_plan))
+    contract_errors.extend(validate_report_outline(outline, brief, question_ids, claim_ids))
+    add_check(
+        checks, "contracts", contract_errors, "inputs/brief.json; artifacts/research/*.json",
+        "brief, plan, source plan, and outline contracts are valid", "repair contracts and restart from the responsible stage", EXIT_CONTRACT,
     )
 
-    evidence_errors = relational_errors + utilization_contract_errors + (
-        validate_claim_closure(claims, sources, report_map) if not contract_errors else []
-    )
-    material_claims = [claim for claim in claims if claim.get("material")]
-    if not material_claims:
-        evidence_errors.append("no material claims are registered")
+    evidence_errors = validate_claim_closure(claims, sources, outline, manifests)
+    evidence_errors.extend(_validate_contradictions(contradictions, claims))
+    evidence_errors.extend(_validate_uncertainties(uncertainties))
     coverage = compute_coverage(claims)
     if coverage["material_fact_closure"] != 1.0:
         evidence_errors.append("material fact closure is below 100%")
+    if not any(claim.get("material") for claim in claims):
+        evidence_errors.append("no material Claims are registered")
     add_check(
-        checks, "evidence-closure", not evidence_errors, "research/claim-evidence-ledger.jsonl",
-        "material claims have closed evidence", "; ".join(evidence_errors),
-        "python3 scripts/validate_evidence.py OUTPUT_DIR", EXIT_EVIDENCE,
+        checks, "evidence-closure", evidence_errors, "artifacts/research/claim-evidence-ledger.jsonl",
+        "material Claims, sources, snapshots, contradictions, and outline are closed",
+        "repair the Claim-Evidence ledger and rerun evidence", EXIT_EVIDENCE,
     )
 
-    report_path = root / "report.md"
-    html_path = root / "exports" / "report.html"
-    public_texts: list[tuple[str, str]] = []
-    for relative, path in (("report.md", report_path), ("exports/report.html", html_path)):
-        if path.is_file():
-            public_texts.append((relative, path.read_text(encoding="utf-8", errors="replace")))
-    local_leaks = [f"{relative}: {pattern.pattern}" for relative, text in public_texts for pattern in LOCAL_PATH_PATTERNS if pattern.search(text)]
-    add_check(
-        checks, "public-path-safety", not local_leaks, "report.md; exports/report.html",
-        "public outputs contain no local path leak", "local path leak detected: " + ", ".join(local_leaks),
-        "remove local filesystem paths from public outputs", EXIT_SAFETY,
-    )
-    exposed_ids = [relative for relative, text in public_texts if INTERNAL_ID.search(text)]
-    add_check(
-        checks, "public-id-safety", not exposed_ids, "report.md; exports/report.html",
-        "public outputs do not expose internal claim/source IDs", "internal audit IDs leaked into: " + ", ".join(exposed_ids),
-        "use research/report-claim-map.json instead of public audit IDs", EXIT_SAFETY,
-    )
-    template_leaks = [relative for relative, text in public_texts if TEMPLATE_MARKER.search(text)]
-    add_check(
-        checks, "template-resolution", not template_leaks, "report.md; exports/report.html",
-        "no template markers remain", "template marker remains in: " + ", ".join(template_leaks),
-        "rerun scripts/export_report.py after resolving template values", EXIT_EXPORT,
-    )
-
-    report_text = report_path.read_text(encoding="utf-8", errors="replace") if report_path.is_file() else ""
-    html_text = html_path.read_text(encoding="utf-8", errors="replace") if html_path.is_file() else ""
-    md_title = markdown_title(report_text)
-    rendered_title = html_title(html_text)
-    titles_match = bool(md_title) and md_title == rendered_title
-    add_check(
-        checks, "title-consistency", titles_match, "report.md; exports/report.html",
-        "Markdown and HTML titles match", f"title mismatch: Markdown={md_title!r}, HTML={rendered_title!r}",
-        "rerun scripts/export_report.py with the Markdown H1 as --title", EXIT_EXPORT,
-    )
-    md_sections = markdown_sections(report_text)
-    rendered_sections = html_sections(html_text)
-    utilization_errors = research_utilization_errors(brief, plan, claims, md_sections) if not contract_errors else []
-    add_check(
-        checks, "storm-research-utilization", not utilization_errors, "research/research-plan.json; report.md",
-        "STORM questions, material claims, and section budgets are used by the report",
-        "; ".join(utilization_errors),
-        "complete question dispositions and map them into research-plan.report_outline", EXIT_EVIDENCE,
-    )
-
-    length_contract = brief.get("length_contract", {}) if isinstance(brief.get("length_contract"), dict) else {}
-    length_unit = str(length_contract.get("unit", "characters"))
-    report_units = measure_report_units(report_text, length_unit)
-    minimum_units = int(length_contract.get("minimum", 0) or 0)
-    maximum_units = int(length_contract.get("maximum", 0) or 0)
-    length_errors: list[str] = []
-    if report_units < minimum_units:
-        length_errors.append(
-            f"report body is shorter than the length contract: {report_units} {length_unit} < {minimum_units}"
-        )
-    if maximum_units and report_units > maximum_units:
-        length_errors.append(
-            f"report body exceeds the length contract: {report_units} {length_unit} > {maximum_units}"
-        )
-    add_check(
-        checks, "report-depth", not length_errors, "brief.json; report.md",
-        f"report body satisfies the evidence-led length contract ({report_units} {length_unit})",
-        "; ".join(length_errors),
-        "expand or tighten evidence-backed outline sections; do not pad with repetition", EXIT_EXPORT,
-    )
-    sections_match = bool(md_sections) and all(section in rendered_sections for section in md_sections)
-    add_check(
-        checks, "section-consistency", sections_match, "report.md; exports/report.html",
-        "all Markdown sections appear in HTML", "HTML omits or changes Markdown sections",
-        "rerun scripts/export_report.py from canonical report.md", EXIT_EXPORT,
-    )
-    references_present = "References" in md_sections and "References" in rendered_sections
-    add_check(
-        checks, "references-section", references_present, "report.md; exports/report.html",
-        "references section appears in Markdown and HTML", "references section is missing",
-        "add a References section backed by the source register and re-export", EXIT_EXPORT,
-    )
-
-    manifest: dict[str, Any] = {}
-    try:
-        manifest = load_json(root / "validation" / "render-manifest.json")
-        manifest_error = ""
-    except ContractError as exc:
-        manifest_error = str(exc)
-    hash_errors = []
-    if manifest_error:
-        hash_errors.append(manifest_error)
+    traceability_errors = validate_report_traceability(report, paragraph_map, claims, sources)
+    claim_reviews = peer_review.get("claim_reviews", [])
+    paragraph_reviews = peer_review.get("paragraph_reviews", [])
+    if not isinstance(claim_reviews, list) or not isinstance(paragraph_reviews, list):
+        traceability_errors.append("peer review must contain claim and paragraph review arrays")
     else:
-        if report_path.is_file() and manifest.get("report_md_sha256") != digest(report_path):
-            hash_errors.append("Markdown fingerprint mismatch")
-        if html_path.is_file() and manifest.get("report_html_sha256") != digest(html_path):
-            hash_errors.append("HTML fingerprint mismatch")
-        if manifest.get("title") != md_title:
-            hash_errors.append("manifest title mismatch")
-        manifest_sections = [item.get("title") for item in manifest.get("section_fingerprints", []) if isinstance(item, dict)]
-        if manifest_sections != md_sections:
-            hash_errors.append("section fingerprint manifest mismatch")
+        traceability_errors.extend(validate_review_set(report, claims, claim_reviews, paragraph_reviews))
+    summary = peer_review.get("summary")
+    if not isinstance(summary, dict) or summary.get("decision") != "passed":
+        traceability_errors.append("peer review summary is not passing")
     add_check(
-        checks, "render-manifest", not hash_errors, "validation/render-manifest.json",
-        "render fingerprints match current files", "; ".join(hash_errors),
-        "rerun scripts/export_report.py from canonical report.md", EXIT_EXPORT,
+        checks, "report-traceability", traceability_errors,
+        "artifacts/report.md; artifacts/research/reviewed-paragraph-map.jsonl; artifacts/research/peer-review.json",
+        "every paragraph, citation, Claim, and independent review is closed",
+        "repair mappings or reviews and rerun review", EXIT_EVIDENCE,
     )
 
-    pdf_path = root / "exports" / "report.pdf"
-    pdf_required = brief.get("output_mode", "full") == "full"
-    pdf_errors: list[str] = []
+    length_contract = brief["length_contract"]
+    measured = body_length(report, str(length_contract["unit"]))
+    length_errors = []
+    if measured < int(length_contract["minimum"]) or measured > int(length_contract["maximum"]):
+        length_errors.append(
+            f"report body length {measured} {length_contract['unit']} is outside "
+            f"{length_contract['minimum']}-{length_contract['maximum']}"
+        )
+    add_check(
+        checks, "report-depth", length_errors, "artifacts/report.md",
+        f"report body satisfies the evidence-led length contract ({measured} {length_contract['unit']})",
+        "revise evidence-backed sections without padding", EXIT_EXPORT,
+    )
+    return checks
+
+
+def _render_checks(artifacts: Path, *, pdf_required: bool) -> list[Check]:
+    checks: list[Check] = []
+    report_path = artifacts / "report.md"
+    html_path = artifacts / "exports/report.html"
+    pdf_path = artifacts / "exports/report.pdf"
+    manifest_path = artifacts / "validation/render-manifest.json"
+    report = report_path.read_text(encoding="utf-8")
+    html_text = html_path.read_text(encoding="utf-8")
+    manifest = load_json(manifest_path)
+    title = markdown_title(report)
+    section_records = markdown_sections(report)
+    section_titles = [item["title"] for item in section_records]
+    render_errors: list[str] = []
+    if _html_title(html_text) != title:
+        render_errors.append("Markdown and HTML title mismatch")
+    html_section_titles = _html_sections(html_text)
+    if any(item not in html_section_titles for item in section_titles):
+        render_errors.append("HTML omits or changes Markdown sections")
+    if "References" not in section_titles or "References" not in html_section_titles:
+        render_errors.append("References is missing from Markdown or HTML")
+    expected_manifest: dict[str, object] = {
+        "report_md_sha256": sha256_file(report_path),
+        "report_html_sha256": sha256_file(html_path),
+        "report_pdf_sha256": sha256_file(pdf_path) if pdf_path.is_file() else None,
+    }
+    for field, expected in expected_manifest.items():
+        if manifest.get(field) != expected:
+            render_errors.append(f"render manifest {field} mismatch")
+    if manifest.get("schema_version") != "2.0" or manifest.get("title") != title:
+        render_errors.append("render manifest contract or title mismatch")
+    if manifest.get("section_fingerprints") != section_records:
+        render_errors.append("render section fingerprints mismatch")
     if pdf_required and not pdf_path.is_file():
-        pdf_errors.append("required PDF is missing")
-    if pdf_path.is_file():
-        raw = pdf_path.read_bytes()
-        if not raw.startswith(b"%PDF-") or len(raw) < 1000:
-            pdf_errors.append("PDF signature or size is invalid")
-        if manifest.get("report_pdf_sha256") != digest(pdf_path):
-            pdf_errors.append("PDF fingerprint mismatch")
+        render_errors.append("required PDF is missing")
+    elif pdf_path.is_file():
         try:
-            from pypdf import PdfReader
-            reader = PdfReader(str(pdf_path))
+            reader = PdfReader(pdf_path)
             extracted = "\n".join(page.extract_text() or "" for page in reader.pages)
             if not reader.pages:
-                pdf_errors.append("PDF has no pages")
-            if md_title not in extracted or "References" not in extracted:
-                pdf_errors.append("PDF does not contain the report title and references text")
+                render_errors.append("PDF has no pages")
+            if title not in extracted or "References" not in extracted:
+                render_errors.append("PDF does not contain the title and References")
+            if manifest.get("pdf_page_count") != len(reader.pages):
+                render_errors.append("PDF page count does not match render manifest")
         except Exception as exc:
-            pdf_errors.append(f"PDF text verification failed: {exc}")
+            render_errors.append(f"PDF is unreadable: {exc}")
+    elif manifest.get("pdf_renderer") != "none" or manifest.get("pdf_page_count") != 0:
+        render_errors.append("reduced render manifest incorrectly declares a PDF")
     add_check(
-        checks, "pdf-integrity", not pdf_errors, "exports/report.pdf",
-        "PDF requirement and content checks pass" if pdf_required else "PDF is optional in reduced mode",
-        "; ".join(pdf_errors),
-        "rerun scripts/export_report.py with --require-pdf", EXIT_EXPORT,
+        checks, "format-parity", render_errors,
+        "artifacts/report.md; artifacts/exports/*; artifacts/validation/render-manifest.json",
+        "Markdown, HTML, PDF, and render manifest agree",
+        "rerun render from the reviewed canonical Markdown", EXIT_EXPORT,
     )
+    return checks
 
-    failed_codes = [item.exit_code for item in checks if item.status == "fail"]
-    return checks, max(failed_codes, default=0)
+
+def validate_governed_run(
+    layout: RunLayout, generation: int, package_hash: str
+) -> tuple[list[Check], int]:
+    artifacts = layout.artifact(generation, ".")
+    brief_path = layout.generation_input(generation, "brief.json")
+    try:
+        brief = load_json(brief_path)
+    except ContractError as exc:
+        checks = []
+        add_check(
+            checks, "brief-json", [f"authoritative brief is not valid JSON: {exc}"],
+            "inputs/brief.json", "authoritative brief parses", "create a new governed generation", EXIT_CONTRACT,
+        )
+        return checks, EXIT_CONTRACT
+    pdf_required = brief.get("output_mode") == "full"
+    checks, code = _structural_checks(artifacts, pdf_required=pdf_required)
+    if code:
+        return checks, code
+    safety_checks, code = _public_safety_checks(artifacts)
+    checks.extend(safety_checks)
+    if code:
+        return checks, code
+    try:
+        verify_receipt_chain(layout, generation, Stage.RENDER, package_hash)
+        receipt_errors: list[str] = []
+    except ReceiptError as exc:
+        receipt_errors = [f"receipt chain verification failed: {exc}"]
+    add_check(
+        checks, "receipt-chain", receipt_errors, "state/generations/*/receipts/",
+        "receipt chain and all bound hashes recompute", "restore authoritative artifacts or create a new generation", EXIT_STAGE,
+    )
+    if receipt_errors:
+        return checks, EXIT_STAGE
+    try:
+        checks.extend(_domain_checks(artifacts, brief_path))
+        checks.extend(_render_checks(artifacts, pdf_required=pdf_required))
+    except (ContractError, KeyError, TypeError, ValueError, OSError) as exc:
+        add_check(
+            checks, "validation-runtime", [str(exc)], "artifacts/",
+            "all validation inputs are readable", "repair the malformed governed artifact", EXIT_CONTRACT,
+        )
+    failed = [check.exit_code for check in checks if check.status == "fail"]
+    return checks, max(failed, default=0)
+
+
+def _report_payload(checks: list[Check], generation: int) -> dict[str, object]:
+    return {
+        "schema_version": "2.0",
+        "ok": True,
+        "generation": generation,
+        "validated_through": Stage.RENDER.value,
+        "checks": [check.public() for check in checks],
+        "summary": {
+            "passed": sum(check.status == "pass" for check in checks),
+            "warnings": sum(check.status == "warn" for check in checks),
+            "failed": sum(check.status == "fail" for check in checks),
+        },
+    }
+
+
+def _report_markdown(payload: dict[str, object]) -> str:
+    lines = ["# Validation Report", "", "**Status:** PASS", ""]
+    for raw in payload["checks"]:
+        check = raw if isinstance(raw, dict) else {}
+        lines.append(f"- [x] `{check.get('check_id', '')}` {check.get('message', '')} (`{check.get('path', '')}`)")
+    summary = payload["summary"]
+    lines.extend([
+        "",
+        f"Passed: {summary['passed']} | Warnings: {summary['warnings']} | Failed: {summary['failed']}",
+    ])
+    return "\n".join(lines) + "\n"
+
+
+def commit_validation(
+    layout: RunLayout,
+    generation: int,
+    package_hash: str,
+    checks: list[Check],
+) -> None:
+    payload = _report_payload(checks, generation)
+    staging = package_child(
+        layout.root, f"work/.staging/g{generation:04d}/validation-{uuid.uuid4().hex}"
+    )
+    staging.mkdir(parents=True, exist_ok=False)
+    staged_json = staging / "validation-report.json"
+    staged_markdown = staging / "validation-report.md"
+    atomic_write_json(staged_json, payload)
+    atomic_write_text(staged_markdown, _report_markdown(payload))
+    report_json = layout.artifact(generation, "validation/validation-report.json")
+    report_markdown = layout.artifact(generation, "validation/validation-report.md")
+    atomic_promote(staged_json, report_json)
+    atomic_promote(staged_markdown, report_markdown)
+    staging.rmdir()
+    render_manifest = layout.artifact(generation, "validation/render-manifest.json")
+    commit_stage_receipt(
+        layout,
+        generation=generation,
+        stage=Stage.VALIDATION,
+        package_hash=package_hash,
+        validator_hash=sha256_file(Path(__file__)),
+        input_artifacts={
+            "artifacts/validation/render-manifest.json": sha256_file(render_manifest),
+            "artifacts/report.md": sha256_file(layout.artifact(generation, "report.md")),
+        },
+        output_paths=[report_json, report_markdown],
+        checks=[check.public() for check in checks],
+    )
+    current = package_child(layout.root, "current/validation")
+    current.mkdir(parents=True, exist_ok=True)
+    for source, destination in (
+        (report_json, current / report_json.name),
+        (report_markdown, current / report_markdown.name),
+    ):
+        if destination.exists():
+            destination.unlink()
+        atomic_copy_file(source, destination)
+
+
+def validate_and_commit(run_dir: Path) -> tuple[list[Check], int]:
+    layout = RunLayout(run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        return [Check(
+            "generation", "error", "fail", "work/generations/", "run has no generation",
+            "initialize a governed run", EXIT_STAGE,
+        )], EXIT_STAGE
+    package_hash = compute_skill_package_hash(ROOT)
+    checks, exit_code = validate_governed_run(layout, generation, package_hash)
+    if exit_code == 0:
+        commit_validation(layout, generation, package_hash, checks)
+    return checks, exit_code
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output_dir", type=Path)
+    parser.add_argument("run_dir", type=Path)
     args = parser.parse_args()
     try:
-        root = resolve_package_dir(args.output_dir)
-    except OutputPathError as exc:
-        print(f"Unsafe research package path: {exc}", file=sys.stderr)
-        return EXIT_SAFETY
-    checks, exit_code = validate(root)
-    try:
-        write_reports(root, checks, exit_code == 0)
-    except OutputPathError as exc:
-        print(f"Unsafe research package path: {exc}", file=sys.stderr)
-        return EXIT_SAFETY
-    for item in checks:
-        stream = sys.stderr if item.status == "fail" else sys.stdout
-        print(f"[{item.status.upper()}] {item.check_id}: {item.message}", file=stream)
+        checks, exit_code = validate_and_commit(args.run_dir)
+    except (ReceiptError, OutputPathError, FileExistsError) as exc:
+        print(f"Validation stage failed: {exc}", file=sys.stderr)
+        return EXIT_STAGE
+    for check in checks:
+        stream = sys.stderr if check.status == "fail" else sys.stdout
+        print(f"[{check.status.upper()}] {check.check_id}: {check.message}", file=stream)
     return exit_code
 
 
