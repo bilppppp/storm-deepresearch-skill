@@ -226,8 +226,8 @@ def validate_research_plan(
     data: dict[str, Any], brief: dict[str, Any], known_claim_ids: set[str]
 ) -> list[str]:
     errors = _unknown_fields(data, RESEARCH_PLAN_FIELDS) + _missing_fields(data, RESEARCH_PLAN_FIELDS)
-    if data.get("schema_version") != "1.0":
-        errors.append("research plan schema_version must be 1.0")
+    if data.get("schema_version") != "2.0":
+        errors.append("research plan schema_version must be 2.0")
     if data.get("status") not in {"initialized", "planned", "complete"}:
         errors.append("research plan status is invalid")
     perspectives = data.get("perspectives")

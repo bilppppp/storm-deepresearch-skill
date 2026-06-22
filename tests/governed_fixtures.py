@@ -70,15 +70,62 @@ def valid_amendment() -> dict[str, object]:
     }
 
 
-def valid_source_plan() -> dict[str, object]:
+def valid_research_plan_v2() -> dict[str, object]:
+    perspectives = ["historian", "domain_expert", "skeptic", "practitioner", "affected_party"]
+    questions = [
+        {
+            "question_id": f"Q{index:03d}",
+            "perspective": perspectives[(index - 1) % len(perspectives)],
+            "text": f"What evidence is needed for research question {index}?",
+            "status": "planned",
+            "claim_ids": [],
+            "disposition_note": "Planned for governed retrieval.",
+        }
+        for index in range(1, 11)
+    ]
+    sections = [
+        {
+            "section_id": f"SEC{index:02d}",
+            "title": f"Evidence section {index}",
+            "purpose": "Synthesize scoped evidence without overclaiming.",
+            "target_units": 700,
+            "question_ids": [f"Q{index:03d}"],
+            "claim_ids": [],
+            "required_elements": ["claim", "evidence", "limitation"],
+        }
+        for index in range(1, 7)
+    ]
     return {
         "schema_version": "2.0",
-        "questions": [{
-            "query_id": "Q001",
-            "question": "What evidence supports the conclusion?",
-            "evidence_need": "Directly inspectable primary evidence",
-            "required_source_classes": ["official-record"],
-        }],
+        "status": "planned",
+        "perspectives": perspectives,
+        "questions": questions,
+        "source_priorities": ["primary official evidence", "independent scholarship"],
+        "stopping_conditions": ["Every material question has an evidence disposition"],
+        "retrieval_budget": {"max_queries": 30, "max_sources": 50},
+        "report_outline": {
+            "status": "planned",
+            "unit": "words",
+            "minimum": 3500,
+            "target": 5000,
+            "maximum": 7000,
+            "sections": sections,
+        },
+    }
+
+
+def valid_source_plan(question_count: int = 10) -> dict[str, object]:
+    return {
+        "schema_version": "2.0",
+        "questions": [
+            {
+                "query_id": f"Q{index:03d}",
+                "question": f"What evidence is needed for research question {index}?",
+                "evidence_need": "Directly inspectable primary or authoritative evidence",
+                "required_source_classes": ["official-record"],
+            }
+            for index in range(1, question_count + 1)
+        ],
         "source_classes": [{
             "class_id": "official-record",
             "name": "Official record",

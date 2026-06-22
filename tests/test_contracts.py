@@ -180,7 +180,7 @@ def valid_brief() -> dict[str, object]:
 
 def valid_research_plan() -> dict[str, object]:
     return {
-        "schema_version": "1.0",
+        "schema_version": "2.0",
         "status": "complete",
         "perspectives": ["academic"],
         "questions": [{
