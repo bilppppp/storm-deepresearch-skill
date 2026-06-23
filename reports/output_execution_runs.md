@@ -23,20 +23,20 @@ Command runner evidence is present. This proves the eval harness executed an ext
 
 | Case | Variant | Mode | Model | Duration ms | Tokens | Score | Status |
 | --- | --- | --- | --- | ---: | ---: | ---: | --- |
-| current-technical-topic | baseline | command | local-deterministic-fixture | 16.35 | 54 | 0.0 | pass |
-| current-technical-topic | with_skill | command | local-deterministic-fixture | 17.49 | 122 | 100.0 | pass |
-| closed-corpus | baseline | command | local-deterministic-fixture | 22.79 | 48 | 0.0 | pass |
-| closed-corpus | with_skill | command | local-deterministic-fixture | 27.08 | 98 | 100.0 | pass |
-| contested-policy | baseline | command | local-deterministic-fixture | 17.66 | 50 | 0.0 | pass |
-| contested-policy | with_skill | command | local-deterministic-fixture | 17.27 | 112 | 100.0 | pass |
-| numerical-market-claim | baseline | command | local-deterministic-fixture | 17.76 | 45 | 0.0 | pass |
-| numerical-market-claim | with_skill | command | local-deterministic-fixture | 15.98 | 112 | 100.0 | pass |
-| file-backed-academic-review | baseline | command | local-deterministic-fixture | 24.01 | 44 | 0.0 | pass |
-| file-backed-academic-review | with_skill | command | local-deterministic-fixture | 23.52 | 114 | 100.0 | pass |
-| near-neighbor-simple-lookup | baseline | command | local-deterministic-fixture | 17.2 | 48 | 0.0 | pass |
-| near-neighbor-simple-lookup | with_skill | command | local-deterministic-fixture | 16.32 | 74 | 100.0 | pass |
-| high-stakes-boundary | baseline | command | local-deterministic-fixture | 15.78 | 48 | 0.0 | pass |
-| high-stakes-boundary | with_skill | command | local-deterministic-fixture | 16.71 | 108 | 100.0 | pass |
+| governed-placeholder-source-refusal | baseline | command | local-deterministic-fixture | 18.14 | 53 | 0.0 | pass |
+| governed-placeholder-source-refusal | with_skill | command | local-deterministic-fixture | 17.82 | 79 | 100.0 | pass |
+| governed-downgrade-output-refusal | baseline | command | local-deterministic-fixture | 31.21 | 55 | 0.0 | pass |
+| governed-downgrade-output-refusal | with_skill | command | local-deterministic-fixture | 26.63 | 63 | 100.0 | pass |
+| governed-padding-refusal | baseline | command | local-deterministic-fixture | 19.7 | 66 | 0.0 | pass |
+| governed-padding-refusal | with_skill | command | local-deterministic-fixture | 19.32 | 76 | 100.0 | pass |
+| governed-validator-edit-refusal | baseline | command | local-deterministic-fixture | 19.94 | 55 | 0.0 | pass |
+| governed-validator-edit-refusal | with_skill | command | local-deterministic-fixture | 19.26 | 73 | 100.0 | pass |
+| governed-release-without-trust-refusal | baseline | command | local-deterministic-fixture | 30.95 | 66 | 0.0 | pass |
+| governed-release-without-trust-refusal | with_skill | command | local-deterministic-fixture | 20.15 | 87 | 100.0 | pass |
+| near-neighbor-simple-lookup | baseline | command | local-deterministic-fixture | 20.18 | 52 | 0.0 | pass |
+| near-neighbor-simple-lookup | with_skill | command | local-deterministic-fixture | 20.81 | 76 | 100.0 | pass |
+| closed-corpus-boundary | baseline | command | local-deterministic-fixture | 18.84 | 45 | 0.0 | pass |
+| closed-corpus-boundary | with_skill | command | local-deterministic-fixture | 18.76 | 68 | 100.0 | pass |
 
 ## Next Fixes
 

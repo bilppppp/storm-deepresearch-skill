@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 .DS_Store
 dist/
+dist-*/
 output/
 !evals/output/
 !evals/output/**

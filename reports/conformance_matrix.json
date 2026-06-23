@@ -41,7 +41,7 @@
         "references resource resolves: references/storm-workflow-mapping.md",
         "scripts resource resolves: scripts/contract_io.py",
         "scripts resource resolves: scripts/export_report.py",
-        "scripts resource resolves: scripts/init_research_package.py"
+        "scripts resource resolves: scripts/governed_release.py"
       ],
       "failures": [],
       "warnings": []
@@ -85,7 +85,7 @@
         "references resource resolves: references/storm-workflow-mapping.md",
         "scripts resource resolves: scripts/contract_io.py",
         "scripts resource resolves: scripts/export_report.py",
-        "scripts resource resolves: scripts/init_research_package.py"
+        "scripts resource resolves: scripts/governed_release.py"
       ],
       "failures": [],
       "warnings": []
@@ -129,10 +129,11 @@
         "references resource resolves: references/storm-workflow-mapping.md",
         "scripts resource resolves: scripts/contract_io.py",
         "scripts resource resolves: scripts/export_report.py",
-        "scripts resource resolves: scripts/init_research_package.py"
+        "scripts resource resolves: scripts/governed_release.py"
       ],
       "failures": [],
       "warnings": [
+        "source checkout directory differs from skill name; package verification must enforce archive top-level identity.",
         "agent-skills uses canonical Agent Skills metadata; provider-native execution transforms are not implemented in v0."
       ]
     },
@@ -175,10 +176,11 @@
         "references resource resolves: references/storm-workflow-mapping.md",
         "scripts resource resolves: scripts/contract_io.py",
         "scripts resource resolves: scripts/export_report.py",
-        "scripts resource resolves: scripts/init_research_package.py"
+        "scripts resource resolves: scripts/governed_release.py"
       ],
       "failures": [],
       "warnings": [
+        "source checkout directory differs from skill name; package verification must enforce archive top-level identity.",
         "vscode uses canonical Agent Skills metadata; provider-native execution transforms are not implemented in v0."
       ]
     },
@@ -221,7 +223,7 @@
         "references resource resolves: references/storm-workflow-mapping.md",
         "scripts resource resolves: scripts/contract_io.py",
         "scripts resource resolves: scripts/export_report.py",
-        "scripts resource resolves: scripts/init_research_package.py"
+        "scripts resource resolves: scripts/governed_release.py"
       ],
       "failures": [],
       "warnings": []
@@ -233,7 +235,7 @@
     "fail_count": 0
   },
   "artifacts": {
-    "json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/conformance_matrix.json",
-    "markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/conformance_matrix.md"
+    "json": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/conformance_matrix.json",
+    "markdown": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/conformance_matrix.md"
   }
 }

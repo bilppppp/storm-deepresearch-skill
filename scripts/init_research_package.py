@@ -2,6 +2,7 @@
 """Deprecated wrapper for ``storm_research.py init``."""
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -37,6 +38,12 @@ def initialize(
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Deprecated compatibility wrapper for scripts/storm_research.py init.",
+        epilog="All non-help arguments are forwarded to the governed init command.",
+        add_help=True,
+    )
+    parser.parse_known_args(sys.argv[1:])
     print(
         "Deprecated: use scripts/storm_research.py init; forwarding to governed init.",
         file=sys.stderr,

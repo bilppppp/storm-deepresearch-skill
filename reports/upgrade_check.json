@@ -1,7 +1,7 @@
 {
   "ok": true,
   "schema_version": "2.0",
-  "generated_at": "2026-06-22",
+  "generated_at": "2026-06-23",
   "previous": {
     "name": "storm-deepresearch-skill",
     "version": "0.3.0",
@@ -15,7 +15,7 @@
   },
   "current": {
     "name": "storm-deepresearch-skill",
-    "version": "0.4.0",
+    "version": "1.0.0",
     "targets": [
       "openai",
       "claude",
@@ -25,11 +25,11 @@
     ]
   },
   "summary": {
-    "declared_bump": "minor",
-    "recommended_bump": "patch",
+    "declared_bump": "major",
+    "recommended_bump": "minor",
     "breaking_change_count": 0,
     "added_target_count": 0,
-    "metadata_change_count": 0,
+    "metadata_change_count": 3,
     "checksum_change_count": 2,
     "failure_count": 0,
     "warning_count": 0
@@ -39,31 +39,47 @@
     "added_targets": [],
     "removed_targets": [],
     "compatibility_changes": [],
-    "metadata_changes": [],
+    "metadata_changes": [
+      {
+        "field": "description",
+        "from": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+        "to": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers."
+      },
+      {
+        "field": "maturity",
+        "from": "library",
+        "to": "governed"
+      },
+      {
+        "field": "review_cadence",
+        "from": "quarterly",
+        "to": "per-release"
+      }
+    ],
     "checksum_changes": [
       {
         "field": "archive_sha256",
         "from": "21ac1a733c9d0ae651288fc430e40a318a0dae94fc2e765f4670589aed21877d",
-        "to": "01a606871576109d79d7085b8761c762af87c93beb5fdac1670790e27e88ea3a"
+        "to": "2f3dcb1bd6fbea6833018fcb71b9b322559e6616793674d0a6cbea6a08895cf5"
       },
       {
         "field": "package_sha256",
         "from": "950d02120d3cabc2750898358f1c1a52c297267600c8b63ac4bf3512d204e1be",
-        "to": "a466c3583b90fb464ccba989c0fa3edf37c48d1546c6b374c8a0fc1e6a5f5808"
+        "to": "cde76ad232fb9770c5e5f446d2ed4b24a30d3573a454820332816cf14a0bfa48"
       }
     ]
   },
   "release_notes": [
-    "Recommended version bump: patch.",
+    "Recommended version bump: minor.",
     "Package or archive checksum changed; reviewers should verify package artifacts before release.",
     "Package verification evidence: reports/package_verification.md."
   ],
   "failures": [],
   "warnings": [],
   "artifacts": {
-    "previous_package": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/registry/examples/storm-deepresearch-skill-0.3.0.json",
-    "current_package": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/registry_audit.json",
-    "json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/upgrade_check.json",
-    "markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/upgrade_check.md"
+    "previous_package": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/registry/examples/storm-deepresearch-skill-0.3.0.json",
+    "current_package": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/registry_audit.json",
+    "json": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/upgrade_check.json",
+    "markdown": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/upgrade_check.md"
   }
 }

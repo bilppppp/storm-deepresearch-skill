@@ -1,12 +1,12 @@
 # Skill OS 2.0 Audit
 
-Generated at: `2026-06-22`
+Generated at: `2026-06-23`
 
 ## Summary
 
 - decision: `continue-iteration`
-- pass: `9` / `15`
-- human required: `0`
+- pass: `8` / `15`
+- human required: `1`
 - external required: `3`
 - missing: `3`
 - world-class ready: `false`
@@ -20,14 +20,14 @@ Generated at: `2026-06-22`
 | Target Compiler | pass | 5/5 targets pass | OpenAI, Claude, generic, Agent Skills compatible, and VS Code contracts generated from IR | Deepen target-native transforms when provider clients expose stronger runtime APIs. |
 | Output Eval Lab | pass | 7 cases; delta 100.0; exec 14; blind 7 | with-skill/baseline, assertions, execution evidence, blind A/B, failure taxonomy | Add more real-file and adversarial holdout cases as usage grows. |
 | Provider Holdout | external-required | model-executed 0; token-observed 0 | At least one real provider-backed holdout run with observed model/timing/token metadata | Run provider-backed holdout cases with real credentials and commit only aggregate evidence. |
-| Human Adjudication | pass | 7/7 decisions; pending 0 | Real reviewer decisions, blind-review attestation, and integrity fingerprints recorded before claiming output review completion | Record real A/B choices, reviewer metadata, and blind-review attestation, then regenerate adjudication. |
+| Human Adjudication | human-required | 0/7 decisions; pending 7 | Real reviewer decisions, blind-review attestation, and integrity fingerprints recorded before claiming output review completion | Record real A/B choices, reviewer metadata, and blind-review attestation, then regenerate adjudication. |
 | Benchmark Reproducibility | missing | artifacts 25; missing 9; failures 0 | Public methodology, reproducible commands, required artifacts, and failure disclosure are machine-checkable | Keep the manifest current with every benchmark, package, and release evidence change. |
 | Runtime Conformance | pass | 5/5 targets pass | Target package structure, metadata, relative paths, and degradation notes pass | Keep target conformance fixtures updated as platform contracts change. |
-| Trust Security | pass | secrets 0; scripts 12; help failures 0 | Secrets, scripts, dependencies, permissions, and package hash are reviewable | Keep high-permission approvals scoped, expiring, and target-mapped. |
+| Trust Security | pass | secrets 0; scripts 19; help failures 0 | Secrets, scripts, dependencies, permissions, and package hash are reviewable | Keep high-permission approvals scoped, expiring, and target-mapped. |
 | Permission Metadata | pass | 4/4 target probes pass; metadata fallback 4; installer enforcement 4 | Packaged adapters expose explicit permission metadata, residual risks, and installer enforcement evidence when available | Preserve residual-risk notes until real native enforcement exists. |
 | Native Permission Enforcement | external-required | native-enforced targets 0; installer-enforced targets 4 | At least one target/client enforces approved permissions at runtime | Integrate a real target-client or external installer runtime guard before claiming native permission enforcement. |
 | Skill Atlas | pass | 1 skills; actionable collisions 0 | Workspace catalog, route overlap, stale/owner gaps, drift, and no-route opportunities | Feed real drift data into Atlas once client telemetry is installed. |
-| Registry Distribution | pass | zip entries 209; install failures 0; permission failures 0 | Package metadata, archive checksum, package verification, and install simulation pass | Regenerate registry after package verification so checksums stay aligned. |
+| Registry Distribution | pass | zip entries 244; install failures 0; permission failures 0 | Package metadata, archive checksum, package verification, and install simulation pass | Regenerate registry after package verification so checksums stay aligned. |
 | Review Studio | pass | decision ready; warnings 0; score 100 | One page shows gates, evidence paths, blockers, warnings, actions, waivers, and annotations | Resolve human/external warning gates before claiming full release readiness. |
 | Telemetry Drift | missing | events 1; risk low; recipes 0 | Local-first metadata-only event contract, aggregate drift report, hook recipes, and import path | Keep raw JSONL out of distributed packages and use aggregate reports for Atlas. |
 | Native Client Telemetry | external-required | external source events 0; adoption samples 0 | A real Browser/Chrome/provider client sends production metadata events | Install a real client against the native host and import production metadata-only events. |
@@ -36,9 +36,9 @@ Generated at: `2026-06-22`
 
 - `skill-ir` (missing): Keep IR as the source before target packaging.
 - `provider-holdout` (external-required): Run provider-backed holdout cases with real credentials and commit only aggregate evidence.
+- `human-adjudication` (human-required): Record real A/B choices, reviewer metadata, and blind-review attestation, then regenerate adjudication.
 - `benchmark-reproducibility` (missing): Keep the manifest current with every benchmark, package, and release evidence change.
 - `native-permission-enforcement` (external-required): Integrate a real target-client or external installer runtime guard before claiming native permission enforcement.
-- `telemetry-drift` (missing): Keep raw JSONL out of distributed packages and use aggregate reports for Atlas.
 
 ## Evidence
 

@@ -4,7 +4,7 @@
   "title": "STORM DeepResearch",
   "job_to_be_done": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
   "trigger_surface": {
-    "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+    "description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
     "should_trigger": [
       "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
       "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
@@ -33,18 +33,19 @@
   },
   "workflow": {
     "steps": [
-      "Normalize the brief and lock `length_contract`.",
-      "Generate questions with the [protocol](references/research-protocol.md) and [STORM mapping](references/storm-workflow-mapping.md).",
-      "Retrieve through an approved [adapter](references/retrieval-adapters.md); memory is not evidence.",
-      "Merge ledgers monotonically; close claims under the [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policies.",
-      "Preserve contradictions and unknowns.",
-      "Map every answered question and material claim into `report_outline`.",
-      "Draft `report.md`, review, export, and validate."
+      "`init`: normalize brief and length; create generation `g0001`.",
+      "`plan`: generate STORM questions, source plan, and `report_outline`.",
+      "`ingest`: accept only approved retrieval records; memory is not evidence.",
+      "`evidence`: close source and Claim ledgers under [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policy.",
+      "`draft` and `review`: bind paragraphs, citations, Claims, and semantic review.",
+      "`render`, `validate`, `release`: derive formats, verify gates, require Trust and approval."
     ],
     "decision_points": [
       "Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.",
       "Initialize a fresh workspace-scoped run; reject existing or escaping paths.",
-      "Use `closed_corpus` for supplied-only material; otherwise approved host search. For high-stakes topics, avoid personalized advice.",
+      "Use `closed_corpus` for supplied-only material; otherwise approved host search. Avoid personalized high-stakes advice.",
+      "Advance only through `scripts/storm_research.py`; root files are views, not proof.",
+      "Stop on `missing evidence`, broken receipt chain, or absent approval.",
       "Ask one focused clarification when the real job, output, or exclusion boundary is unclear.",
       "Escalate visible tradeoffs when benchmark patterns conflict with local privacy, naming, or governance constraints.",
       "Do not silently broaden the skill into adjacent jobs just because the examples are nearby."
@@ -77,14 +78,20 @@
     "scripts": [
       "scripts/contract_io.py",
       "scripts/export_report.py",
+      "scripts/governed_release.py",
+      "scripts/harness_io.py",
       "scripts/init_research_package.py",
       "scripts/local_output_eval_runner.py",
       "scripts/merge_claim_ledger.py",
       "scripts/normalize_retrieval.py",
       "scripts/output_paths.py",
       "scripts/render_audit_views.py",
+      "scripts/report_traceability.py",
       "scripts/run_checks.py",
+      "scripts/run_state.py",
       "scripts/sanitize_release_archive.py",
+      "scripts/source_evidence.py",
+      "scripts/storm_research.py",
       "scripts/validate_contracts.py",
       "scripts/validate_evidence.py",
       "scripts/validate_package.py"
@@ -145,8 +152,8 @@
       "evals/evals.json",
       "evals/failure-cases.md",
       "evals/output/cases.jsonl",
-      "evals/output/fixtures/closed-corpus-source.md",
-      "evals/output/fixtures/paper-excerpt.md",
+      "evals/output/fixtures/gemini-bypass-redacted/README.md",
+      "evals/output/fixtures/gemini-bypass-redacted/cases.json",
       "evals/output/schema.json",
       "evals/packaging_expectations.json",
       "evals/semantic_config.json",
@@ -154,8 +161,8 @@
     ],
     "output": [
       "evals/output/cases.jsonl",
-      "evals/output/fixtures/closed-corpus-source.md",
-      "evals/output/fixtures/paper-excerpt.md",
+      "evals/output/fixtures/gemini-bypass-redacted/README.md",
+      "evals/output/fixtures/gemini-bypass-redacted/cases.json",
       "evals/output/schema.json"
     ],
     "adversarial": [],
@@ -164,13 +171,13 @@
   "risk": {
     "output_risk": "medium",
     "execution_risk": "medium",
-    "trust_boundary": "team"
+    "trust_boundary": "external"
   },
   "governance": {
     "owner": "陈旭",
-    "maturity": "library",
-    "review_cadence": "quarterly",
-    "review_due": "2026-09-21"
+    "maturity": "governed",
+    "review_cadence": "per-release",
+    "review_due": "per-release"
   },
   "targets": [
     "openai",

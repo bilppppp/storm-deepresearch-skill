@@ -2,12 +2,12 @@
 
 - OK: `True`
 - Package: `storm-deepresearch-skill`
-- Version: `0.4.0`
-- Maturity: `library`
+- Version: `1.0.0`
+- Maturity: `governed`
 - Owner: `陈旭`
 - License: `MIT-0`
-- Package SHA256: `a466c3583b90fb464ccba989c0fa3edf37c48d1546c6b374c8a0fc1e6a5f5808`
-- Archive SHA256: `01a606871576109d79d7085b8761c762af87c93beb5fdac1670790e27e88ea3a`
+- Package SHA256: `cde76ad232fb9770c5e5f446d2ed4b24a30d3573a454820332816cf14a0bfa48`
+- Archive SHA256: `2f3dcb1bd6fbea6833018fcb71b9b322559e6616793674d0a6cbea6a08895cf5`
 - Install simulated: `True`
 
 ## Compatibility
@@ -30,7 +30,7 @@
 
 ## Artifacts
 
-- index: `/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/registry/index.json`
-- package: `/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/registry/packages/storm-deepresearch-skill.json`
-- json: `/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/registry_audit.json`
-- markdown: `/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/registry_audit.md`
+- index: `/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/registry/index.json`
+- package: `/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/registry/packages/storm-deepresearch-skill.json`
+- json: `/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/registry_audit.json`
+- markdown: `/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/registry_audit.md`

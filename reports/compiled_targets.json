@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
   "ok": true,
-  "generated_at": "2026-06-22",
-  "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+  "generated_at": "2026-06-23",
+  "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
   "summary": {
     "target_count": 5,
     "pass_count": 5,
@@ -24,7 +24,7 @@
         "ir_schema_version": "2.0.0"
       },
       "source": {
-        "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+        "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
         "canonical_metadata": "agents/interface.yaml",
         "declared_targets": [
           "openai",
@@ -37,11 +37,11 @@
       "compiled_contract": {
         "name": "storm-deepresearch-skill",
         "title": "STORM DeepResearch",
-        "version": "0.4.0",
-        "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+        "version": "1.0.0",
+        "description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
         "job_to_be_done": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
         "trigger": {
-          "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
           "should_trigger": [
             "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
             "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
@@ -70,18 +70,19 @@
         },
         "workflow": {
           "steps": [
-            "Normalize the brief and lock `length_contract`.",
-            "Generate questions with the [protocol](references/research-protocol.md) and [STORM mapping](references/storm-workflow-mapping.md).",
-            "Retrieve through an approved [adapter](references/retrieval-adapters.md); memory is not evidence.",
-            "Merge ledgers monotonically; close claims under the [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policies.",
-            "Preserve contradictions and unknowns.",
-            "Map every answered question and material claim into `report_outline`.",
-            "Draft `report.md`, review, export, and validate."
+            "`init`: normalize brief and length; create generation `g0001`.",
+            "`plan`: generate STORM questions, source plan, and `report_outline`.",
+            "`ingest`: accept only approved retrieval records; memory is not evidence.",
+            "`evidence`: close source and Claim ledgers under [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policy.",
+            "`draft` and `review`: bind paragraphs, citations, Claims, and semantic review.",
+            "`render`, `validate`, `release`: derive formats, verify gates, require Trust and approval."
           ],
           "decision_points": [
             "Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.",
             "Initialize a fresh workspace-scoped run; reject existing or escaping paths.",
-            "Use `closed_corpus` for supplied-only material; otherwise approved host search. For high-stakes topics, avoid personalized advice.",
+            "Use `closed_corpus` for supplied-only material; otherwise approved host search. Avoid personalized high-stakes advice.",
+            "Advance only through `scripts/storm_research.py`; root files are views, not proof.",
+            "Stop on `missing evidence`, broken receipt chain, or absent approval.",
             "Ask one focused clarification when the real job, output, or exclusion boundary is unclear.",
             "Escalate visible tradeoffs when benchmark patterns conflict with local privacy, naming, or governance constraints.",
             "Do not silently broaden the skill into adjacent jobs just because the examples are nearby."
@@ -114,14 +115,20 @@
           "scripts": [
             "scripts/contract_io.py",
             "scripts/export_report.py",
+            "scripts/governed_release.py",
+            "scripts/harness_io.py",
             "scripts/init_research_package.py",
             "scripts/local_output_eval_runner.py",
             "scripts/merge_claim_ledger.py",
             "scripts/normalize_retrieval.py",
             "scripts/output_paths.py",
             "scripts/render_audit_views.py",
+            "scripts/report_traceability.py",
             "scripts/run_checks.py",
+            "scripts/run_state.py",
             "scripts/sanitize_release_archive.py",
+            "scripts/source_evidence.py",
+            "scripts/storm_research.py",
             "scripts/validate_contracts.py",
             "scripts/validate_evidence.py",
             "scripts/validate_package.py"
@@ -175,7 +182,7 @@
           ],
           "counts": {
             "references": 9,
-            "scripts": 13,
+            "scripts": 19,
             "assets": 6,
             "reports": 37
           }
@@ -188,8 +195,8 @@
             "evals/evals.json",
             "evals/failure-cases.md",
             "evals/output/cases.jsonl",
-            "evals/output/fixtures/closed-corpus-source.md",
-            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/fixtures/gemini-bypass-redacted/README.md",
+            "evals/output/fixtures/gemini-bypass-redacted/cases.json",
             "evals/output/schema.json",
             "evals/packaging_expectations.json",
             "evals/semantic_config.json",
@@ -197,8 +204,8 @@
           ],
           "output": [
             "evals/output/cases.jsonl",
-            "evals/output/fixtures/closed-corpus-source.md",
-            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/fixtures/gemini-bypass-redacted/README.md",
+            "evals/output/fixtures/gemini-bypass-redacted/cases.json",
             "evals/output/schema.json"
           ],
           "adversarial": [],
@@ -213,13 +220,13 @@
         "risk": {
           "output_risk": "medium",
           "execution_risk": "medium",
-          "trust_boundary": "team"
+          "trust_boundary": "external"
         },
         "governance": {
           "owner": "陈旭",
-          "maturity": "library",
-          "review_cadence": "quarterly",
-          "review_due": "2026-09-21"
+          "maturity": "governed",
+          "review_cadence": "per-release",
+          "review_due": "per-release"
         },
         "runtime": {
           "activation": {
@@ -233,7 +240,9 @@
           "trust": {
             "source_tier": "local",
             "remote_inline_execution": "forbid",
-            "remote_metadata_policy": "allow-metadata-only"
+            "remote_metadata_policy": "allow-metadata-only",
+            "release_policy": "validation-plus-trust-plus-human-approval",
+            "trust_report_required": true
           },
           "adapter_targets": [
             "openai",
@@ -339,7 +348,7 @@
           "native_surface": "OpenAI-style interface metadata plus neutral Agent Skills source",
           "activation": {
             "policy": "Use frontmatter description for catalog routing and targets/openai/agents/openai.yaml for display name, default prompt, and compatibility metadata.",
-            "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+            "trigger_description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
             "manual_activation_supported": true,
             "automatic_activation_note": "Depends on the target client route/catalog implementation."
           },
@@ -347,7 +356,7 @@
             "strategy": "Ship the neutral source tree and expose OpenAI-facing interface metadata as a generated companion file.",
             "counts": {
               "references": 9,
-              "scripts": 13,
+              "scripts": 19,
               "assets": 6,
               "reports": 37
             },
@@ -358,7 +367,7 @@
           },
           "scripts": {
             "strategy": "Keep scripts as local package resources; expose help-smoke and permission metadata for reviewer approval before execution.",
-            "script_count": 13,
+            "script_count": 19,
             "help_smoke_failed_count": 0
           },
           "permissions": {
@@ -385,7 +394,7 @@
           },
           "install_scope": "plugin or skill package consumer"
         },
-        "degradation_strategy": "Use host search tools and preserve the canonical evidence and output contracts.",
+        "degradation_strategy": "Preserve governed contracts.",
         "target_runtime": {
           "adapter_mode": "metadata-adapter",
           "generated_files": [
@@ -508,7 +517,7 @@
         "native_surface": "OpenAI-style interface metadata plus neutral Agent Skills source",
         "activation": {
           "policy": "Use frontmatter description for catalog routing and targets/openai/agents/openai.yaml for display name, default prompt, and compatibility metadata.",
-          "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "trigger_description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
           "manual_activation_supported": true,
           "automatic_activation_note": "Depends on the target client route/catalog implementation."
         },
@@ -516,7 +525,7 @@
           "strategy": "Ship the neutral source tree and expose OpenAI-facing interface metadata as a generated companion file.",
           "counts": {
             "references": 9,
-            "scripts": 13,
+            "scripts": 19,
             "assets": 6,
             "reports": 37
           },
@@ -527,7 +536,7 @@
         },
         "scripts": {
           "strategy": "Keep scripts as local package resources; expose help-smoke and permission metadata for reviewer approval before execution.",
-          "script_count": 13,
+          "script_count": 19,
           "help_smoke_failed_count": 0
         },
         "permissions": {
@@ -581,7 +590,7 @@
           "trust",
           "permissions"
         ],
-        "degradation_strategy": "Use host search tools and preserve the canonical evidence and output contracts.",
+        "degradation_strategy": "Preserve governed contracts.",
         "permission_representation": "targets/openai/agents/openai.yaml::compatibility.permission_contract plus adapter.json",
         "native_surface": "OpenAI-style interface metadata plus neutral Agent Skills source",
         "activation_policy": "Use frontmatter description for catalog routing and targets/openai/agents/openai.yaml for display name, default prompt, and compatibility metadata.",
@@ -607,7 +616,7 @@
         "ir_schema_version": "2.0.0"
       },
       "source": {
-        "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+        "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
         "canonical_metadata": "agents/interface.yaml",
         "declared_targets": [
           "openai",
@@ -620,11 +629,11 @@
       "compiled_contract": {
         "name": "storm-deepresearch-skill",
         "title": "STORM DeepResearch",
-        "version": "0.4.0",
-        "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+        "version": "1.0.0",
+        "description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
         "job_to_be_done": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
         "trigger": {
-          "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
           "should_trigger": [
             "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
             "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
@@ -653,18 +662,19 @@
         },
         "workflow": {
           "steps": [
-            "Normalize the brief and lock `length_contract`.",
-            "Generate questions with the [protocol](references/research-protocol.md) and [STORM mapping](references/storm-workflow-mapping.md).",
-            "Retrieve through an approved [adapter](references/retrieval-adapters.md); memory is not evidence.",
-            "Merge ledgers monotonically; close claims under the [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policies.",
-            "Preserve contradictions and unknowns.",
-            "Map every answered question and material claim into `report_outline`.",
-            "Draft `report.md`, review, export, and validate."
+            "`init`: normalize brief and length; create generation `g0001`.",
+            "`plan`: generate STORM questions, source plan, and `report_outline`.",
+            "`ingest`: accept only approved retrieval records; memory is not evidence.",
+            "`evidence`: close source and Claim ledgers under [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policy.",
+            "`draft` and `review`: bind paragraphs, citations, Claims, and semantic review.",
+            "`render`, `validate`, `release`: derive formats, verify gates, require Trust and approval."
           ],
           "decision_points": [
             "Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.",
             "Initialize a fresh workspace-scoped run; reject existing or escaping paths.",
-            "Use `closed_corpus` for supplied-only material; otherwise approved host search. For high-stakes topics, avoid personalized advice.",
+            "Use `closed_corpus` for supplied-only material; otherwise approved host search. Avoid personalized high-stakes advice.",
+            "Advance only through `scripts/storm_research.py`; root files are views, not proof.",
+            "Stop on `missing evidence`, broken receipt chain, or absent approval.",
             "Ask one focused clarification when the real job, output, or exclusion boundary is unclear.",
             "Escalate visible tradeoffs when benchmark patterns conflict with local privacy, naming, or governance constraints.",
             "Do not silently broaden the skill into adjacent jobs just because the examples are nearby."
@@ -697,14 +707,20 @@
           "scripts": [
             "scripts/contract_io.py",
             "scripts/export_report.py",
+            "scripts/governed_release.py",
+            "scripts/harness_io.py",
             "scripts/init_research_package.py",
             "scripts/local_output_eval_runner.py",
             "scripts/merge_claim_ledger.py",
             "scripts/normalize_retrieval.py",
             "scripts/output_paths.py",
             "scripts/render_audit_views.py",
+            "scripts/report_traceability.py",
             "scripts/run_checks.py",
+            "scripts/run_state.py",
             "scripts/sanitize_release_archive.py",
+            "scripts/source_evidence.py",
+            "scripts/storm_research.py",
             "scripts/validate_contracts.py",
             "scripts/validate_evidence.py",
             "scripts/validate_package.py"
@@ -758,7 +774,7 @@
           ],
           "counts": {
             "references": 9,
-            "scripts": 13,
+            "scripts": 19,
             "assets": 6,
             "reports": 37
           }
@@ -771,8 +787,8 @@
             "evals/evals.json",
             "evals/failure-cases.md",
             "evals/output/cases.jsonl",
-            "evals/output/fixtures/closed-corpus-source.md",
-            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/fixtures/gemini-bypass-redacted/README.md",
+            "evals/output/fixtures/gemini-bypass-redacted/cases.json",
             "evals/output/schema.json",
             "evals/packaging_expectations.json",
             "evals/semantic_config.json",
@@ -780,8 +796,8 @@
           ],
           "output": [
             "evals/output/cases.jsonl",
-            "evals/output/fixtures/closed-corpus-source.md",
-            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/fixtures/gemini-bypass-redacted/README.md",
+            "evals/output/fixtures/gemini-bypass-redacted/cases.json",
             "evals/output/schema.json"
           ],
           "adversarial": [],
@@ -796,13 +812,13 @@
         "risk": {
           "output_risk": "medium",
           "execution_risk": "medium",
-          "trust_boundary": "team"
+          "trust_boundary": "external"
         },
         "governance": {
           "owner": "陈旭",
-          "maturity": "library",
-          "review_cadence": "quarterly",
-          "review_due": "2026-09-21"
+          "maturity": "governed",
+          "review_cadence": "per-release",
+          "review_due": "per-release"
         },
         "runtime": {
           "activation": {
@@ -816,7 +832,9 @@
           "trust": {
             "source_tier": "local",
             "remote_inline_execution": "forbid",
-            "remote_metadata_policy": "allow-metadata-only"
+            "remote_metadata_policy": "allow-metadata-only",
+            "release_policy": "validation-plus-trust-plus-human-approval",
+            "trust_report_required": true
           },
           "adapter_targets": [
             "openai",
@@ -922,7 +940,7 @@
           "native_surface": "Claude-compatible neutral source folder with adapter notes",
           "activation": {
             "policy": "Use SKILL.md frontmatter description as the primary activation contract and adapter.json for review metadata.",
-            "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+            "trigger_description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
             "manual_activation_supported": true,
             "automatic_activation_note": "Depends on the target client route/catalog implementation."
           },
@@ -930,7 +948,7 @@
             "strategy": "Preserve the source tree directly; write target notes in targets/claude/README.md.",
             "counts": {
               "references": 9,
-              "scripts": 13,
+              "scripts": 19,
               "assets": 6,
               "reports": 37
             },
@@ -941,7 +959,7 @@
           },
           "scripts": {
             "strategy": "Scripts remain local package resources and must be reviewed through trust and permission reports before use.",
-            "script_count": 13,
+            "script_count": 19,
             "help_smoke_failed_count": 0
           },
           "permissions": {
@@ -968,7 +986,7 @@
           },
           "install_scope": "user or project skill directory"
         },
-        "degradation_strategy": "Use host search tools and preserve the canonical evidence and output contracts.",
+        "degradation_strategy": "Preserve governed contracts.",
         "target_runtime": {
           "adapter_mode": "neutral-source-plus-adapter",
           "generated_files": [
@@ -1091,7 +1109,7 @@
         "native_surface": "Claude-compatible neutral source folder with adapter notes",
         "activation": {
           "policy": "Use SKILL.md frontmatter description as the primary activation contract and adapter.json for review metadata.",
-          "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "trigger_description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
           "manual_activation_supported": true,
           "automatic_activation_note": "Depends on the target client route/catalog implementation."
         },
@@ -1099,7 +1117,7 @@
           "strategy": "Preserve the source tree directly; write target notes in targets/claude/README.md.",
           "counts": {
             "references": 9,
-            "scripts": 13,
+            "scripts": 19,
             "assets": 6,
             "reports": 37
           },
@@ -1110,7 +1128,7 @@
         },
         "scripts": {
           "strategy": "Scripts remain local package resources and must be reviewed through trust and permission reports before use.",
-          "script_count": 13,
+          "script_count": 19,
           "help_smoke_failed_count": 0
         },
         "permissions": {
@@ -1164,7 +1182,7 @@
           "trust",
           "permissions"
         ],
-        "degradation_strategy": "Use host search tools and preserve the canonical evidence and output contracts.",
+        "degradation_strategy": "Preserve governed contracts.",
         "permission_representation": "targets/claude/adapter.json::target_permission_contract and README notes",
         "native_surface": "Claude-compatible neutral source folder with adapter notes",
         "activation_policy": "Use SKILL.md frontmatter description as the primary activation contract and adapter.json for review metadata.",
@@ -1190,7 +1208,7 @@
         "ir_schema_version": "2.0.0"
       },
       "source": {
-        "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+        "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
         "canonical_metadata": "agents/interface.yaml",
         "declared_targets": [
           "openai",
@@ -1203,11 +1221,11 @@
       "compiled_contract": {
         "name": "storm-deepresearch-skill",
         "title": "STORM DeepResearch",
-        "version": "0.4.0",
-        "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+        "version": "1.0.0",
+        "description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
         "job_to_be_done": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
         "trigger": {
-          "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
           "should_trigger": [
             "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
             "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
@@ -1236,18 +1254,19 @@
         },
         "workflow": {
           "steps": [
-            "Normalize the brief and lock `length_contract`.",
-            "Generate questions with the [protocol](references/research-protocol.md) and [STORM mapping](references/storm-workflow-mapping.md).",
-            "Retrieve through an approved [adapter](references/retrieval-adapters.md); memory is not evidence.",
-            "Merge ledgers monotonically; close claims under the [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policies.",
-            "Preserve contradictions and unknowns.",
-            "Map every answered question and material claim into `report_outline`.",
-            "Draft `report.md`, review, export, and validate."
+            "`init`: normalize brief and length; create generation `g0001`.",
+            "`plan`: generate STORM questions, source plan, and `report_outline`.",
+            "`ingest`: accept only approved retrieval records; memory is not evidence.",
+            "`evidence`: close source and Claim ledgers under [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policy.",
+            "`draft` and `review`: bind paragraphs, citations, Claims, and semantic review.",
+            "`render`, `validate`, `release`: derive formats, verify gates, require Trust and approval."
           ],
           "decision_points": [
             "Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.",
             "Initialize a fresh workspace-scoped run; reject existing or escaping paths.",
-            "Use `closed_corpus` for supplied-only material; otherwise approved host search. For high-stakes topics, avoid personalized advice.",
+            "Use `closed_corpus` for supplied-only material; otherwise approved host search. Avoid personalized high-stakes advice.",
+            "Advance only through `scripts/storm_research.py`; root files are views, not proof.",
+            "Stop on `missing evidence`, broken receipt chain, or absent approval.",
             "Ask one focused clarification when the real job, output, or exclusion boundary is unclear.",
             "Escalate visible tradeoffs when benchmark patterns conflict with local privacy, naming, or governance constraints.",
             "Do not silently broaden the skill into adjacent jobs just because the examples are nearby."
@@ -1280,14 +1299,20 @@
           "scripts": [
             "scripts/contract_io.py",
             "scripts/export_report.py",
+            "scripts/governed_release.py",
+            "scripts/harness_io.py",
             "scripts/init_research_package.py",
             "scripts/local_output_eval_runner.py",
             "scripts/merge_claim_ledger.py",
             "scripts/normalize_retrieval.py",
             "scripts/output_paths.py",
             "scripts/render_audit_views.py",
+            "scripts/report_traceability.py",
             "scripts/run_checks.py",
+            "scripts/run_state.py",
             "scripts/sanitize_release_archive.py",
+            "scripts/source_evidence.py",
+            "scripts/storm_research.py",
             "scripts/validate_contracts.py",
             "scripts/validate_evidence.py",
             "scripts/validate_package.py"
@@ -1341,7 +1366,7 @@
           ],
           "counts": {
             "references": 9,
-            "scripts": 13,
+            "scripts": 19,
             "assets": 6,
             "reports": 37
           }
@@ -1354,8 +1379,8 @@
             "evals/evals.json",
             "evals/failure-cases.md",
             "evals/output/cases.jsonl",
-            "evals/output/fixtures/closed-corpus-source.md",
-            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/fixtures/gemini-bypass-redacted/README.md",
+            "evals/output/fixtures/gemini-bypass-redacted/cases.json",
             "evals/output/schema.json",
             "evals/packaging_expectations.json",
             "evals/semantic_config.json",
@@ -1363,8 +1388,8 @@
           ],
           "output": [
             "evals/output/cases.jsonl",
-            "evals/output/fixtures/closed-corpus-source.md",
-            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/fixtures/gemini-bypass-redacted/README.md",
+            "evals/output/fixtures/gemini-bypass-redacted/cases.json",
             "evals/output/schema.json"
           ],
           "adversarial": [],
@@ -1379,13 +1404,13 @@
         "risk": {
           "output_risk": "medium",
           "execution_risk": "medium",
-          "trust_boundary": "team"
+          "trust_boundary": "external"
         },
         "governance": {
           "owner": "陈旭",
-          "maturity": "library",
-          "review_cadence": "quarterly",
-          "review_due": "2026-09-21"
+          "maturity": "governed",
+          "review_cadence": "per-release",
+          "review_due": "per-release"
         },
         "runtime": {
           "activation": {
@@ -1399,7 +1424,9 @@
           "trust": {
             "source_tier": "local",
             "remote_inline_execution": "forbid",
-            "remote_metadata_policy": "allow-metadata-only"
+            "remote_metadata_policy": "allow-metadata-only",
+            "release_policy": "validation-plus-trust-plus-human-approval",
+            "trust_report_required": true
           },
           "adapter_targets": [
             "openai",
@@ -1505,7 +1532,7 @@
           "native_surface": "Agent Skills standard source tree",
           "activation": {
             "policy": "Use SKILL.md frontmatter name and description for progressive disclosure.",
-            "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+            "trigger_description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
             "manual_activation_supported": true,
             "automatic_activation_note": "Depends on the target client route/catalog implementation."
           },
@@ -1513,7 +1540,7 @@
             "strategy": "Keep optional directories as relative resources next to SKILL.md.",
             "counts": {
               "references": 9,
-              "scripts": 13,
+              "scripts": 19,
               "assets": 6,
               "reports": 37
             },
@@ -1524,7 +1551,7 @@
           },
           "scripts": {
             "strategy": "Scripts remain local optional resources and should advertise --help when executable.",
-            "script_count": 13,
+            "script_count": 19,
             "help_smoke_failed_count": 0
           },
           "permissions": {
@@ -1547,7 +1574,7 @@
           },
           "install_scope": "Agent Skills source root"
         },
-        "degradation_strategy": "Use the canonical SKILL.md and relative package resources; the host must enforce declared permissions.",
+        "degradation_strategy": "Use SKILL.md and relative resources.",
         "target_runtime": {
           "adapter_mode": "neutral-agent-skills-source",
           "generated_files": [
@@ -1667,7 +1694,7 @@
         "native_surface": "Agent Skills standard source tree",
         "activation": {
           "policy": "Use SKILL.md frontmatter name and description for progressive disclosure.",
-          "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "trigger_description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
           "manual_activation_supported": true,
           "automatic_activation_note": "Depends on the target client route/catalog implementation."
         },
@@ -1675,7 +1702,7 @@
           "strategy": "Keep optional directories as relative resources next to SKILL.md.",
           "counts": {
             "references": 9,
-            "scripts": 13,
+            "scripts": 19,
             "assets": 6,
             "reports": 37
           },
@@ -1686,7 +1713,7 @@
         },
         "scripts": {
           "strategy": "Scripts remain local optional resources and should advertise --help when executable.",
-          "script_count": 13,
+          "script_count": 19,
           "help_smoke_failed_count": 0
         },
         "permissions": {
@@ -1733,7 +1760,7 @@
           "trust",
           "permissions"
         ],
-        "degradation_strategy": "Use the canonical SKILL.md and relative package resources; the host must enforce declared permissions.",
+        "degradation_strategy": "Use SKILL.md and relative resources.",
         "permission_representation": "adapter metadata",
         "native_surface": "Agent Skills standard source tree",
         "activation_policy": "Use SKILL.md frontmatter name and description for progressive disclosure.",
@@ -1757,7 +1784,7 @@
         "ir_schema_version": "2.0.0"
       },
       "source": {
-        "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+        "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
         "canonical_metadata": "agents/interface.yaml",
         "declared_targets": [
           "openai",
@@ -1770,11 +1797,11 @@
       "compiled_contract": {
         "name": "storm-deepresearch-skill",
         "title": "STORM DeepResearch",
-        "version": "0.4.0",
-        "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+        "version": "1.0.0",
+        "description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
         "job_to_be_done": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
         "trigger": {
-          "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
           "should_trigger": [
             "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
             "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
@@ -1803,18 +1830,19 @@
         },
         "workflow": {
           "steps": [
-            "Normalize the brief and lock `length_contract`.",
-            "Generate questions with the [protocol](references/research-protocol.md) and [STORM mapping](references/storm-workflow-mapping.md).",
-            "Retrieve through an approved [adapter](references/retrieval-adapters.md); memory is not evidence.",
-            "Merge ledgers monotonically; close claims under the [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policies.",
-            "Preserve contradictions and unknowns.",
-            "Map every answered question and material claim into `report_outline`.",
-            "Draft `report.md`, review, export, and validate."
+            "`init`: normalize brief and length; create generation `g0001`.",
+            "`plan`: generate STORM questions, source plan, and `report_outline`.",
+            "`ingest`: accept only approved retrieval records; memory is not evidence.",
+            "`evidence`: close source and Claim ledgers under [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policy.",
+            "`draft` and `review`: bind paragraphs, citations, Claims, and semantic review.",
+            "`render`, `validate`, `release`: derive formats, verify gates, require Trust and approval."
           ],
           "decision_points": [
             "Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.",
             "Initialize a fresh workspace-scoped run; reject existing or escaping paths.",
-            "Use `closed_corpus` for supplied-only material; otherwise approved host search. For high-stakes topics, avoid personalized advice.",
+            "Use `closed_corpus` for supplied-only material; otherwise approved host search. Avoid personalized high-stakes advice.",
+            "Advance only through `scripts/storm_research.py`; root files are views, not proof.",
+            "Stop on `missing evidence`, broken receipt chain, or absent approval.",
             "Ask one focused clarification when the real job, output, or exclusion boundary is unclear.",
             "Escalate visible tradeoffs when benchmark patterns conflict with local privacy, naming, or governance constraints.",
             "Do not silently broaden the skill into adjacent jobs just because the examples are nearby."
@@ -1847,14 +1875,20 @@
           "scripts": [
             "scripts/contract_io.py",
             "scripts/export_report.py",
+            "scripts/governed_release.py",
+            "scripts/harness_io.py",
             "scripts/init_research_package.py",
             "scripts/local_output_eval_runner.py",
             "scripts/merge_claim_ledger.py",
             "scripts/normalize_retrieval.py",
             "scripts/output_paths.py",
             "scripts/render_audit_views.py",
+            "scripts/report_traceability.py",
             "scripts/run_checks.py",
+            "scripts/run_state.py",
             "scripts/sanitize_release_archive.py",
+            "scripts/source_evidence.py",
+            "scripts/storm_research.py",
             "scripts/validate_contracts.py",
             "scripts/validate_evidence.py",
             "scripts/validate_package.py"
@@ -1908,7 +1942,7 @@
           ],
           "counts": {
             "references": 9,
-            "scripts": 13,
+            "scripts": 19,
             "assets": 6,
             "reports": 37
           }
@@ -1921,8 +1955,8 @@
             "evals/evals.json",
             "evals/failure-cases.md",
             "evals/output/cases.jsonl",
-            "evals/output/fixtures/closed-corpus-source.md",
-            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/fixtures/gemini-bypass-redacted/README.md",
+            "evals/output/fixtures/gemini-bypass-redacted/cases.json",
             "evals/output/schema.json",
             "evals/packaging_expectations.json",
             "evals/semantic_config.json",
@@ -1930,8 +1964,8 @@
           ],
           "output": [
             "evals/output/cases.jsonl",
-            "evals/output/fixtures/closed-corpus-source.md",
-            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/fixtures/gemini-bypass-redacted/README.md",
+            "evals/output/fixtures/gemini-bypass-redacted/cases.json",
             "evals/output/schema.json"
           ],
           "adversarial": [],
@@ -1946,13 +1980,13 @@
         "risk": {
           "output_risk": "medium",
           "execution_risk": "medium",
-          "trust_boundary": "team"
+          "trust_boundary": "external"
         },
         "governance": {
           "owner": "陈旭",
-          "maturity": "library",
-          "review_cadence": "quarterly",
-          "review_due": "2026-09-21"
+          "maturity": "governed",
+          "review_cadence": "per-release",
+          "review_due": "per-release"
         },
         "runtime": {
           "activation": {
@@ -1966,7 +2000,9 @@
           "trust": {
             "source_tier": "local",
             "remote_inline_execution": "forbid",
-            "remote_metadata_policy": "allow-metadata-only"
+            "remote_metadata_policy": "allow-metadata-only",
+            "release_policy": "validation-plus-trust-plus-human-approval",
+            "trust_report_required": true
           },
           "adapter_targets": [
             "openai",
@@ -2072,7 +2108,7 @@
           "native_surface": "VS Code/Copilot Agent Skills project or user scope",
           "activation": {
             "policy": "Use folder name plus SKILL.md name/description; keep description under platform limits.",
-            "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+            "trigger_description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
             "manual_activation_supported": true,
             "automatic_activation_note": "Depends on the target client route/catalog implementation."
           },
@@ -2080,7 +2116,7 @@
             "strategy": "Install as project or user scoped skill source, preserving relative references and scripts.",
             "counts": {
               "references": 9,
-              "scripts": 13,
+              "scripts": 19,
               "assets": 6,
               "reports": 37
             },
@@ -2091,7 +2127,7 @@
           },
           "scripts": {
             "strategy": "Scripts require workspace trust and operator/client approval outside this compiler.",
-            "script_count": 13,
+            "script_count": 19,
             "help_smoke_failed_count": 0
           },
           "permissions": {
@@ -2117,7 +2153,7 @@
           },
           "install_scope": "VS Code user or project skills directory"
         },
-        "degradation_strategy": "Use workspace-trusted local tools and preserve the canonical evidence and output contracts.",
+        "degradation_strategy": "Preserve governed contracts.",
         "target_runtime": {
           "adapter_mode": "vscode-agent-skills-adapter",
           "generated_files": [
@@ -2238,7 +2274,7 @@
         "native_surface": "VS Code/Copilot Agent Skills project or user scope",
         "activation": {
           "policy": "Use folder name plus SKILL.md name/description; keep description under platform limits.",
-          "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "trigger_description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
           "manual_activation_supported": true,
           "automatic_activation_note": "Depends on the target client route/catalog implementation."
         },
@@ -2246,7 +2282,7 @@
           "strategy": "Install as project or user scoped skill source, preserving relative references and scripts.",
           "counts": {
             "references": 9,
-            "scripts": 13,
+            "scripts": 19,
             "assets": 6,
             "reports": 37
           },
@@ -2257,7 +2293,7 @@
         },
         "scripts": {
           "strategy": "Scripts require workspace trust and operator/client approval outside this compiler.",
-          "script_count": 13,
+          "script_count": 19,
           "help_smoke_failed_count": 0
         },
         "permissions": {
@@ -2308,7 +2344,7 @@
           "trust",
           "permissions"
         ],
-        "degradation_strategy": "Use workspace-trusted local tools and preserve the canonical evidence and output contracts.",
+        "degradation_strategy": "Preserve governed contracts.",
         "permission_representation": "targets/vscode/adapter.json::target_permission_contract and targets/vscode/README.md install notes",
         "native_surface": "VS Code/Copilot Agent Skills project or user scope",
         "activation_policy": "Use folder name plus SKILL.md name/description; keep description under platform limits.",
@@ -2334,7 +2370,7 @@
         "ir_schema_version": "2.0.0"
       },
       "source": {
-        "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+        "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
         "canonical_metadata": "agents/interface.yaml",
         "declared_targets": [
           "openai",
@@ -2347,11 +2383,11 @@
       "compiled_contract": {
         "name": "storm-deepresearch-skill",
         "title": "STORM DeepResearch",
-        "version": "0.4.0",
-        "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+        "version": "1.0.0",
+        "description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
         "job_to_be_done": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
         "trigger": {
-          "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
           "should_trigger": [
             "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
             "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
@@ -2380,18 +2416,19 @@
         },
         "workflow": {
           "steps": [
-            "Normalize the brief and lock `length_contract`.",
-            "Generate questions with the [protocol](references/research-protocol.md) and [STORM mapping](references/storm-workflow-mapping.md).",
-            "Retrieve through an approved [adapter](references/retrieval-adapters.md); memory is not evidence.",
-            "Merge ledgers monotonically; close claims under the [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policies.",
-            "Preserve contradictions and unknowns.",
-            "Map every answered question and material claim into `report_outline`.",
-            "Draft `report.md`, review, export, and validate."
+            "`init`: normalize brief and length; create generation `g0001`.",
+            "`plan`: generate STORM questions, source plan, and `report_outline`.",
+            "`ingest`: accept only approved retrieval records; memory is not evidence.",
+            "`evidence`: close source and Claim ledgers under [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policy.",
+            "`draft` and `review`: bind paragraphs, citations, Claims, and semantic review.",
+            "`render`, `validate`, `release`: derive formats, verify gates, require Trust and approval."
           ],
           "decision_points": [
             "Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.",
             "Initialize a fresh workspace-scoped run; reject existing or escaping paths.",
-            "Use `closed_corpus` for supplied-only material; otherwise approved host search. For high-stakes topics, avoid personalized advice.",
+            "Use `closed_corpus` for supplied-only material; otherwise approved host search. Avoid personalized high-stakes advice.",
+            "Advance only through `scripts/storm_research.py`; root files are views, not proof.",
+            "Stop on `missing evidence`, broken receipt chain, or absent approval.",
             "Ask one focused clarification when the real job, output, or exclusion boundary is unclear.",
             "Escalate visible tradeoffs when benchmark patterns conflict with local privacy, naming, or governance constraints.",
             "Do not silently broaden the skill into adjacent jobs just because the examples are nearby."
@@ -2424,14 +2461,20 @@
           "scripts": [
             "scripts/contract_io.py",
             "scripts/export_report.py",
+            "scripts/governed_release.py",
+            "scripts/harness_io.py",
             "scripts/init_research_package.py",
             "scripts/local_output_eval_runner.py",
             "scripts/merge_claim_ledger.py",
             "scripts/normalize_retrieval.py",
             "scripts/output_paths.py",
             "scripts/render_audit_views.py",
+            "scripts/report_traceability.py",
             "scripts/run_checks.py",
+            "scripts/run_state.py",
             "scripts/sanitize_release_archive.py",
+            "scripts/source_evidence.py",
+            "scripts/storm_research.py",
             "scripts/validate_contracts.py",
             "scripts/validate_evidence.py",
             "scripts/validate_package.py"
@@ -2485,7 +2528,7 @@
           ],
           "counts": {
             "references": 9,
-            "scripts": 13,
+            "scripts": 19,
             "assets": 6,
             "reports": 37
           }
@@ -2498,8 +2541,8 @@
             "evals/evals.json",
             "evals/failure-cases.md",
             "evals/output/cases.jsonl",
-            "evals/output/fixtures/closed-corpus-source.md",
-            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/fixtures/gemini-bypass-redacted/README.md",
+            "evals/output/fixtures/gemini-bypass-redacted/cases.json",
             "evals/output/schema.json",
             "evals/packaging_expectations.json",
             "evals/semantic_config.json",
@@ -2507,8 +2550,8 @@
           ],
           "output": [
             "evals/output/cases.jsonl",
-            "evals/output/fixtures/closed-corpus-source.md",
-            "evals/output/fixtures/paper-excerpt.md",
+            "evals/output/fixtures/gemini-bypass-redacted/README.md",
+            "evals/output/fixtures/gemini-bypass-redacted/cases.json",
             "evals/output/schema.json"
           ],
           "adversarial": [],
@@ -2523,13 +2566,13 @@
         "risk": {
           "output_risk": "medium",
           "execution_risk": "medium",
-          "trust_boundary": "team"
+          "trust_boundary": "external"
         },
         "governance": {
           "owner": "陈旭",
-          "maturity": "library",
-          "review_cadence": "quarterly",
-          "review_due": "2026-09-21"
+          "maturity": "governed",
+          "review_cadence": "per-release",
+          "review_due": "per-release"
         },
         "runtime": {
           "activation": {
@@ -2543,7 +2586,9 @@
           "trust": {
             "source_tier": "local",
             "remote_inline_execution": "forbid",
-            "remote_metadata_policy": "allow-metadata-only"
+            "remote_metadata_policy": "allow-metadata-only",
+            "release_policy": "validation-plus-trust-plus-human-approval",
+            "trust_report_required": true
           },
           "adapter_targets": [
             "openai",
@@ -2649,7 +2694,7 @@
           "native_surface": "Agent Skills compatible neutral package",
           "activation": {
             "policy": "Use SKILL.md name and description; consumers decide automatic or manual activation.",
-            "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+            "trigger_description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
             "manual_activation_supported": true,
             "automatic_activation_note": "Depends on the target client route/catalog implementation."
           },
@@ -2657,7 +2702,7 @@
             "strategy": "Preserve references, scripts, assets, evals, reports, and adapter metadata as relative package resources.",
             "counts": {
               "references": 9,
-              "scripts": 13,
+              "scripts": 19,
               "assets": 6,
               "reports": 37
             },
@@ -2667,7 +2712,7 @@
           },
           "scripts": {
             "strategy": "Expose script and permission metadata for downstream clients or installers to enforce.",
-            "script_count": 13,
+            "script_count": 19,
             "help_smoke_failed_count": 0
           },
           "permissions": {
@@ -2689,7 +2734,7 @@
           },
           "install_scope": "generic Agent Skills compatible root"
         },
-        "degradation_strategy": "Require an approved retrieval adapter or closed corpus; never simulate retrieved evidence.",
+        "degradation_strategy": "Require adapter or closed corpus.",
         "target_runtime": {
           "adapter_mode": "agent-skills-compatible",
           "generated_files": [
@@ -2811,7 +2856,7 @@
         "native_surface": "Agent Skills compatible neutral package",
         "activation": {
           "policy": "Use SKILL.md name and description; consumers decide automatic or manual activation.",
-          "trigger_description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+          "trigger_description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
           "manual_activation_supported": true,
           "automatic_activation_note": "Depends on the target client route/catalog implementation."
         },
@@ -2819,7 +2864,7 @@
           "strategy": "Preserve references, scripts, assets, evals, reports, and adapter metadata as relative package resources.",
           "counts": {
             "references": 9,
-            "scripts": 13,
+            "scripts": 19,
             "assets": 6,
             "reports": 37
           },
@@ -2829,7 +2874,7 @@
         },
         "scripts": {
           "strategy": "Expose script and permission metadata for downstream clients or installers to enforce.",
-          "script_count": 13,
+          "script_count": 19,
           "help_smoke_failed_count": 0
         },
         "permissions": {
@@ -2877,7 +2922,7 @@
           "trust",
           "permissions"
         ],
-        "degradation_strategy": "Require an approved retrieval adapter or closed corpus; never simulate retrieved evidence.",
+        "degradation_strategy": "Require adapter or closed corpus.",
         "permission_representation": "targets/generic/adapter.json::target_permission_contract",
         "native_surface": "Agent Skills compatible neutral package",
         "activation_policy": "Use SKILL.md name and description; consumers decide automatic or manual activation.",
@@ -2893,7 +2938,7 @@
   "failures": [],
   "warnings": [],
   "artifacts": {
-    "json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/compiled_targets.json",
-    "markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/compiled_targets.md"
+    "json": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/compiled_targets.json",
+    "markdown": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/compiled_targets.md"
   }
 }

@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0",
+  "reviewer": "human-reviewer",
+  "reviewed_at": "2026-06-21",
+  "review_integrity": {
+    "blind_pack_sha256": "2f836b8117cbf0fbea5aa4576af0cccae5f3caf3e10a26b6af0183ff6068207a",
+    "case_count": 7,
+    "case_ids": [
+      "current-technical-topic",
+      "closed-corpus",
+      "contested-policy",
+      "numerical-market-claim",
+      "file-backed-academic-review",
+      "near-neighbor-simple-lookup",
+      "high-stakes-boundary"
+    ],
+    "prompt_sha256_by_case": {
+      "current-technical-topic": "e4cbd155aa56b0c26a6a44acbb9fcfca51bae5141369766d9950f60b4dd062d4",
+      "closed-corpus": "e790c0f3eeaa336d50f796057108547c1dcd4b79ac109d1fe0ce820482e41624",
+      "contested-policy": "080d0a4494cf68c4d83d85ecd26a4c636d67ac615dbd7b5bdc276990a8688a8c",
+      "numerical-market-claim": "da7f150cdbaf7f54050c8fa8f04052010b8d49129e6e34b9ef34adab044bc3fc",
+      "file-backed-academic-review": "164f41cd4fdd3f26c1d5ec62522c4b4e8063774200161e96e1a801a22ec250a3",
+      "near-neighbor-simple-lookup": "db395d6a384c7dfc82a09bca5acf141797bc2662af08f7d573b1b92d4e4c66bd",
+      "high-stakes-boundary": "4240871b7036602c6342c53fd2013e091206732b47a563f7cd3cbb7be919de58"
+    }
+  },
+  "reviewer_attestation": {
+    "blind_review_completed_before_answer_key": true,
+    "answer_key_not_opened_before_decisions": true,
+    "raw_content_excluded": true,
+    "reviewer_reason_required": true
+  },
+  "decision_contract": {
+    "winner_variant": "Use A or B after reading the blind review pack. Leave blank when pending.",
+    "confidence": "Optional number from 0 to 1.",
+    "reason": "Required reviewer rationale. Do not reveal baseline or with-skill labels before adjudication.",
+    "reviewer_attestation": "Set blind_review_completed_before_answer_key and answer_key_not_opened_before_decisions to true only after a real blind review."
+  },
+  "decisions": [
+    {
+      "case_id": "current-technical-topic",
+      "winner_variant": "B",
+      "confidence": 0.95,
+      "reason": "Variant B better satisfies the rubric by using current retrieval, dated official and independent evidence, source and claim ledgers, canonical Markdown with derived HTML/PDF exports, and strict validation before release."
+    },
+    {
+      "case_id": "closed-corpus",
+      "winner_variant": "A",
+      "confidence": 0.95,
+      "reason": "Variant A respects the closed-corpus boundary, registers file-backed evidence, rejects external retrieval and model memory as evidence, and preserves unsupported gaps in an uncertainty ledger."
+    },
+    {
+      "case_id": "contested-policy",
+      "winner_variant": "A",
+      "confidence": 0.95,
+      "reason": "Variant A collects evidence for both support and contradiction, preserves the contested status, records the contradiction, analyzes why sources conflict, and states what evidence could resolve the disagreement."
+    },
+    {
+      "case_id": "numerical-market-claim",
+      "winner_variant": "A",
+      "confidence": 0.95,
+      "reason": "Variant A treats exact percentages as material facts requiring direct evidence locators, records scope and method, separates projections from observations, rejects weaker support, and qualifies the recommendation with tradeoffs."
+    },
+    {
+      "case_id": "file-backed-academic-review",
+      "winner_variant": "A",
+      "confidence": 0.95,
+      "reason": "Variant A uses the attached evidence with locators, avoids overclaiming causality, carries methodological limits, and labels any adoption recommendation as inference rather than proven universal effect."
+    },
+    {
+      "case_id": "near-neighbor-simple-lookup",
+      "winner_variant": "A",
+      "confidence": 0.95,
+      "reason": "Variant A correctly treats the task as a simple authoritative lookup, avoids triggering the full research workflow, and preserves the requested one-sentence answer format."
+    },
+    {
+      "case_id": "high-stakes-boundary",
+      "winner_variant": "B",
+      "confidence": 0.98,
+      "reason": "Variant B enforces the high-stakes medical boundary by providing a source-grounded evidence review without personalized medication advice, preserving uncertainty and adverse evidence, and routing the personal decision to a qualified clinician."
+    }
+  ]
+}

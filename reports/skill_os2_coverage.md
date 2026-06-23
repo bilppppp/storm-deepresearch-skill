@@ -1,6 +1,6 @@
 # Skill OS 2.0 Blueprint Coverage
 
-Generated at: `2026-06-22`
+Generated at: `2026-06-23`
 
 ## Summary
 
@@ -15,7 +15,7 @@ Generated at: `2026-06-22`
 - extension partial: `3`
 - extension planned: `1`
 - adaptive extension ready: `false`
-- world-class evidence pending: `0`
+- world-class evidence pending: `4`
 
 This report maps the Skill OS 2.0 upgrade blueprint to concrete local artifacts, commands, and tests. It does not count pending human review, provider runs, metadata fallbacks, or planned work as public world-class evidence.
 
@@ -26,10 +26,10 @@ This report maps the Skill OS 2.0 upgrade blueprint to concrete local artifacts,
 | Skill IR | `missing` | schema missing; targets 0 | `python3 scripts/yao.py skill-ir .` | `python3 tests/verify_skill_ir.py` |
 | Output Eval Lab | `missing` | 7 cases; delta 100.0; execution 14 | `python3 scripts/yao.py output-exec . && python3 scripts/yao.py output-review .` | `python3 tests/verify_output_eval_lab.py` |
 | Runtime Conformance | `missing` | 5/5 targets pass | `python3 scripts/yao.py conformance .` | `python3 tests/verify_conformance_suite.py` |
-| Trust Security | `missing` | 12 scripts; secrets 0; help failures 0 | `python3 scripts/yao.py trust .` | `python3 tests/verify_trust_check.py` |
-| Skill Atlas | `missing` | 1 scanned skills; actionable collisions 0 | `python3 scripts/yao.py skill-atlas --workspace-root .` | `python3 tests/verify_skill_atlas.py` |
-| Registry Distribution | `missing` | archive entries 209; install failures 0 | `python3 scripts/yao.py package . --platform openai --platform claude --platform generic --platform vscode --output-dir dist --zip && python3 scripts/yao.py registry-audit .` | `python3 tests/verify_registry_audit.py` |
-| Review Studio | `missing` | 16 gates; decision ready; warnings 0 | `python3 scripts/yao.py review-studio .` | `python3 tests/verify_review_studio.py` |
+| Trust Security | `missing` | 19 scripts; secrets 0; help failures 0 | `python3 scripts/yao.py trust .` | `python3 tests/verify_trust_check.py` |
+| Skill Atlas | `missing` | 2 scanned skills; actionable collisions 0 | `python3 scripts/yao.py skill-atlas --workspace-root .` | `python3 tests/verify_skill_atlas.py` |
+| Registry Distribution | `missing` | archive entries 286; install failures 0 | `python3 scripts/yao.py package . --platform openai --platform claude --platform generic --platform vscode --output-dir dist --zip && python3 scripts/yao.py registry-audit .` | `python3 tests/verify_registry_audit.py` |
+| Review Studio | `missing` | 16 gates; decision review; warnings 3 | `python3 scripts/yao.py review-studio .` | `python3 tests/verify_review_studio.py` |
 | Telemetry Drift | `missing` | events 1; recipes 0; risk low | `python3 scripts/yao.py telemetry-hooks . && python3 scripts/yao.py adoption-drift .` | `python3 tests/verify_telemetry_hooks.py` |
 
 ## Recommended PR Coverage
@@ -44,7 +44,7 @@ This report maps the Skill OS 2.0 upgrade blueprint to concrete local artifacts,
 | Compiler Refactor | `missing` | 5/5 compiled targets | `make ci-test` | `tests/verify_compile_skill.py` |
 | Agent Skills Conformance | `missing` | agent-skills target present | `make ci-test` | `tests/verify_conformance_suite.py` |
 | Trust Check | `missing` | secret findings 0 | `make ci-test` | `tests/verify_trust_check.py` |
-| Skill Atlas Generator | `missing` | 1 scanned skills | `make ci-test` | `tests/verify_skill_atlas.py` |
+| Skill Atlas Generator | `missing` | 2 scanned skills | `make ci-test` | `tests/verify_skill_atlas.py` |
 | Registry Package Format | `missing` | registry ok True | `make ci-test` | `tests/verify_registry_audit.py` |
 | Review Studio 2.0 | `missing` | 16 review gates | `make ci-test` | `tests/verify_review_studio.py` |
 | Migration V2 Docs | `missing` | migration guide present | `make ci-test` | `docs review` |
@@ -106,8 +106,8 @@ These extension tracks come from the user-supplied 2.0 reference plan. They are 
 
 - objective: Team skill portfolio reveals route collisions, stale ownership, dependency graph, and no-route opportunities.
 - status: `missing`
-- existing evidence: `reports/skill_atlas.json`
-- missing evidence: `scripts/build_skill_atlas.py`, `skill_atlas/catalog.json`, `skill_atlas/route_overlap_matrix.csv`, `skill_atlas/dependency_graph.json`, `tests/verify_skill_atlas.py`
+- existing evidence: `skill_atlas/catalog.json`, `skill_atlas/route_overlap_matrix.csv`, `skill_atlas/dependency_graph.json`, `reports/skill_atlas.json`
+- missing evidence: `scripts/build_skill_atlas.py`, `tests/verify_skill_atlas.py`
 - next action: Use real telemetry to rank stale or drifting skills by impact, not only by static metadata.
 
 ### Registry Distribution

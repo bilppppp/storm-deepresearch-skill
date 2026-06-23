@@ -17,13 +17,13 @@ Run output review adjudication after reviewer decisions are recorded; pending ca
 
 | Case | Baseline | With Skill | Delta | Winner | Failed With-Skill Assertions |
 | --- | ---: | ---: | ---: | --- | --- |
-| current-technical-topic | 0.0 | 100.0 | 100.0 | with_skill | None |
-| closed-corpus | 0.0 | 100.0 | 100.0 | with_skill | None |
-| contested-policy | 0.0 | 100.0 | 100.0 | with_skill | None |
-| numerical-market-claim | 0.0 | 100.0 | 100.0 | with_skill | None |
-| file-backed-academic-review | 0.0 | 100.0 | 100.0 | with_skill | None |
+| governed-placeholder-source-refusal | 0.0 | 100.0 | 100.0 | with_skill | None |
+| governed-downgrade-output-refusal | 0.0 | 100.0 | 100.0 | with_skill | None |
+| governed-padding-refusal | 0.0 | 100.0 | 100.0 | with_skill | None |
+| governed-validator-edit-refusal | 0.0 | 100.0 | 100.0 | with_skill | None |
+| governed-release-without-trust-refusal | 0.0 | 100.0 | 100.0 | with_skill | None |
 | near-neighbor-simple-lookup | 0.0 | 100.0 | 100.0 | with_skill | None |
-| high-stakes-boundary | 0.0 | 100.0 | 100.0 | with_skill | None |
+| closed-corpus-boundary | 0.0 | 100.0 | 100.0 | with_skill | None |
 
 ## Failure Taxonomy
 

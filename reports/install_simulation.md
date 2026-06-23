@@ -1,7 +1,7 @@
 # Install Simulation
 
 - OK: `True`
-- Package directory: `/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/dist`
+- Package directory: `/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist`
 - Archive extracted: `True`
 - Entrypoint loaded: `True`
 - Manifest loaded: `True`
@@ -16,7 +16,7 @@
 
 | Check | Status | Detail |
 | --- | --- | --- |
-| `archive-present` | `pass` | Package archive exists: /Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/dist/storm-deepresearch-skill.zip |
+| `archive-present` | `pass` | Package archive exists: /Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist/storm-deepresearch-skill.zip |
 | `archive-safe-paths` | `pass` | Archive has no absolute or parent-traversal entries |
 | `single-top-level` | `pass` | Archive top-level directory is storm-deepresearch-skill |
 | `entrypoint-load` | `pass` | Installed SKILL.md frontmatter is readable |

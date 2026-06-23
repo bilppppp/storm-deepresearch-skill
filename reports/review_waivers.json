@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
   "ok": true,
-  "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
-  "generated_at": "2026-06-21",
+  "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
+  "generated_at": "2026-06-23",
   "summary": {
     "waiver_count": 0,
     "active_count": 0,
@@ -85,21 +85,21 @@
         "false-positive",
         "temporary-exception"
       ],
-      "risk_summary": "review pending 0; model-executed 0; output failures 0",
+      "risk_summary": "review pending 7; model-executed 0; output failures 0",
       "required_review": [
         "Reviewer confirms this release does not claim provider-backed or human-adjudicated output superiority.",
         "Reviewer names the release scope and expiry date.",
         "Reviewer links output_review_adjudication or output_execution evidence."
       ],
       "suggested_evidence": "reports/output_review_adjudication.md",
-      "suggested_command": "python3 scripts/yao.py review-waivers . --add-waiver --gate-key output-lab --reviewer \"<reviewer>\" --reason \"Output Lab has pending human/provider evidence; accepted only for this bounded review scope.\" --expires-at 2027-06-21 --evidence reports/output_review_adjudication.md",
+      "suggested_command": "python3 scripts/yao.py review-waivers . --add-waiver --gate-key output-lab --reviewer \"<reviewer>\" --reason \"Output Lab has pending human/provider evidence; accepted only for this bounded review scope.\" --expires-at 2027-06-23 --evidence reports/output_review_adjudication.md",
       "world_class_boundary": "Does not count as provider, human, or public world-class completion evidence."
     }
   ],
   "failures": [],
   "warnings": [],
   "artifacts": {
-    "json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/review_waivers.json",
-    "markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/review_waivers.md"
+    "json": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/review_waivers.json",
+    "markdown": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/review_waivers.md"
   }
 }

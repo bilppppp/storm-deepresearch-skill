@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
   "ok": false,
-  "generated_at": "2026-06-22",
-  "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+  "generated_at": "2026-06-23",
+  "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
   "summary": {
     "item_count": 21,
     "module_count": 8,
@@ -17,7 +17,7 @@
     "adaptive_extension_ready": false,
     "local_blueprint_ready": false,
     "public_world_class_ready": false,
-    "world_class_evidence_pending_count": 0,
+    "world_class_evidence_pending_count": 4,
     "decision": "continue-implementation"
   },
   "status_counts": {
@@ -131,7 +131,7 @@
       "label": "Trust Security",
       "status": "missing",
       "objective": "Scripts, dependencies, permissions, secrets, and package hash are reviewable for team distribution.",
-      "current": "12 scripts; secrets 0; help failures 0",
+      "current": "19 scripts; secrets 0; help failures 0",
       "command": "python3 scripts/yao.py trust .",
       "test": "python3 tests/verify_trust_check.py",
       "evidence": [
@@ -168,7 +168,7 @@
       "label": "Skill Atlas",
       "status": "missing",
       "objective": "Team skill portfolio reveals route collisions, stale ownership, dependency graph, and no-route opportunities.",
-      "current": "1 scanned skills; actionable collisions 0",
+      "current": "2 scanned skills; actionable collisions 0",
       "command": "python3 scripts/yao.py skill-atlas --workspace-root .",
       "test": "python3 tests/verify_skill_atlas.py",
       "evidence": [
@@ -178,15 +178,15 @@
         },
         {
           "path": "skill_atlas/catalog.json",
-          "exists": false
+          "exists": true
         },
         {
           "path": "skill_atlas/route_overlap_matrix.csv",
-          "exists": false
+          "exists": true
         },
         {
           "path": "skill_atlas/dependency_graph.json",
-          "exists": false
+          "exists": true
         },
         {
           "path": "reports/skill_atlas.json",
@@ -205,7 +205,7 @@
       "label": "Registry Distribution",
       "status": "missing",
       "objective": "Skill packages are installable, versioned, checksumed, and upgrade-reviewable.",
-      "current": "archive entries 209; install failures 0",
+      "current": "archive entries 286; install failures 0",
       "command": "python3 scripts/yao.py package . --platform openai --platform claude --platform generic --platform vscode --output-dir dist --zip && python3 scripts/yao.py registry-audit .",
       "test": "python3 tests/verify_registry_audit.py",
       "evidence": [
@@ -246,7 +246,7 @@
       "label": "Review Studio",
       "status": "missing",
       "objective": "One HTML page supports first-pass production review across trigger, output, runtime, trust, release, and evidence actions.",
-      "current": "16 gates; decision ready; warnings 0",
+      "current": "16 gates; decision review; warnings 3",
       "command": "python3 scripts/yao.py review-studio .",
       "test": "python3 tests/verify_review_studio.py",
       "evidence": [
@@ -514,7 +514,7 @@
       "label": "Skill Atlas Generator",
       "status": "missing",
       "objective": "Recommended Skill OS 2.0 implementation PR from the upgrade plan.",
-      "current": "1 scanned skills",
+      "current": "2 scanned skills",
       "command": "make ci-test",
       "test": "tests/verify_skill_atlas.py",
       "evidence": [

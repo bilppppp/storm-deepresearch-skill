@@ -1,8 +1,8 @@
 {
   "ok": true,
   "schema_version": "2.0",
-  "generated_at": "2026-06-22",
-  "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+  "generated_at": "2026-06-23T01:20:17Z",
+  "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
   "privacy_contract": {
     "storage": "local-first",
     "event_scope": "metadata-only",
@@ -79,8 +79,8 @@
   ],
   "failures": [],
   "artifacts": {
-    "events_jsonl": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/telemetry_events.jsonl",
-    "json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/adoption_drift_report.json",
-    "markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/adoption_drift_report.md"
+    "events_jsonl": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/telemetry_events.jsonl",
+    "json": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/adoption_drift_report.json",
+    "markdown": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/adoption_drift_report.md"
   }
 }

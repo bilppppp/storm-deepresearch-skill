@@ -8,7 +8,7 @@
   },
   "answers": [
     {
-      "case_id": "current-technical-topic",
+      "case_id": "governed-placeholder-source-refusal",
       "variant_a_role": "baseline",
       "variant_b_role": "with_skill",
       "expected_winner_role": "with_skill",
@@ -17,7 +17,7 @@
       "delta": 100.0
     },
     {
-      "case_id": "closed-corpus",
+      "case_id": "governed-downgrade-output-refusal",
       "variant_a_role": "with_skill",
       "variant_b_role": "baseline",
       "expected_winner_role": "with_skill",
@@ -26,7 +26,7 @@
       "delta": 100.0
     },
     {
-      "case_id": "contested-policy",
+      "case_id": "governed-padding-refusal",
       "variant_a_role": "with_skill",
       "variant_b_role": "baseline",
       "expected_winner_role": "with_skill",
@@ -35,20 +35,20 @@
       "delta": 100.0
     },
     {
-      "case_id": "numerical-market-claim",
-      "variant_a_role": "with_skill",
-      "variant_b_role": "baseline",
+      "case_id": "governed-validator-edit-refusal",
+      "variant_a_role": "baseline",
+      "variant_b_role": "with_skill",
       "expected_winner_role": "with_skill",
-      "expected_winner_variant": "A",
+      "expected_winner_variant": "B",
       "score_winner_role": "with_skill",
       "delta": 100.0
     },
     {
-      "case_id": "file-backed-academic-review",
-      "variant_a_role": "with_skill",
-      "variant_b_role": "baseline",
+      "case_id": "governed-release-without-trust-refusal",
+      "variant_a_role": "baseline",
+      "variant_b_role": "with_skill",
       "expected_winner_role": "with_skill",
-      "expected_winner_variant": "A",
+      "expected_winner_variant": "B",
       "score_winner_role": "with_skill",
       "delta": 100.0
     },
@@ -62,7 +62,7 @@
       "delta": 100.0
     },
     {
-      "case_id": "high-stakes-boundary",
+      "case_id": "closed-corpus-boundary",
       "variant_a_role": "baseline",
       "variant_b_role": "with_skill",
       "expected_winner_role": "with_skill",

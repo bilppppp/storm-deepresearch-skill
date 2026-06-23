@@ -188,29 +188,29 @@ th {
     <section class="hero">
       <p class="minor">Review Viewer</p>
       <h1>STORM DeepResearch</h1>
-      <p class="lede">Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.</p>
+      <p class="lede">Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.</p>
       <div class="meta">
-        <span>maturity: library</span>
-        <span>archetype: library</span>
+        <span>maturity: governed</span>
+        <span>archetype: governed</span>
         <span>format: agent-skills</span>
-        <span>updated: 2026-06-21</span>
+        <span>updated: 2026-06-23</span>
         <span>intent confidence: 100 / 100</span>
       </div>
     </section>
 
     <section>
       <h2>Architecture at a glance</h2>
-      <div class="arch-grid"><div class='arch-step'><div class='step-label'>Inputs</div><div class='step-detail'>workflow, prompt, transcript, docs, or notes</div></div><div class='arch-step'><div class='step-label'>Boundary</div><div class='step-detail'>Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.</div></div><div class='arch-step'><div class='step-label'>Logic</div><div class='step-detail'>Normalize `brief.json`; clarify only scope-changing gaps.; Generate perspectives and questions with the [research protocol](references/research-protocol.md).; Use an approved [retrieval adapter](references/retrieval-adapters.md); memory and personas are not sources.</div></div><div class='arch-step'><div class='step-label'>Usage</div><div class='step-detail'>Use $storm-deepresearch-skill to research this topic with real sources, a claim-evidence audit, contradiction analysis, and validated Markdown, HTML, and PDF outputs.; Use this skill when the request matches: Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.</div></div><div class='arch-step'><div class='step-label'>Next</div><div class='step-detail'>Review the top iteration directions before growing the package.</div></div></div>
+      <div class="arch-grid"><div class='arch-step'><div class='step-label'>Inputs</div><div class='step-detail'>workflow, prompt, transcript, docs, or notes</div></div><div class='arch-step'><div class='step-label'>Boundary</div><div class='step-detail'>Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.</div></div><div class='arch-step'><div class='step-label'>Logic</div><div class='step-detail'>`init`: normalize brief and length; create generation `g0001`.; `plan`: generate STORM questions, source plan, and `report_outline`.; `ingest`: accept only approved retrieval records; memory is not evidence.</div></div><div class='arch-step'><div class='step-label'>Usage</div><div class='step-detail'>Use $storm-deepresearch-skill for a governed dossier. Stop on missing evidence; release needs receipt chain and human approval.; Use this skill when the request matches: Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.</div></div><div class='arch-step'><div class='step-label'>Next</div><div class='step-detail'>Review the top iteration directions before growing the package.</div></div></div>
     </section>
 
     <section class="grid">
       <div class="panel">
         <h2>Core logic</h2>
-        <ul><li>Normalize `brief.json`; clarify only scope-changing gaps.</li><li>Generate perspectives and questions with the [research protocol](references/research-protocol.md).</li><li>Use an approved [retrieval adapter](references/retrieval-adapters.md); memory and personas are not sources.</li><li>Close material claims under the [evidence](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policies.</li><li>Preserve contradictions and uncertainty; remove, qualify, or mark unsupported claims unknown.</li></ul>
+        <ul><li>`init`: normalize brief and length; create generation `g0001`.</li><li>`plan`: generate STORM questions, source plan, and `report_outline`.</li><li>`ingest`: accept only approved retrieval records; memory is not evidence.</li><li>`evidence`: close source and Claim ledgers under [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policy.</li><li>`draft` and `review`: bind paragraphs, citations, Claims, and semantic review.</li></ul>
       </div>
       <div class="panel">
         <h2>How to use it</h2>
-        <ul><li>Use $storm-deepresearch-skill to research this topic with real sources, a claim-evidence audit, contradiction analysis, and validated Markdown, HTML, and PDF outputs.</li><li>Use this skill when the request matches: Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.</li></ul>
+        <ul><li>Use $storm-deepresearch-skill for a governed dossier. Stop on missing evidence; release needs receipt chain and human approval.</li><li>Use this skill when the request matches: Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.</li></ul>
       </div>
     </section>
 
@@ -221,7 +221,7 @@ th {
       </div>
       <div class="panel">
         <h2>Why this package is strong</h2>
-        <ul><li>触发面保持精简，并锚定在 frontmatter description。</li><li>已生成 Skill IR，核心语义可先于平台打包被审查和迁移。</li><li>已生成目标编译报告，可审查 IR 到 OpenAI、Claude、generic 等目标契约的映射。</li><li>已生成 Output Eval Lab scorecard，可比较 with-skill 与 baseline 输出质量。</li><li>已生成 Output Execution Runs，可区分记录样本、命令执行和模型执行证据。</li><li>已生成 Runtime Conformance Matrix，可审查目标端消费能力。</li></ul>
+        <ul><li>触发面保持精简，并锚定在 frontmatter description。</li><li>已生成 Skill IR，核心语义可先于平台打包被审查和迁移。</li><li>已生成目标编译报告，可审查 IR 到 OpenAI、Claude、generic 等目标契约的映射。</li><li>已生成 Output Eval Lab scorecard，可比较 with-skill 与 baseline 输出质量。</li><li>已生成 Output Execution Runs，可区分记录样本、命令执行和模型执行证据。</li><li>已生成 Output Review Adjudication，可记录盲评决策、一致率和待评审项。</li></ul>
       </div>
     </section>
 

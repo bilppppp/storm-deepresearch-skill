@@ -1,10 +1,10 @@
 # Package Verification
 
 - OK: `True`
-- Package directory: `/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/dist`
+- Package directory: `/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist`
 - Targets: `4 / 4` adapters present
 - Archive present: `True`
-- Archive SHA256: `01a606871576109d79d7085b8761c762af87c93beb5fdac1670790e27e88ea3a`
+- Archive SHA256: `6dae44559df0c7298ecbc8858fbbb54a157910da4664d90ec209f70a5556ea4e`
 - Failures: `0`
 - Warnings: `0`
 
@@ -12,7 +12,7 @@
 
 | Check | Status | Detail |
 | --- | --- | --- |
-| `package-manifest` | `pass` | Package manifest exists: /Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/dist/manifest.json |
+| `package-manifest` | `pass` | Package manifest exists: /Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist/manifest.json |
 | `openai-adapter` | `pass` | Adapter exists for target: openai |
 | `openai-field-name` | `pass` | openai adapter includes field: name |
 | `openai-field-description` | `pass` | openai adapter includes field: description |

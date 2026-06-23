@@ -5,20 +5,63 @@
   "additionalProperties": false,
   "required": [
     "id",
-    "fixture",
     "prompt",
-    "expected_behavior",
-    "must_report_stage",
-    "must_not_create"
+    "baseline_output",
+    "with_skill_output",
+    "assertions"
   ],
   "properties": {
     "id": {"type": "string", "minLength": 1},
-    "fixture": {"type": "string", "minLength": 1},
     "prompt": {"type": "string", "minLength": 1},
-    "expected_behavior": {"type": "string", "minLength": 1},
-    "must_report_stage": {
-      "enum": ["init", "plan", "ingest", "evidence", "draft", "review", "render", "validate", "amend", "release"]
+    "input_files": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
     },
-    "must_not_create": {"type": "string", "minLength": 1}
+    "baseline_output": {"type": "string", "minLength": 1},
+    "with_skill_output": {"type": "string", "minLength": 1},
+    "assertions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "description"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "description": {"type": "string", "minLength": 1},
+          "required": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "uniqueItems": true
+          },
+          "forbidden": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "uniqueItems": true
+          },
+          "weight": {"type": "number", "minimum": 0},
+          "failure_type": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "human_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "expected_winner": {"enum": ["baseline", "with_skill"]}
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "case_type": {"type": "string", "minLength": 1},
+        "tier": {"type": "string", "minLength": 1},
+        "fixture": {"type": "string", "minLength": 1},
+        "must_report_stage": {"type": "string", "minLength": 1},
+        "must_not_create": {"type": "string", "minLength": 1}
+      }
+    }
   }
 }

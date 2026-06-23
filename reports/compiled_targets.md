@@ -10,11 +10,11 @@
 
 | Target | Status | Native Surface | Adapter Mode | Permissions | Degradation | Generated Files |
 | --- | --- | --- | --- | --- | --- | --- |
-| `openai` | `pass` | OpenAI-style interface metadata plus neutral Agent Skills source | `metadata-adapter` | `file_write, subprocess` | `Use host search tools and preserve the canonical evidence and output contracts.` | targets/openai/adapter.json, targets/openai/agents/openai.yaml |
-| `claude` | `pass` | Claude-compatible neutral source folder with adapter notes | `neutral-source-plus-adapter` | `file_write, subprocess` | `Use host search tools and preserve the canonical evidence and output contracts.` | targets/claude/adapter.json, targets/claude/README.md |
-| `agent-skills` | `pass` | Agent Skills standard source tree | `neutral-agent-skills-source` | `file_write, subprocess` | `Use the canonical SKILL.md and relative package resources; the host must enforce declared permissions.` | SKILL.md, agents/interface.yaml |
-| `vscode` | `pass` | VS Code/Copilot Agent Skills project or user scope | `vscode-agent-skills-adapter` | `file_write, subprocess` | `Use workspace-trusted local tools and preserve the canonical evidence and output contracts.` | targets/vscode/adapter.json, targets/vscode/README.md |
-| `generic` | `pass` | Agent Skills compatible neutral package | `agent-skills-compatible` | `file_write, subprocess` | `Require an approved retrieval adapter or closed corpus; never simulate retrieved evidence.` | targets/generic/adapter.json |
+| `openai` | `pass` | OpenAI-style interface metadata plus neutral Agent Skills source | `metadata-adapter` | `file_write, subprocess` | `Preserve governed contracts.` | targets/openai/adapter.json, targets/openai/agents/openai.yaml |
+| `claude` | `pass` | Claude-compatible neutral source folder with adapter notes | `neutral-source-plus-adapter` | `file_write, subprocess` | `Preserve governed contracts.` | targets/claude/adapter.json, targets/claude/README.md |
+| `agent-skills` | `pass` | Agent Skills standard source tree | `neutral-agent-skills-source` | `file_write, subprocess` | `Use SKILL.md and relative resources.` | SKILL.md, agents/interface.yaml |
+| `vscode` | `pass` | VS Code/Copilot Agent Skills project or user scope | `vscode-agent-skills-adapter` | `file_write, subprocess` | `Preserve governed contracts.` | targets/vscode/adapter.json, targets/vscode/README.md |
+| `generic` | `pass` | Agent Skills compatible neutral package | `agent-skills-compatible` | `file_write, subprocess` | `Require adapter or closed corpus.` | targets/generic/adapter.json |
 
 ## Native Behavior Contracts
 

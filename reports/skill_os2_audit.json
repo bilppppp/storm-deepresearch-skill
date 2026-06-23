@@ -1,24 +1,24 @@
 {
   "schema_version": "1.0",
   "ok": false,
-  "generated_at": "2026-06-22",
-  "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+  "generated_at": "2026-06-23",
+  "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
   "summary": {
     "item_count": 15,
-    "pass_count": 9,
+    "pass_count": 8,
     "warn_count": 0,
-    "human_required_count": 0,
+    "human_required_count": 1,
     "external_required_count": 3,
     "missing_count": 3,
-    "open_gap_count": 6,
+    "open_gap_count": 7,
     "local_foundation_ready": false,
     "world_class_ready": false,
     "decision": "continue-iteration"
   },
   "status_counts": {
-    "pass": 9,
+    "pass": 8,
     "warn": 0,
-    "human_required": 0,
+    "human_required": 1,
     "external_required": 3,
     "missing": 3
   },
@@ -122,8 +122,8 @@
     {
       "key": "human-adjudication",
       "label": "Human Adjudication",
-      "status": "pass",
-      "current": "7/7 decisions; pending 0",
+      "status": "human_required",
+      "current": "0/7 decisions; pending 7",
       "target": "Real reviewer decisions, blind-review attestation, and integrity fingerprints recorded before claiming output review completion",
       "evidence": [
         {
@@ -197,7 +197,7 @@
       "key": "trust-security",
       "label": "Trust Security",
       "status": "pass",
-      "current": "secrets 0; scripts 12; help failures 0",
+      "current": "secrets 0; scripts 19; help failures 0",
       "target": "Secrets, scripts, dependencies, permissions, and package hash are reviewable",
       "evidence": [
         {
@@ -285,7 +285,7 @@
       "key": "registry-distribution",
       "label": "Registry Distribution",
       "status": "pass",
-      "current": "zip entries 209; install failures 0; permission failures 0",
+      "current": "zip entries 244; install failures 0; permission failures 0",
       "target": "Package metadata, archive checksum, package verification, and install simulation pass",
       "evidence": [
         {
@@ -408,6 +408,28 @@
       "next_action": "Run provider-backed holdout cases with real credentials and commit only aggregate evidence."
     },
     {
+      "key": "human-adjudication",
+      "label": "Human Adjudication",
+      "status": "human_required",
+      "current": "0/7 decisions; pending 7",
+      "target": "Real reviewer decisions, blind-review attestation, and integrity fingerprints recorded before claiming output review completion",
+      "evidence": [
+        {
+          "path": "reports/output_review_decisions.json",
+          "exists": true
+        },
+        {
+          "path": "reports/output_review_adjudication.json",
+          "exists": true
+        },
+        {
+          "path": "scripts/adjudicate_output_review.py",
+          "exists": false
+        }
+      ],
+      "next_action": "Record real A/B choices, reviewer metadata, and blind-review attestation, then regenerate adjudication."
+    },
+    {
       "key": "benchmark-reproducibility",
       "label": "Benchmark Reproducibility",
       "status": "missing",
@@ -458,28 +480,6 @@
         }
       ],
       "next_action": "Integrate a real target-client or external installer runtime guard before claiming native permission enforcement."
-    },
-    {
-      "key": "telemetry-drift",
-      "label": "Telemetry Drift",
-      "status": "missing",
-      "current": "events 1; risk low; recipes 0",
-      "target": "Local-first metadata-only event contract, aggregate drift report, hook recipes, and import path",
-      "evidence": [
-        {
-          "path": "reports/adoption_drift_report.json",
-          "exists": true
-        },
-        {
-          "path": "reports/telemetry_hook_recipes.json",
-          "exists": false
-        },
-        {
-          "path": "scripts/import_telemetry_events.py",
-          "exists": false
-        }
-      ],
-      "next_action": "Keep raw JSONL out of distributed packages and use aggregate reports for Atlas."
     }
   ],
   "artifacts": {

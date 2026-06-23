@@ -10,6 +10,32 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class LocalOutputEvalRunnerTests(unittest.TestCase):
+    def test_output_eval_cases_match_yao_contract(self) -> None:
+        cases_root = ROOT / "evals" / "output"
+        cases_path = cases_root / "cases.jsonl"
+        cases = [
+            json.loads(line)
+            for line in cases_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        self.assertGreaterEqual(len(cases), 5)
+        self.assertTrue(any(case.get("input_files") for case in cases))
+        self.assertTrue(any(case.get("metadata", {}).get("case_type") == "near_neighbor" for case in cases))
+        self.assertTrue(any(case.get("metadata", {}).get("case_type") == "boundary" for case in cases))
+        for case in cases:
+            with self.subTest(case=case.get("id")):
+                for key in ("id", "prompt", "baseline_output", "with_skill_output", "assertions"):
+                    self.assertIn(key, case)
+                    self.assertTrue(case[key])
+                self.assertIsInstance(case["assertions"], list)
+                self.assertTrue(case["assertions"])
+                for assertion in case["assertions"]:
+                    self.assertTrue(assertion.get("id"))
+                    self.assertTrue(assertion.get("description"))
+                for raw_path in case.get("input_files", []):
+                    self.assertFalse(Path(raw_path).is_absolute())
+                    self.assertTrue((cases_root / raw_path).exists(), raw_path)
+
     def test_runner_has_help_surface(self) -> None:
         result = subprocess.run(
             [str(ROOT / ".venv" / "bin" / "python"), str(ROOT / "scripts" / "local_output_eval_runner.py"), "--help"],

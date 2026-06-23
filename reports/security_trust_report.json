@@ -1,10 +1,10 @@
 {
   "ok": true,
-  "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+  "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
   "summary": {
-    "scanned_files": 54,
-    "script_count": 13,
-    "internal_module_count": 2,
+    "scanned_files": 62,
+    "script_count": 19,
+    "internal_module_count": 7,
     "secret_findings": 0,
     "dependency_files": [
       "requirements-ci.txt"
@@ -12,18 +12,18 @@
     "network_script_count": 0,
     "network_policy_covered_count": 0,
     "network_policy_missing_count": 0,
-    "file_write_script_count": 7,
+    "file_write_script_count": 9,
     "permission_required_count": 2,
     "permission_approved_count": 2,
     "permission_missing_count": 0,
     "permission_invalid_count": 0,
     "permission_expired_count": 0,
-    "help_smoke_checked_count": 11,
+    "help_smoke_checked_count": 12,
     "help_smoke_failed_count": 0,
     "interactive_script_count": 0,
     "package_hash_scope": "source-contract-without-generated-reports",
-    "package_hash_file_count": 54,
-    "package_sha256": "a466c3583b90fb464ccba989c0fa3edf37c48d1546c6b374c8a0fc1e6a5f5808"
+    "package_hash_file_count": 62,
+    "package_sha256": "cde76ad232fb9770c5e5f446d2ed4b24a30d3573a454820332816cf14a0bfa48"
   },
   "failures": [],
   "warnings": [],
@@ -58,15 +58,43 @@
       "network_hosts": []
     },
     {
+      "path": "scripts/governed_release.py",
+      "interface": "internal-module",
+      "interface_declared": true,
+      "interface_reason": "Imported by the single storm-research release command.",
+      "has_argparse": false,
+      "has_main_guard": false,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": true,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/harness_io.py",
+      "interface": "internal-module",
+      "interface_declared": true,
+      "interface_reason": "Provides deterministic identity and promotion primitives for stage receipts.",
+      "has_argparse": false,
+      "has_main_guard": false,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": true,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
       "path": "scripts/init_research_package.py",
-      "interface": "cli",
-      "interface_declared": false,
-      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "interface": "deprecated-cli",
+      "interface_declared": true,
+      "interface_reason": "Compatibility surface forwarding initialization to the governed orchestrator.",
       "has_argparse": true,
       "has_main_guard": true,
       "uses_input": false,
       "uses_network": false,
-      "uses_file_write": true,
+      "uses_file_write": false,
       "uses_subprocess": false,
       "network_urls": [],
       "network_hosts": []
@@ -87,23 +115,23 @@
     },
     {
       "path": "scripts/merge_claim_ledger.py",
-      "interface": "cli",
-      "interface_declared": false,
-      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "interface": "internal-worker-cli",
+      "interface_declared": true,
+      "interface_reason": "Returns a merged Claim set; only storm_research may commit stage receipts.",
       "has_argparse": true,
       "has_main_guard": true,
       "uses_input": false,
       "uses_network": false,
-      "uses_file_write": true,
+      "uses_file_write": false,
       "uses_subprocess": false,
       "network_urls": [],
       "network_hosts": []
     },
     {
       "path": "scripts/normalize_retrieval.py",
-      "interface": "cli",
-      "interface_declared": false,
-      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "interface": "internal-worker-cli",
+      "interface_declared": true,
+      "interface_reason": "Produces validated staging records; only storm_research may commit receipts.",
       "has_argparse": true,
       "has_main_guard": true,
       "uses_input": false,
@@ -142,6 +170,20 @@
       "network_hosts": []
     },
     {
+      "path": "scripts/report_traceability.py",
+      "interface": "internal-module",
+      "interface_declared": true,
+      "interface_reason": "Binds report paragraphs and public citations to governed Claims and sources.",
+      "has_argparse": false,
+      "has_main_guard": false,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": false,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
       "path": "scripts/run_checks.py",
       "interface": "cli",
       "interface_declared": false,
@@ -160,10 +202,52 @@
       ]
     },
     {
+      "path": "scripts/run_state.py",
+      "interface": "internal-module",
+      "interface_declared": true,
+      "interface_reason": "Owns all governed run state transitions and receipt verification.",
+      "has_argparse": false,
+      "has_main_guard": false,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": true,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
       "path": "scripts/sanitize_release_archive.py",
       "interface": "cli",
       "interface_declared": false,
       "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": true,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/source_evidence.py",
+      "interface": "internal-module",
+      "interface_declared": true,
+      "interface_reason": "Computes authoritative source hashes and provenance for the retrieval stage.",
+      "has_argparse": false,
+      "has_main_guard": false,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": false,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/storm_research.py",
+      "interface": "cli",
+      "interface_declared": true,
+      "interface_reason": "The only supported public command surface for governed research stages.",
       "has_argparse": true,
       "has_main_guard": true,
       "uses_input": false,
@@ -189,9 +273,9 @@
     },
     {
       "path": "scripts/validate_evidence.py",
-      "interface": "cli",
-      "interface_declared": false,
-      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "interface": "internal-worker-cli",
+      "interface_declared": true,
+      "interface_reason": "Deterministic evidence closure used by the governed evidence stage.",
       "has_argparse": true,
       "has_main_guard": true,
       "uses_input": false,
@@ -203,9 +287,9 @@
     },
     {
       "path": "scripts/validate_package.py",
-      "interface": "cli",
-      "interface_declared": false,
-      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "interface": "public-worker-cli",
+      "interface_declared": true,
+      "interface_reason": "Offline governed validation and validation receipt commitment.",
       "has_argparse": true,
       "has_main_guard": true,
       "uses_input": false,
@@ -241,11 +325,11 @@
   "help_smoke": {
     "enabled": true,
     "timeout_seconds": 5.0,
-    "candidate_count": 11,
-    "checked_count": 11,
-    "passed_count": 11,
+    "candidate_count": 12,
+    "checked_count": 12,
+    "passed_count": 12,
     "failed_count": 0,
-    "skipped_count": 2,
+    "skipped_count": 7,
     "failed_scripts": [],
     "results": [
       {
@@ -265,7 +349,7 @@
         "timed_out": false,
         "passed": true,
         "has_help_text": true,
-        "stdout_excerpt": "usage: init_research_package.py [-h] --topic TOPIC --question QUESTION\n                                [--workspace WORKSPACE]\n                                [--output-root OUTPUT_ROOT] [--output OUTPUT]\n                                [--",
+        "stdout_excerpt": "usage: init_research_package.py [-h]\n\nDeprecated compatibility wrapper for scripts/storm_research.py init.\n\noptions:\n  -h, --help  show this help message and exit\n\nAll non-help arguments are forwarded to the governed init command.",
         "stderr_excerpt": ""
       },
       {
@@ -285,7 +369,7 @@
         "timed_out": false,
         "passed": true,
         "has_help_text": true,
-        "stdout_excerpt": "usage: merge_claim_ledger.py [-h] --package PACKAGE input_jsonl\n\nMerge full claim records without deleting existing ledger entries.\n\npositional arguments:\n  input_jsonl        Full new or revised claim records.\n\noptions:\n  -h, --help       ",
+        "stdout_excerpt": "usage: merge_claim_ledger.py [-h] [--existing-jsonl EXISTING_JSONL]\n                             --output-jsonl OUTPUT_JSONL\n                             input_jsonl\n\nValidate and merge full Claim records without committing run authority.\n\n",
         "stderr_excerpt": ""
       },
       {
@@ -295,7 +379,7 @@
         "timed_out": false,
         "passed": true,
         "has_help_text": true,
-        "stdout_excerpt": "usage: normalize_retrieval.py [-h] --mode {closed_corpus,host,provider}\n                              --package PACKAGE\n                              input_jsonl\n\nNormalize adapter output into deterministic source records.\n\npositional argum",
+        "stdout_excerpt": "usage: normalize_retrieval.py [-h] --mode {closed_corpus,host,provider}\n                              --cache-root CACHE_ROOT --output-dir OUTPUT_DIR\n                              input_jsonl\n\nNormalize captured adapter records without comm",
         "stderr_excerpt": ""
       },
       {
@@ -329,6 +413,16 @@
         "stderr_excerpt": ""
       },
       {
+        "path": "scripts/storm_research.py",
+        "command": "python3 scripts/storm_research.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: storm_research.py [-h]\n                         {init,plan,ingest,evidence,draft,review,render,validate,release,amend,retry,status,explain,import-legacy}\n                         ...\n\nRun the governed STORM DeepResearch stage harness",
+        "stderr_excerpt": ""
+      },
+      {
         "path": "scripts/validate_contracts.py",
         "command": "python3 scripts/validate_contracts.py --help",
         "returncode": 0,
@@ -345,7 +439,7 @@
         "timed_out": false,
         "passed": true,
         "has_help_text": true,
-        "stdout_excerpt": "usage: validate_evidence.py [-h] output_dir\n\nEnforce claim-evidence closure and freshness rules.\n\npositional arguments:\n  output_dir\n\noptions:\n  -h, --help  show this help message and exit",
+        "stdout_excerpt": "usage: validate_evidence.py [-h] artifact_root\n\nEnforce Claim, source, snapshot, premise, and outline closure.\n\npositional arguments:\n  artifact_root\n\noptions:\n  -h, --help     show this help message and exit",
         "stderr_excerpt": ""
       },
       {
@@ -355,7 +449,7 @@
         "timed_out": false,
         "passed": true,
         "has_help_text": true,
-        "stdout_excerpt": "usage: validate_package.py [-h] output_dir\n\nStrictly validate a STORM DeepResearch output package.\n\npositional arguments:\n  output_dir\n\noptions:\n  -h, --help  show this help message and exit",
+        "stdout_excerpt": "usage: validate_package.py [-h] run_dir\n\nValidate a governed STORM run and commit validation authority on success.\n\npositional arguments:\n  run_dir\n\noptions:\n  -h, --help  show this help message and exit",
         "stderr_excerpt": ""
       }
     ],
@@ -365,7 +459,27 @@
         "reason": "internal module"
       },
       {
+        "path": "scripts/governed_release.py",
+        "reason": "internal module"
+      },
+      {
+        "path": "scripts/harness_io.py",
+        "reason": "internal module"
+      },
+      {
         "path": "scripts/output_paths.py",
+        "reason": "internal module"
+      },
+      {
+        "path": "scripts/report_traceability.py",
+        "reason": "internal module"
+      },
+      {
+        "path": "scripts/run_state.py",
+        "reason": "internal module"
+      },
+      {
+        "path": "scripts/source_evidence.py",
         "reason": "internal module"
       }
     ]
@@ -397,11 +511,13 @@
         "status": "approved",
         "scripts": [
           "scripts/export_report.py",
-          "scripts/init_research_package.py",
-          "scripts/merge_claim_ledger.py",
+          "scripts/governed_release.py",
+          "scripts/harness_io.py",
           "scripts/normalize_retrieval.py",
           "scripts/render_audit_views.py",
+          "scripts/run_state.py",
           "scripts/sanitize_release_archive.py",
+          "scripts/storm_research.py",
           "scripts/validate_package.py"
         ],
         "reviewer": "陈旭 via explicit task authorization",
@@ -454,7 +570,7 @@
     "remote_metadata_policy": "allow-metadata-only"
   },
   "artifacts": {
-    "json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/security_trust_report.json",
-    "markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/security_trust_report.md"
+    "json": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/security_trust_report.json",
+    "markdown": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/security_trust_report.md"
   }
 }

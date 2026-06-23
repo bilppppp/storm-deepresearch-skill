@@ -1,13 +1,13 @@
 {
   "ok": true,
   "schema_version": "2.0",
-  "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
-  "registry_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/registry",
+  "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
+  "registry_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/registry",
   "package": {
     "schema_version": "2.0",
     "name": "storm-deepresearch-skill",
-    "version": "0.4.0",
-    "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+    "version": "1.0.0",
+    "description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
     "targets": [
       "openai",
       "claude",
@@ -15,14 +15,14 @@
       "vscode",
       "generic"
     ],
-    "maturity": "library",
+    "maturity": "governed",
     "owner": "陈旭",
-    "review_cadence": "quarterly",
+    "review_cadence": "per-release",
     "trust_level": "local",
     "license": "MIT-0",
     "checksums": {
-      "package_sha256": "a466c3583b90fb464ccba989c0fa3edf37c48d1546c6b374c8a0fc1e6a5f5808",
-      "archive_sha256": "01a606871576109d79d7085b8761c762af87c93beb5fdac1670790e27e88ea3a"
+      "package_sha256": "cde76ad232fb9770c5e5f446d2ed4b24a30d3573a454820332816cf14a0bfa48",
+      "archive_sha256": "2f3dcb1bd6fbea6833018fcb71b9b322559e6616793674d0a6cbea6a08895cf5"
     },
     "compatibility": {
       "openai": "pass",
@@ -32,7 +32,7 @@
       "generic": "pass"
     },
     "source": {
-      "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+      "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
       "skill_ir": "reports/skill-ir.json",
       "ir_schema_version": "2.0.0",
       "canonical_metadata": "agents/interface.yaml"
@@ -52,22 +52,22 @@
     },
     "distribution": {
       "archive_verified": true,
-      "archive_sha256": "01a606871576109d79d7085b8761c762af87c93beb5fdac1670790e27e88ea3a",
+      "archive_sha256": "2f3dcb1bd6fbea6833018fcb71b9b322559e6616793674d0a6cbea6a08895cf5",
       "package_verification": "reports/package_verification.json",
       "install_simulated": true,
       "install_simulation": "reports/install_simulation.json"
     },
-    "generated_at": "2026-06-22"
+    "generated_at": "2026-06-23"
   },
   "index": {
     "schema_version": "2.0",
-    "generated_at": "2026-06-22",
+    "generated_at": "2026-06-23",
     "package_count": 1,
     "packages": [
       {
         "name": "storm-deepresearch-skill",
-        "version": "0.4.0",
-        "maturity": "library",
+        "version": "1.0.0",
+        "maturity": "governed",
         "owner": "陈旭",
         "targets": [
           "openai",
@@ -77,16 +77,16 @@
           "generic"
         ],
         "package_metadata": "registry/packages/storm-deepresearch-skill.json",
-        "package_sha256": "a466c3583b90fb464ccba989c0fa3edf37c48d1546c6b374c8a0fc1e6a5f5808"
+        "package_sha256": "cde76ad232fb9770c5e5f446d2ed4b24a30d3573a454820332816cf14a0bfa48"
       }
     ]
   },
   "failures": [],
   "warnings": [],
   "artifacts": {
-    "index": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/registry/index.json",
-    "package": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/registry/packages/storm-deepresearch-skill.json",
-    "json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/registry_audit.json",
-    "markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/registry_audit.md"
+    "index": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/registry/index.json",
+    "package": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/registry/packages/storm-deepresearch-skill.json",
+    "json": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/registry_audit.json",
+    "markdown": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/registry_audit.md"
   }
 }

@@ -1,15 +1,15 @@
 {
   "ok": true,
   "schema_version": "2.0",
-  "generated_at": "2026-06-22",
-  "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
-  "package_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/dist",
+  "generated_at": "2026-06-23",
+  "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
+  "package_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist",
   "summary": {
     "target_count": 4,
     "adapter_count": 4,
     "archive_present": true,
-    "archive_sha256": "01a606871576109d79d7085b8761c762af87c93beb5fdac1670790e27e88ea3a",
-    "archive_entry_count": 211,
+    "archive_sha256": "6dae44559df0c7298ecbc8858fbbb54a157910da4664d90ec209f70a5556ea4e",
+    "archive_entry_count": 286,
     "failure_count": 0,
     "warning_count": 0
   },
@@ -17,7 +17,7 @@
     {
       "id": "package-manifest",
       "status": "pass",
-      "detail": "Package manifest exists: /Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/dist/manifest.json"
+      "detail": "Package manifest exists: /Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist/manifest.json"
     },
     {
       "id": "openai-adapter",
@@ -658,9 +658,9 @@
   "failures": [],
   "warnings": [],
   "artifacts": {
-    "manifest": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/dist/manifest.json",
-    "archive": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/dist/storm-deepresearch-skill.zip",
-    "json": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/package_verification.json",
-    "markdown": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill/reports/package_verification.md"
+    "manifest": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist/manifest.json",
+    "archive": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist/storm-deepresearch-skill.zip",
+    "json": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/package_verification.json",
+    "markdown": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/package_verification.md"
   }
 }

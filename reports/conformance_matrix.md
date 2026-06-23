@@ -9,8 +9,8 @@
 | --- | --- | --- | --- |
 | openai | pass | None | None |
 | claude | pass | None | None |
-| agent-skills | pass | None | agent-skills uses canonical Agent Skills metadata; provider-native execution transforms are not implemented in v0. |
-| vscode | pass | None | vscode uses canonical Agent Skills metadata; provider-native execution transforms are not implemented in v0. |
+| agent-skills | pass | None | source checkout directory differs from skill name; package verification must enforce archive top-level identity.<br>agent-skills uses canonical Agent Skills metadata; provider-native execution transforms are not implemented in v0. |
+| vscode | pass | None | source checkout directory differs from skill name; package verification must enforce archive top-level identity.<br>vscode uses canonical Agent Skills metadata; provider-native execution transforms are not implemented in v0. |
 | generic | pass | None | None |
 
 ## Reviewer Notes

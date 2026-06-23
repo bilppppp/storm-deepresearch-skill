@@ -2,7 +2,7 @@
   "schema_version": "2.0",
   "name": "storm-deepresearch-skill",
   "version": "1.0.0",
-  "description": "Use for governed source-grounded deep research that needs multi-perspective question generation, receipt-chain control, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, PDF, and trust-approved release deliverables. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+  "description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
   "targets": [
     "openai",
     "claude",
@@ -13,12 +13,11 @@
   "maturity": "governed",
   "owner": "陈旭",
   "review_cadence": "per-release",
-  "trust_level": "governed-local",
+  "trust_level": "local",
   "license": "MIT-0",
   "checksums": {
-    "package_sha256": "96140643f865239660630577b0e71c411eb827a051313501f55bd8890225df1e",
-    "archive_sha256": null,
-    "status": "pending-task16-package-verification"
+    "package_sha256": "cde76ad232fb9770c5e5f446d2ed4b24a30d3573a454820332816cf14a0bfa48",
+    "archive_sha256": "6dae44559df0c7298ecbc8858fbbb54a157910da4664d90ec209f70a5556ea4e"
   },
   "compatibility": {
     "openai": "pass",
@@ -28,7 +27,7 @@
     "generic": "pass"
   },
   "source": {
-    "skill_dir": "$SKILL_ROOT",
+    "skill_dir": ".",
     "skill_ir": "reports/skill-ir.json",
     "ir_schema_version": "2.0.0",
     "canonical_metadata": "agents/interface.yaml"
@@ -47,10 +46,10 @@
     "package_metadata": "registry/packages/storm-deepresearch-skill.json"
   },
   "distribution": {
-    "archive_verified": false,
-    "archive_sha256": null,
+    "archive_verified": true,
+    "archive_sha256": "6dae44559df0c7298ecbc8858fbbb54a157910da4664d90ec209f70a5556ea4e",
     "package_verification": "reports/package_verification.json",
-    "install_simulated": false,
+    "install_simulated": true,
     "install_simulation": "reports/install_simulation.json"
   },
   "release_policy": "validation-plus-trust-plus-human-approval",
