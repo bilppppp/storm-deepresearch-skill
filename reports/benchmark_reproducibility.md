@@ -1,36 +1,36 @@
 # Benchmark Reproducibility
 
 Generated at: `2026-06-23`
-Commit: `7108a81129372fd4a05f4d972a088afd81d8eda6`
+Commit: `23b8fbe01047b73b7f1062a474c249037960cb46`
 Working tree dirty at generation: `true`
-Source tree dirty at generation: `true`
+Source tree dirty at generation: `false`
 Generated evidence dirty at generation: `true`
-Evidence bundle SHA256: `ce966d579debf693945fe21d7e5e330a2fc0238f22da0484e3d7f2fb780e20a0`
+Evidence bundle SHA256: `47709864fbf425f9da02a972873b08297922692c7bc260a316672bcdae27a098`
 
 ## Summary
 
-- reproducibility ready: `false`
-- release lock ready: `false`
+- reproducibility ready: `true`
+- release lock ready: `true`
 - methodology complete: `true`
 - required artifacts: `25`
 - missing artifacts: `0`
-- source contract sha256: `cde76ad232fb`
-- archive sha256: `6dae44559df0`
+- source contract sha256: `09990b2e5a52`
+- archive sha256: `decb0044d88b`
 - output cases: `7`
-- disclosed failure cases: `0`
+- disclosed failure cases: `17`
 - reproduction commands: `23`
 - provider evidence complete: `false`
 - human review complete: `false`
 - world-class ready: `false`
 - world-class source checks: `9` pass / `19` total; `10` blocked
 - beta test ready: `false`
-- beta test blockers: `3`
+- beta test blockers: `1`
 - beta deferred evidence: `4`
 - public claim ready: `false`
-- public claim blockers: `6`
-- changed files at generation: `93`
-- source changed files at generation: `12`
-- generated changed files at generation: `81`
+- public claim blockers: `4`
+- changed files at generation: `20`
+- source changed files at generation: `0`
+- generated changed files at generation: `20`
 
 This report proves local benchmark reproducibility only. It keeps external provider and human-review gaps visible instead of counting them as complete. The git commit and dirty samples are generation-time context; the evidence bundle SHA is the durable anchor for the artifacts listed below.
 
@@ -43,8 +43,6 @@ This report proves local benchmark reproducibility only. It keeps external provi
 
 | Blocker |
 | --- |
-| local benchmark reproducibility is incomplete |
-| release lock is not clean or commit is unavailable |
 | provider-backed model holdout source evidence is incomplete |
 
 | Deferred evidence | Reason |
@@ -62,8 +60,6 @@ This report proves local benchmark reproducibility only. It keeps external provi
 
 | Blocker |
 | --- |
-| local benchmark reproducibility is incomplete |
-| release lock is not clean or commit is unavailable |
 | provider-backed model holdout evidence is incomplete |
 | human blind-review adjudication is incomplete |
 | world-class evidence is not accepted yet (7 open gaps, 4 ledger pending) |
@@ -71,15 +67,15 @@ This report proves local benchmark reproducibility only. It keeps external provi
 
 ## Release Lock
 
-- ready: `false`
-- reason: source files were dirty at generation time
+- ready: `true`
+- reason: only generated evidence artifacts were dirty at generation time
 - status scope: generation-time status before this report is written
 
 ## Evidence Bundle
 
 - algorithm: `sha256(path,label,exists,artifact_sha256)`
 - artifacts: `25` / `25`
-- sha256: `ce966d579debf693945fe21d7e5e330a2fc0238f22da0484e3d7f2fb780e20a0`
+- sha256: `47709864fbf425f9da02a972873b08297922692c7bc260a316672bcdae27a098`
 
 ## Methodology Sections
 
@@ -97,7 +93,7 @@ This report proves local benchmark reproducibility only. It keeps external provi
 | Label | Path | Status | SHA256 |
 | --- | --- | --- | --- |
 | methodology | `reports/benchmark_methodology.md` | present | `ed6e391e0521` |
-| failure_disclosure | `evals/failure-cases.md` | present | `5b97091b6fd7` |
+| failure_disclosure | `evals/failure-cases.md` | present | `03d867149373` |
 | output_cases | `evals/output/cases.jsonl` | present | `c3c0afeac15e` |
 | output_schema | `evals/output/schema.json` | present | `0bdac2ad1273` |
 | output_scorecard | `reports/output_quality_scorecard.json` | present | `3117605c68ab` |
@@ -106,21 +102,21 @@ This report proves local benchmark reproducibility only. It keeps external provi
 | review_adjudication | `reports/output_review_adjudication.json` | present | `ec3edbd6c861` |
 | trigger_scorecard | `reports/route_scorecard.json` | present | `4d44bf17d0f8` |
 | runtime_conformance | `reports/conformance_matrix.json` | present | `bd5bca67fc13` |
-| trust_report | `reports/security_trust_report.json` | present | `c69deeb0fb05` |
+| trust_report | `reports/security_trust_report.json` | present | `e715685e8d33` |
 | python_compatibility | `reports/python_compatibility.json` | present | `9c80e8cc12e2` |
-| registry_audit | `reports/registry_audit.json` | present | `7bd9dc696d56` |
-| package_verification | `reports/package_verification.json` | present | `03cc0fc4caf7` |
-| install_simulation | `reports/install_simulation.json` | present | `55d8b55ef386` |
+| registry_audit | `reports/registry_audit.json` | present | `e17cfe02f19c` |
+| package_verification | `reports/package_verification.json` | present | `2990f1f28432` |
+| install_simulation | `reports/install_simulation.json` | present | `29d0fa3929e7` |
 | skill_os2_audit | `reports/skill_os2_audit.json` | present | `6388be5847c7` |
 | world_class_evidence_plan | `reports/world_class_evidence_plan.json` | present | `ef350c27a41f` |
 | world_class_evidence_ledger | `reports/world_class_evidence_ledger.json` | present | `9347fa24601d` |
 | world_class_evidence_intake | `reports/world_class_evidence_intake.json` | present | `177f00416fb6` |
-| world_class_evidence_preflight | `reports/world_class_evidence_preflight.json` | present | `d7ef2144295d` |
+| world_class_evidence_preflight | `reports/world_class_evidence_preflight.json` | present | `071b42620463` |
 | world_class_submission_review | `reports/world_class_submission_review.json` | present | `beecbd0b8a7d` |
 | world_class_operator_runbook | `reports/world_class_operator_runbook.json` | present | `ef60f539b5a8` |
 | world_class_operator_runbook_markdown | `reports/world_class_operator_runbook.md` | present | `79c1ee1bbe97` |
 | world_class_operator_runbook_html | `reports/world_class_operator_runbook.html` | present | `4d457b4151fe` |
-| world_class_claim_guard | `reports/world_class_claim_guard.json` | present | `c46f011923bd` |
+| world_class_claim_guard | `reports/world_class_claim_guard.json` | present | `eb987da92122` |
 
 ## Reproduction Commands
 
@@ -174,7 +170,7 @@ This report proves local benchmark reproducibility only. It keeps external provi
 ## Failure Disclosure
 
 - path: `evals/failure-cases.md`
-- disclosed cases: `0`
+- disclosed cases: `17`
 - policy: Keep representative failures visible and tied to regression checks.
 
 ## Limits

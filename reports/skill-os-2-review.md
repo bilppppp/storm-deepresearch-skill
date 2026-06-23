@@ -7,7 +7,7 @@ Generated at: `2026-06-23`
 - Review Studio score `91` across `16` gates, with `3` warnings and `0` blockers.
 - Trust report records `7` declared internal modules.
 - Trust report records `12 / 12` CLI help smoke checks passing across `19` scripts.
-- Package verification produced `286` zip entries, and the install simulation validated an archive with `286` entries.
+- Package verification produced `287` zip entries, and the install simulation validated an archive with `287` entries.
 - Install simulation records `8` installer permission checks enforced and `0` permission failures.
 - Benchmark reproducibility checks `25` required artifacts and `23` reproduction commands.
 - Context budget reports initial load `1266/1300`.
