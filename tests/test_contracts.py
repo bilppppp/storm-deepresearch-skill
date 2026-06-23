@@ -19,6 +19,7 @@ from scripts.contract_io import (
 from tests.governed_fixtures import (
     valid_amendment,
     valid_brief_v2,
+    valid_governed_trust_evidence,
     valid_human_approval,
     valid_paragraph_map_record,
     valid_receipt,
@@ -39,6 +40,7 @@ class ContractTests(unittest.TestCase):
             "receipt", "amendment", "source-plan", "retrieval-evidence",
             "paragraph-map-record", "semantic-review-record", "human-approval",
             "reverification-record", "release-manifest",
+            "governed-trust-evidence",
         }
         for name in names:
             path = ROOT / "schemas" / f"{name}.schema.json"
@@ -63,6 +65,7 @@ class ContractTests(unittest.TestCase):
             "human_approval": valid_human_approval,
             "reverification_record": valid_reverification_record,
             "release_manifest": valid_release_manifest,
+            "governed_trust_evidence": valid_governed_trust_evidence,
         }
         for name, builder in cases.items():
             with self.subTest(name=name):

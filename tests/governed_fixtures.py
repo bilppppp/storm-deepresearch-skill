@@ -353,6 +353,22 @@ def valid_reverification_record() -> dict[str, object]:
     }
 
 
+def valid_governed_trust_evidence() -> dict[str, object]:
+    return {
+        "schema_version": "1.0",
+        "status": "verified",
+        "skill_package_sha256": "1" * 64,
+        "registry_package_sha256": "2" * 64,
+        "yao_trust_report": "/host/security-trust-report.json",
+        "yao_trust_report_sha256": "3" * 64,
+        "skill_directory_read_only": True,
+        "registry_read_only": True,
+        "trust_report_read_only": True,
+        "verified_by": "host",
+        "verified_at": "2026-06-23T00:00:00Z",
+    }
+
+
 def valid_release_manifest() -> dict[str, object]:
     return {
         "schema_version": "2.0",
@@ -361,8 +377,14 @@ def valid_release_manifest() -> dict[str, object]:
         "release_created_at": "2026-06-23T00:00:00Z",
         "validation_receipt_sha256": "6" * 64,
         "skill_package_sha256": "7" * 64,
+        "registry_metadata_sha256": "b" * 64,
         "trust_report_sha256": "8" * 64,
         "human_approval_sha256": "9" * 64,
+        "reverification_summary": {
+            "required_source_ids": [],
+            "verified_source_ids": [],
+            "record_sha256": None,
+        },
         "files": {"report.md": "a" * 64},
     }
 

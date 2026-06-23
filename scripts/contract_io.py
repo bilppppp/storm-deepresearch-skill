@@ -90,7 +90,12 @@ REVERIFICATION_FIELDS = {
 RELEASE_MANIFEST_FIELDS = {
     "schema_version", "run_id", "generation", "release_created_at",
     "validation_receipt_sha256", "skill_package_sha256", "trust_report_sha256",
-    "human_approval_sha256", "files",
+    "registry_metadata_sha256", "human_approval_sha256", "reverification_summary", "files",
+}
+GOVERNED_TRUST_FIELDS = {
+    "schema_version", "status", "skill_package_sha256", "registry_package_sha256",
+    "yao_trust_report", "yao_trust_report_sha256", "skill_directory_read_only",
+    "registry_read_only", "trust_report_read_only", "verified_by", "verified_at",
 }
 
 
@@ -613,11 +618,42 @@ def validate_release_manifest(data: dict[str, Any]) -> list[str]:
         errors.append("generation must be a positive integer")
     if not _valid_iso_datetime(data.get("release_created_at")):
         errors.append("release_created_at must be an ISO datetime")
-    for field in ("validation_receipt_sha256", "skill_package_sha256", "trust_report_sha256", "human_approval_sha256"):
+    for field in ("validation_receipt_sha256", "skill_package_sha256", "registry_metadata_sha256", "trust_report_sha256", "human_approval_sha256"):
         if not _is_sha256(data.get(field)):
             errors.append(f"{field} must be a SHA-256 value")
+    summary = data.get("reverification_summary")
+    if not isinstance(summary, dict) or set(summary) != {"required_source_ids", "verified_source_ids", "record_sha256"}:
+        errors.append("reverification_summary has invalid fields")
+    else:
+        for field in ("required_source_ids", "verified_source_ids"):
+            value = summary.get(field)
+            if not isinstance(value, list) or not all(re.fullmatch(r"S\d{3}", str(item)) for item in value):
+                errors.append(f"reverification_summary.{field} must contain source IDs")
+        if summary.get("record_sha256") is not None and not _is_sha256(summary.get("record_sha256")):
+            errors.append("reverification_summary.record_sha256 must be null or a SHA-256 value")
     errors.extend(_validate_hash_map(data.get("files"), "files"))
     return errors
+
+
+def validate_governed_trust_evidence(data: dict[str, Any]) -> list[str]:
+    errors = _unknown_fields(data, GOVERNED_TRUST_FIELDS) + _missing_fields(data, GOVERNED_TRUST_FIELDS)
+    if data.get("schema_version") != "1.0":
+        errors.append("governed trust schema_version must be 1.0")
+    if data.get("status") != "verified":
+        errors.append("governed trust status must be verified")
+    for field in ("skill_package_sha256", "registry_package_sha256", "yao_trust_report_sha256"):
+        if not _is_sha256(data.get(field)):
+            errors.append(f"{field} must be a SHA-256 value")
+    if not isinstance(data.get("yao_trust_report"), str) or not data.get("yao_trust_report"):
+        errors.append("yao_trust_report must be a non-empty path")
+    for field in ("skill_directory_read_only", "registry_read_only", "trust_report_read_only"):
+        if data.get(field) is not True:
+            errors.append("read-only trust boundary is missing evidence")
+    if not isinstance(data.get("verified_by"), str) or not data.get("verified_by"):
+        errors.append("verified_by must be a non-empty string")
+    if not _valid_iso_datetime(data.get("verified_at")):
+        errors.append("verified_at must be an ISO datetime")
+    return list(dict.fromkeys(errors))
 
 
 def validate_claim_record(data: dict[str, Any]) -> list[str]:

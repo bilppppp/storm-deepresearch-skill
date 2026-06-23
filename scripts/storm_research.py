@@ -32,6 +32,7 @@ from scripts.harness_io import (
     sha256_file,
 )
 from scripts.export_report import DEFAULT_CHROME, RenderError, export_report, markdown_title
+from scripts.governed_release import ReleaseGateError, release_run
 from scripts.normalize_retrieval import normalize_retrieval_records
 from scripts.merge_claim_ledger import merge_claim_records
 from scripts.output_paths import OutputPathError, package_child, select_new_output_dir
@@ -66,6 +67,7 @@ EXIT_CONTRACT = 4
 EXIT_EVIDENCE = 5
 EXIT_EXPORT = 6
 EXIT_STAGE = 8
+EXIT_RELEASE = 9
 
 
 class CLIContractError(ValueError):
@@ -941,6 +943,21 @@ def command_validate(args: argparse.Namespace) -> int:
     return exit_code
 
 
+def command_release(args: argparse.Namespace) -> int:
+    try:
+        release = release_run(
+            args.run_dir,
+            trust_path=args.trust,
+            registry_path=args.registry,
+            approval_path=args.approval,
+            reverification_path=args.reverification,
+        )
+    except (ContractError, OSError) as exc:
+        raise ReleaseGateError(str(exc)) from exc
+    print(f"Released {release}")
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -1015,6 +1032,14 @@ def build_parser() -> argparse.ArgumentParser:
     validate = subparsers.add_parser("validate", help="Recompute all offline governed gates.")
     validate.add_argument("run_dir", type=Path)
     validate.set_defaults(handler=command_validate)
+
+    release = subparsers.add_parser("release", help="Build a Trust-approved public release package.")
+    release.add_argument("run_dir", type=Path)
+    release.add_argument("--trust", type=Path)
+    release.add_argument("--registry", type=Path)
+    release.add_argument("--approval", type=Path)
+    release.add_argument("--reverification", type=Path)
+    release.set_defaults(handler=command_release)
     return parser
 
 
@@ -1031,6 +1056,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     except RenderStageError as exc:
         print(f"Render failed: {exc}", file=sys.stderr)
         return EXIT_EXPORT
+    except ReleaseGateError as exc:
+        print(f"Release blocked: {exc}", file=sys.stderr)
+        return EXIT_RELEASE
     except (CLIContractError, ContractError, OutputPathError, OSError) as exc:
         print(f"Contract failed: {exc}", file=sys.stderr)
         return EXIT_CONTRACT
