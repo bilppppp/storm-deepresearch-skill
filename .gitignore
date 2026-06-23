@@ -4,5 +4,7 @@ __pycache__/
 .DS_Store
 dist/
 output/
+!evals/output/
+!evals/output/**
 tmp/
 reports/generated/

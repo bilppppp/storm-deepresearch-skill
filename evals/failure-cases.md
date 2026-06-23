@@ -14,8 +14,17 @@ These failures remain visible because a validator that only demonstrates success
 | Output-root or package symlink escape | `7` | Resolved writes remain inside the approved root and package. |
 | Failed source merge | `4` | Invalid incoming retrieval data leaves the existing source ledger byte-for-byte unchanged. |
 | Failed Claim merge | `4` | Invalid Claim updates cannot modify or delete prior Claim records. |
+| Governed placeholder source | `5` | Placeholder URLs cannot become registered sources. |
+| Governed secondary-as-primary | `5` | Secondary synthesis cannot be classified as primary Tier A evidence. |
+| Governed full-to-reduced | `8` | A full dossier cannot be downgraded to reduced output after PDF failure. |
+| Governed unmapped factual paragraph | `5` | New factual paragraphs require Claim, source, and citation mapping. |
+| Governed fake JSON | `4` | Markdown or placeholder text cannot satisfy JSON contracts. |
+| Governed forged receipt | `8` | Receipt status cannot bypass digest and artifact hash verification. |
+| Governed modified package | `9` | Release requires matching package, registry, trust, and approval evidence. |
 
 The cases are implemented under `tests/fixtures/` and asserted in `tests/test_validate_package.py`. The validator must write a structured report and return the listed non-zero code; emitting a partial artifact is not a pass.
+
+The governed bypass incident cases are recorded under `tests/fixtures/governed/gemini-bypass-redacted/`, asserted in `tests/test_incident_regressions.py`, and mirrored as output-eval prompts under `evals/output/`. They are redacted descriptors, not copies of private raw output.
 # Long-form depth failures
 
 - A full Chinese dossier below 8000 body characters must fail `report-depth` with exit `6`.

@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0",
+  "incident_id": "gemini-bypass-redacted",
+  "redacted": true,
+  "raw_content_excluded": true,
+  "source": "Reviewer-confirmed failure summary; no private report body copied.",
+  "cases": [
+    {
+      "id": "placeholder-source",
+      "shortcut": "Use example.com or otherwise fabricated URLs as registered sources.",
+      "earliest_stage": "ingest",
+      "expected_exit": 5,
+      "protected_invariant": "Every source URL must resolve to real, inspectable provenance."
+    },
+    {
+      "id": "blanket-tier-a",
+      "shortcut": "Assign Tier A reliability to all sources without compatible source role evidence.",
+      "earliest_stage": "ingest",
+      "expected_exit": 5,
+      "protected_invariant": "Tier A requires a compatible primary or authoritative source role."
+    },
+    {
+      "id": "secondary-as-primary",
+      "shortcut": "Classify a secondary synthesis as primary evidence.",
+      "earliest_stage": "ingest",
+      "expected_exit": 5,
+      "protected_invariant": "Secondary synthesis cannot be marked primary."
+    },
+    {
+      "id": "full-to-reduced",
+      "shortcut": "Downgrade full dossier output to reduced mode after PDF failure.",
+      "earliest_stage": "amend",
+      "expected_exit": 8,
+      "protected_invariant": "Full dossiers cannot bypass mandatory PDF output through amendment."
+    },
+    {
+      "id": "unmapped-factual-paragraph",
+      "shortcut": "Add factual report paragraphs without paragraph-to-Claim evidence mapping.",
+      "earliest_stage": "draft",
+      "expected_exit": 5,
+      "protected_invariant": "Every factual paragraph must map to Claims, sources, and citations."
+    },
+    {
+      "id": "handwritten-references",
+      "shortcut": "Manually write References instead of generated source-register citations.",
+      "earliest_stage": "draft",
+      "expected_exit": 5,
+      "protected_invariant": "References are generated only from registered sources."
+    },
+    {
+      "id": "fake-json",
+      "shortcut": "Write Markdown or placeholder text into a .json contract file.",
+      "earliest_stage": "validate",
+      "expected_exit": 4,
+      "protected_invariant": "Contract artifacts must parse as their declared format."
+    },
+    {
+      "id": "intermediate-files",
+      "shortcut": "Leave retrieval inputs, claim updates, or other process files in public artifacts.",
+      "earliest_stage": "validate",
+      "expected_exit": 4,
+      "protected_invariant": "Only allowlisted artifacts are releasable."
+    },
+    {
+      "id": "forged-receipt",
+      "shortcut": "Edit receipt fields to passed without recomputable digest and artifact hashes.",
+      "earliest_stage": "validate",
+      "expected_exit": 8,
+      "protected_invariant": "Receipt status is trusted only when the digest and bound artifacts recompute."
+    },
+    {
+      "id": "modified-package",
+      "shortcut": "Release after package code changed without matching trust and registry evidence.",
+      "earliest_stage": "release",
+      "expected_exit": 9,
+      "protected_invariant": "Public release requires matching internal package, registry, and Yao trust hashes."
+    }
+  ]
+}

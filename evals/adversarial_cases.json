@@ -6,6 +6,13 @@
     {"id": "stale-source", "expected_exit": 5, "invariant": "A current claim cannot rely on stale supporting evidence."},
     {"id": "missing-pdf", "expected_exit": 6, "invariant": "A full package requires a valid PDF."},
     {"id": "template-leak", "expected_exit": 6, "invariant": "Public outputs cannot contain unresolved template markers."},
-    {"id": "local-path-leak", "expected_exit": 7, "invariant": "Public outputs cannot expose local filesystem paths."}
+    {"id": "local-path-leak", "expected_exit": 7, "invariant": "Public outputs cannot expose local filesystem paths."},
+    {"id": "governed-placeholder-source", "fixture": "gemini-bypass-redacted", "expected_exit": 5, "invariant": "Placeholder URLs cannot become registered sources."},
+    {"id": "governed-secondary-as-primary", "fixture": "gemini-bypass-redacted", "expected_exit": 5, "invariant": "Secondary synthesis cannot be classified as primary Tier A evidence."},
+    {"id": "governed-full-to-reduced", "fixture": "gemini-bypass-redacted", "expected_exit": 8, "invariant": "A full dossier cannot be downgraded to reduced output after render failure."},
+    {"id": "governed-unmapped-factual-paragraph", "fixture": "gemini-bypass-redacted", "expected_exit": 5, "invariant": "New factual paragraphs require Claim, source, and citation mapping."},
+    {"id": "governed-fake-json", "fixture": "gemini-bypass-redacted", "expected_exit": 4, "invariant": "Markdown or placeholder text cannot satisfy JSON contracts."},
+    {"id": "governed-forged-receipt", "fixture": "gemini-bypass-redacted", "expected_exit": 8, "invariant": "Receipt status cannot bypass digest and artifact hash verification."},
+    {"id": "governed-modified-package", "fixture": "gemini-bypass-redacted", "expected_exit": 9, "invariant": "Release requires matching package, registry, trust, and approval evidence."}
   ]
 }
