@@ -330,6 +330,71 @@ def commit_stage_receipt(
     return receipt
 
 
+def receipt_chain_status(
+    layout: RunLayout, generation: int, package_hash: str
+) -> dict[str, object]:
+    receipts: list[dict[str, object]] = []
+    last_valid: Stage | None = None
+    for stage in STAGE_ORDER:
+        path = layout.receipt(generation, stage)
+        if path.is_symlink():
+            return {
+                "state": "invalid",
+                "generation": generation,
+                "last_valid_stage": last_valid.value if last_valid else None,
+                "next_stage": stage.value,
+                "invalid_stage": stage.value,
+                "error": f"receipt is unsafe: {stage.value}",
+                "invalidated_artifacts": [],
+                "receipts": receipts,
+            }
+        if not path.is_file():
+            state = STATE_BY_STAGE[last_valid] if last_valid else "uninitialized"
+            return {
+                "state": state,
+                "generation": generation,
+                "last_valid_stage": last_valid.value if last_valid else None,
+                "next_stage": stage.value,
+                "invalid_stage": None,
+                "error": None,
+                "invalidated_artifacts": [],
+                "receipts": receipts,
+            }
+        invalidated_artifacts: list[str] = []
+        try:
+            receipt = load_json(path)
+            outputs = receipt.get("output_artifacts")
+            if isinstance(outputs, dict):
+                invalidated_artifacts = sorted(str(path) for path in outputs)
+            verify_receipt_chain(layout, generation, stage, package_hash)
+        except ReceiptError as exc:
+            return {
+                "state": "invalid",
+                "generation": generation,
+                "last_valid_stage": last_valid.value if last_valid else None,
+                "next_stage": stage.value,
+                "invalid_stage": stage.value,
+                "error": str(exc),
+                "invalidated_artifacts": invalidated_artifacts,
+                "receipts": receipts,
+            }
+        receipts.append({
+            "stage": stage.value,
+            "receipt_sha256": str(receipt["receipt_sha256"]),
+        })
+        last_valid = stage
+    return {
+        "state": STATE_BY_STAGE[Stage.RELEASE],
+        "generation": generation,
+        "last_valid_stage": Stage.RELEASE.value,
+        "next_stage": None,
+        "invalid_stage": None,
+        "error": None,
+        "invalidated_artifacts": [],
+        "receipts": receipts,
+    }
+
+
 def derived_state(layout: RunLayout, generation: int, package_hash: str) -> str:
     state = "uninitialized"
     for stage in STAGE_ORDER:

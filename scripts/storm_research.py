@@ -6,7 +6,7 @@ import argparse
 import re
 import sys
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
@@ -17,6 +17,7 @@ from scripts.contract_io import (
     ContractError,
     load_json,
     load_jsonl,
+    validate_amendment,
     validate_brief,
     validate_report_outline,
     validate_research_plan,
@@ -28,6 +29,7 @@ from scripts.harness_io import (
     atomic_write_text,
     atomic_write_json,
     canonical_json_bytes,
+    canonical_json_sha256,
     compute_skill_package_hash,
     sha256_file,
 )
@@ -44,6 +46,7 @@ from scripts.run_state import (
     commit_stage_receipt,
     create_generation,
     latest_generation,
+    receipt_chain_status,
     verify_stage_precondition,
 )
 from scripts.report_traceability import (
@@ -958,6 +961,223 @@ def command_release(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _stage_values() -> tuple[str, ...]:
+    return tuple(stage.value for stage in Stage)
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _status_payload(run_dir: Path) -> dict[str, object]:
+    layout = RunLayout(run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        return {
+            "schema_version": "2.0",
+            "run_dir": str(layout.root),
+            "generation": None,
+            "state": "empty",
+            "last_valid_stage": None,
+            "next_stage": "init",
+            "invalid_stage": None,
+            "error": None,
+            "invalidated_artifacts": [],
+            "receipts": [],
+        }
+    package_hash = compute_skill_package_hash(ROOT)
+    status = receipt_chain_status(layout, generation, package_hash)
+    return {
+        "schema_version": "2.0",
+        "run_dir": str(layout.root),
+        **status,
+    }
+
+
+def _print_json(payload: dict[str, object]) -> None:
+    sys.stdout.write(canonical_json_bytes(payload).decode("utf-8"))
+
+
+def command_status(args: argparse.Namespace) -> int:
+    _print_json(_status_payload(args.run_dir))
+    return EXIT_OK
+
+
+def command_explain(args: argparse.Namespace) -> int:
+    status = _status_payload(args.run_dir)
+    failed_stage = status.get("invalid_stage") or status.get("next_stage")
+    error = status.get("error") or f"{failed_stage} has not been run"
+    repair_command = (
+        "run is already released"
+        if failed_stage is None
+        else f"storm-research retry {status['run_dir']} --stage {failed_stage}"
+    )
+    _print_json({
+        "schema_version": "2.0",
+        "run_dir": status["run_dir"],
+        "generation": status["generation"],
+        "state": status["state"],
+        "failed_stage": failed_stage,
+        "failed_checks": [] if failed_stage is None else [error],
+        "invalidated_artifacts": status.get("invalidated_artifacts", []),
+        "repair_command": repair_command,
+    })
+    return EXIT_OK
+
+
+def command_retry(args: argparse.Namespace) -> int:
+    status = _status_payload(args.run_dir)
+    expected = status.get("next_stage")
+    if expected is None:
+        raise StagePreconditionError("run has no failed or pending stage to retry")
+    if args.stage != expected:
+        raise StagePreconditionError(
+            f"retry must target current failed stage {expected}; got {args.stage}"
+        )
+    _print_json({
+        "schema_version": "2.0",
+        "run_dir": status["run_dir"],
+        "generation": status["generation"],
+        "retry_stage": args.stage,
+        "accepted": True,
+        "reason": status.get("error") or f"{args.stage} is the next required stage",
+    })
+    return EXIT_OK
+
+
+def _amendment_digest(payload: dict[str, object]) -> str:
+    unsigned = {key: value for key, value in payload.items() if key != "amendment_sha256"}
+    return canonical_json_sha256(unsigned)
+
+
+def command_amend(args: argparse.Namespace) -> int:
+    layout = RunLayout(args.run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        raise StagePreconditionError("run has no generation")
+    status = _status_payload(layout.root)
+    if status.get("state") == "invalid":
+        raise StagePreconditionError(f"cannot amend invalid receipt chain: {status.get('error')}")
+    if status.get("last_valid_stage") == Stage.RELEASE.value:
+        raise StagePreconditionError("released runs cannot be amended in place")
+    changes_payload = load_json(args.changes_json)
+    if not changes_payload:
+        raise CLIContractError("amendment changes must be a non-empty object")
+    brief = load_json(layout.generation_input(generation, "brief.json"))
+    unknown = sorted(set(changes_payload) - set(brief))
+    if unknown:
+        raise CLIContractError("amendment references unknown brief fields: " + ", ".join(unknown))
+    if (
+        brief.get("depth_level") == "full_dossier"
+        and brief.get("output_mode") == "full"
+        and changes_payload.get("output_mode") == "reduced"
+    ):
+        raise StagePreconditionError("full dossier cannot be amended to reduced output")
+    new_brief = dict(brief)
+    changes: list[dict[str, object]] = []
+    for field, after in sorted(changes_payload.items()):
+        before = brief.get(field)
+        if before == after:
+            continue
+        new_brief[field] = after
+        changes.append({
+            "field": field,
+            "before": before,
+            "after": after,
+            "reason": args.reason,
+        })
+    if not changes:
+        raise CLIContractError("amendment does not change the brief")
+    validate_or_raise(validate_brief(new_brief))
+    to_generation = generation + 1
+    amendment = {
+        "schema_version": "2.0",
+        "run_id": layout.root.name,
+        "from_generation": generation,
+        "to_generation": to_generation,
+        "changes": changes,
+        "initiator": args.initiator,
+        "user_approval_evidence": args.approval_evidence,
+        "invalidation_start_stage": Stage.PLAN.value,
+        "created_at": _utc_now(),
+        "amendment_sha256": "0" * 64,
+    }
+    amendment["amendment_sha256"] = _amendment_digest(amendment)
+    validate_or_raise(validate_amendment(amendment))
+    package_hash = compute_skill_package_hash(ROOT)
+    create_generation(layout, to_generation)
+    brief_path = write_generation_input(layout, to_generation, "brief.json", new_brief)
+    amendment_path = write_generation_input(layout, to_generation, "amendment.json", amendment)
+    refresh_current_brief_view(layout, to_generation)
+    commit_stage_receipt(
+        layout,
+        generation=to_generation,
+        stage=Stage.INIT,
+        package_hash=package_hash,
+        validator_hash=sha256_file(Path(__file__)),
+        input_artifacts={},
+        output_paths=[brief_path, amendment_path],
+    )
+    print(f"Amended {layout.root} generation {to_generation}")
+    return EXIT_OK
+
+
+def command_import_legacy(args: argparse.Namespace) -> int:
+    legacy = args.legacy_package.expanduser().resolve()
+    if legacy.is_symlink() or not legacy.is_dir():
+        raise CLIContractError(f"legacy package is missing or unsafe: {legacy}")
+    brief = load_json(legacy / "brief.json")
+    plan = load_json(legacy / "research/research-plan.json")
+    source_plan = load_json(legacy / "research/source-plan.json")
+    validate_or_raise(validate_brief(brief))
+    validate_plan_bundle(plan, source_plan, brief)
+    output = select_new_output_dir(
+        str(brief.get("topic", "legacy-import")),
+        workspace=args.workspace,
+        output_root=args.output_root,
+        output=args.output,
+    )
+    layout = create_run_layout(output)
+    import_record = {
+        "schema_version": "2.0",
+        "status": "legacy_imported",
+        "source_package_name": legacy.name,
+        "imported_at": _utc_now(),
+        "files": {
+            "brief.json": sha256_file(legacy / "brief.json"),
+            "research/research-plan.json": sha256_file(legacy / "research/research-plan.json"),
+            "research/source-plan.json": sha256_file(legacy / "research/source-plan.json"),
+        },
+        "next_required_stage": Stage.RETRIEVAL.value,
+    }
+    package_hash = compute_skill_package_hash(ROOT)
+    brief_path = write_generation_input(layout, 1, "brief.json", brief)
+    import_path = write_generation_input(layout, 1, "legacy-import.json", import_record)
+    refresh_current_brief_view(layout, 1)
+    commit_stage_receipt(
+        layout,
+        generation=1,
+        stage=Stage.INIT,
+        package_hash=package_hash,
+        validator_hash=sha256_file(Path(__file__)),
+        input_artifacts={},
+        output_paths=[brief_path, import_path],
+    )
+    plan_path, source_plan_path = _promote_plan_artifacts(layout, 1, plan, source_plan)
+    commit_stage_receipt(
+        layout,
+        generation=1,
+        stage=Stage.PLAN,
+        package_hash=package_hash,
+        validator_hash=sha256_file(Path(__file__)),
+        input_artifacts={"inputs/brief.json": sha256_file(brief_path)},
+        output_paths=[plan_path, source_plan_path],
+    )
+    _refresh_current_plan_view(layout, plan, source_plan)
+    print(f"Imported legacy package into {layout.root}")
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -1040,6 +1260,34 @@ def build_parser() -> argparse.ArgumentParser:
     release.add_argument("--approval", type=Path)
     release.add_argument("--reverification", type=Path)
     release.set_defaults(handler=command_release)
+
+    amend = subparsers.add_parser("amend", help="Create a new generation from an approved brief amendment.")
+    amend.add_argument("run_dir", type=Path)
+    amend.add_argument("--changes-json", type=Path, required=True)
+    amend.add_argument("--initiator", required=True)
+    amend.add_argument("--approval-evidence", required=True)
+    amend.add_argument("--reason", default="User-approved scope amendment")
+    amend.set_defaults(handler=command_amend)
+
+    retry = subparsers.add_parser("retry", help="Authorize retry of the current failed or pending stage.")
+    retry.add_argument("run_dir", type=Path)
+    retry.add_argument("--stage", choices=_stage_values(), required=True)
+    retry.set_defaults(handler=command_retry)
+
+    status = subparsers.add_parser("status", help="Report the latest valid governed receipt chain.")
+    status.add_argument("run_dir", type=Path)
+    status.set_defaults(handler=command_status)
+
+    explain = subparsers.add_parser("explain", help="Explain the first failed or pending governed stage.")
+    explain.add_argument("run_dir", type=Path)
+    explain.set_defaults(handler=command_explain)
+
+    legacy = subparsers.add_parser("import-legacy", help="Import a 0.4.x package without fabricating retrieval evidence.")
+    legacy.add_argument("--legacy-package", type=Path, required=True)
+    legacy.add_argument("--workspace", type=Path, default=Path.cwd())
+    legacy.add_argument("--output-root", type=Path)
+    legacy.add_argument("--output", type=Path)
+    legacy.set_defaults(handler=command_import_legacy)
     return parser
 
 
