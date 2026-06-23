@@ -12,6 +12,16 @@ Create each run under:
 
 Resolve existing symlinks before comparing paths. Reject a target when the resolved run directory is the root itself or is outside the resolved root. Package tools apply the same rule to `research/`, `exports/`, and `validation/` children.
 
+In 1.0, authoritative state is generation-scoped:
+
+```text
+work/generations/g0001/inputs/
+work/generations/g0001/artifacts/
+state/generations/g0001/receipts/
+```
+
+Root `brief.json` and `current/` are readable projections. Editing them does not prove progress and may invalidate the next stage.
+
 ## No-clobber initialization
 
 Initialization is create-only. If the target path already exists, stop with exit `4`; do not inspect, truncate, recreate, or partially update it. Choose a new run directory instead. There is no implicit resume or force mode.
@@ -37,3 +47,7 @@ The following are derived and may be replaced inside the same package:
 - `validation/validation-report.json` and `.md`
 
 Regeneration does not authorize writes outside the package or replacement of canonical ledgers.
+
+## Release projection
+
+`release/` is created only by `storm_research.py release`. It is a strict allowlist projection from the current generation plus `validation/release-manifest.json`. It never includes `work/`, `state/`, retrieval inputs, claim update files, amendment inputs, raw caches, or host approval files.

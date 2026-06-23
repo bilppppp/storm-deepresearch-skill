@@ -1,8 +1,8 @@
 {
   "schema_version": "2.0",
   "name": "storm-deepresearch-skill",
-  "version": "0.4.0",
-  "description": "Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
+  "version": "1.0.0",
+  "description": "Use for governed source-grounded deep research that needs multi-perspective question generation, receipt-chain control, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, PDF, and trust-approved release deliverables. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.",
   "targets": [
     "openai",
     "claude",
@@ -10,14 +10,15 @@
     "vscode",
     "generic"
   ],
-  "maturity": "library",
+  "maturity": "governed",
   "owner": "陈旭",
-  "review_cadence": "quarterly",
-  "trust_level": "local",
+  "review_cadence": "per-release",
+  "trust_level": "governed-local",
   "license": "MIT-0",
   "checksums": {
-    "package_sha256": "a466c3583b90fb464ccba989c0fa3edf37c48d1546c6b374c8a0fc1e6a5f5808",
-    "archive_sha256": "01a606871576109d79d7085b8761c762af87c93beb5fdac1670790e27e88ea3a"
+    "package_sha256": "96140643f865239660630577b0e71c411eb827a051313501f55bd8890225df1e",
+    "archive_sha256": null,
+    "status": "pending-task16-package-verification"
   },
   "compatibility": {
     "openai": "pass",
@@ -27,7 +28,7 @@
     "generic": "pass"
   },
   "source": {
-    "skill_dir": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+    "skill_dir": "$SKILL_ROOT",
     "skill_ir": "reports/skill-ir.json",
     "ir_schema_version": "2.0.0",
     "canonical_metadata": "agents/interface.yaml"
@@ -46,11 +47,12 @@
     "package_metadata": "registry/packages/storm-deepresearch-skill.json"
   },
   "distribution": {
-    "archive_verified": true,
-    "archive_sha256": "01a606871576109d79d7085b8761c762af87c93beb5fdac1670790e27e88ea3a",
+    "archive_verified": false,
+    "archive_sha256": null,
     "package_verification": "reports/package_verification.json",
-    "install_simulated": true,
+    "install_simulated": false,
     "install_simulation": "reports/install_simulation.json"
   },
-  "generated_at": "2026-06-22"
+  "release_policy": "validation-plus-trust-plus-human-approval",
+  "generated_at": "2026-06-23"
 }

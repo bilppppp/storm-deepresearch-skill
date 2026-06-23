@@ -3,6 +3,8 @@
 ## Phase 0 — Normalize the brief
 Create `brief.json`. Classify the user packet as thin, moderate, or rich. User material defines intent and angle; external research verifies, completes, updates, and challenges it. Lock language, depth, and `length_contract`. A short prompt does not authorize a short dossier.
 
+In 1.0, this is the `storm_research.py init` stage. The authoritative brief is `work/generations/g0001/inputs/brief.json`; root `brief.json` is a view. A changed view cannot advance the receipt chain.
+
 ## Phase 1 — Build a source plan
 List expected source classes before searching. For each source class, define what it can and cannot prove.
 
@@ -59,3 +61,5 @@ Red-team the draft. Score finding confidence, identify the weakest link, check s
 
 ## Phase 8 — Export and validate
 Generate final Markdown, HTML, and PDF-ready outputs. Run validation.
+
+In governed runs, every phase after init maps to a stage receipt: `plan`, `ingest`, `evidence`, `draft`, `review`, `render`, `validate`, and optionally `release`. If any phase has missing evidence, do not continue to the next stage. Use `status`, `explain`, and `retry` to inspect the receipt chain; use `amend` only to create a new generation.

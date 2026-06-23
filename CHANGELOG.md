@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.0 - 2026-06-23
+
+### Added
+
+- Governed `storm_research.py` orchestrator with generation-scoped inputs, artifacts, receipts, and release boundary.
+- Immutable receipt chain for init, plan, retrieval, evidence, draft, review, render, validation, and release.
+- Recovery commands: `status`, `explain`, `retry`, `amend`, and read-only `import-legacy`.
+- Trust-aware release gate requiring Yao Trust evidence, Registry hash match, human approval, and current-source re-verification when needed.
+- Redacted Gemini bypass incident regressions and adversarial output-eval prompts.
+
+### Changed
+
+- New automation should call `scripts/storm_research.py`; direct worker scripts are compatibility or internal surfaces.
+- Public release is built from a strict allowlist and excludes process artifacts, raw inputs, state, and caches.
+- Full dossiers cannot be amended to reduced output after PDF failure.
+
+### Migration
+
+- Update commands according to `docs/migration-v0.4-to-v1.0.md`.
+
 ## 0.4.0 - 2026-06-22
 
 ### Added

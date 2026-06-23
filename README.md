@@ -1,8 +1,8 @@
 # STORM DeepResearch Skill
 
-`storm-deepresearch-skill` 是一个证据驱动的深度研究 Library。它保留 STORM 的多视角提问思想，但不把角色观点当证据：视角只生成检索问题，事实必须进入来源登记和 Claim-Evidence 账本，最终从单一 `report.md` 渲染并验证 Markdown、HTML 和 PDF。
+`storm-deepresearch-skill` 是一个证据驱动的 governed 深度研究 harness。它保留 STORM 的多视角提问思想，但不把角色观点当证据：视角只生成检索问题，事实必须进入来源登记和 Claim-Evidence 账本，每个阶段必须写入可重算 receipt，最终从单一 `report.md` 渲染并验证 Markdown、HTML 和 PDF。
 
-当前版本：`0.4.0`
+当前版本：`1.0.0`
 
 ## 能做什么
 
@@ -10,12 +10,14 @@
 - 基于用户文件、URL 或封闭语料完成可审计研究。
 - 区分事实、推断、建议、矛盾和未知项。
 - 生成来源登记、证据账本、报告映射和验证报告。
+- 通过 `storm_research.py` 的 init、plan、ingest、evidence、draft、review、render、validate、release 阶段推进，阶段之间由 receipt chain 约束。
 - 以 `report.md` 为唯一内容真源，导出一致的 HTML/PDF。
 - 默认中文完整研究为 `8000–10000` 正文字符；输入长度只改变检索量，不会自动把成品压缩成摘要。
 - 强制将已回答的 STORM 问题和材料性 Claim 映射到 `research-plan.report_outline`，避免研究停留在中间产物。
 - 对空证据、假引用、过期证据、占位符、本地路径泄漏、缺失 PDF 和格式漂移返回非零退出码。
 - 默认在用户工作区的 `output/storm-deepresearch/` 下创建独立运行目录；已存在目标、路径逃逸和符号链接逃逸都会失败。
 - 初始化不会覆盖既有研究包；来源登记采用保留既有 ID 的原子合并，研究账本不能被重新初始化截断。
+- 公开 release 需要通过离线 validation、Yao Trust 报告、Registry hash 匹配、必要的来源再验证和 human approval。
 
 它不适合快速事实查询、简单摘要、无证据角色扮演或个性化医疗、法律、投资建议。
 
@@ -45,73 +47,122 @@ pandoc --version
 
 ## 快速开始
 
-### 1. 初始化研究包
+所有新自动化都应调用 `scripts/storm_research.py`。旧的 `init_research_package.py`、`normalize_retrieval.py`、`merge_claim_ledger.py`、`export_report.py` 保留为兼容或内部 worker，不再是推荐入口。
 
 ```bash
 SKILL_ROOT=/path/to/storm-deepresearch-skill
+PY="$SKILL_ROOT/.venv/bin/python"
 WORKSPACE=/path/to/user-workspace
+```
 
-"$SKILL_ROOT/.venv/bin/python" "$SKILL_ROOT/scripts/init_research_package.py" \
+### 1. Init
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" init \
   --topic "AI Agent Skill 的工程化评估" \
   --question "怎样证明一个 Skill 的输出可靠、可复现且可发布？" \
-  --workspace "$WORKSPACE"
+  --workspace "$WORKSPACE" \
+  --output research-run
 ```
 
-该命令默认创建 `$WORKSPACE/output/storm-deepresearch/<topic-slug>-<timestamp>/` 并打印实际路径。以下示例用 `RUN_DIR` 表示该路径。需要稳定名称时使用 `--output research-run`；它仍然必须是输出根目录的新子目录。
-
-目标一旦存在，初始化会以退出码 `4` 停止，不会覆盖或清空其中的来源、Claim 或矛盾记录。`--output-root` 只能用于用户明确批准的替代根目录；所有路径都会在解析符号链接后重新校验。
-
-该命令会根据主题语言选择默认长度：中文 full dossier 为 `8000–10000` characters，英文为 `3500–7000` words。只有用户明确要求简报时才使用 `--depth-level briefing`；也可用 `--language`、`--min-units` 和 `--max-units` 明确覆盖。
-
-### 2. 明确检索模式
-
-编辑 `$RUN_DIR/brief.json`：
-
-- `host`：宿主 Agent 使用已获准的搜索或浏览工具，默认模式。
-- `provider`：仅在用户明确配置外部提供商时使用，凭证只能来自环境变量。
-- `closed_corpus`：只使用指定文件或 URL，不扩展外部语料。
-
-内置脚本不会主动联网。宿主检索结果必须符合 `schemas/retrieval-record.schema.json`，再归一化为来源记录：
+该命令创建 `$WORKSPACE/output/storm-deepresearch/research-run/`、`work/generations/g0001/inputs/brief.json` 和 `state/generations/g0001/receipts/00-init.json`。目标一旦存在会以退出码 `4` 停止。
 
 ```bash
-"$SKILL_ROOT/.venv/bin/python" "$SKILL_ROOT/scripts/normalize_retrieval.py" adapter-output.jsonl \
-  --mode host \
-  --package "$RUN_DIR"
+RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 ```
 
-归一化器不会重建来源登记：它保留既有 `source_id`，按 canonical URL 或相对文件引用合并更新，为新来源递增分配 ID，并在完整合并成功后原子替换文件。输入或合并失败时，原账本保持不变。
+中文 full dossier 默认为 `8000–10000` characters，英文为 `3500–7000` words。只有用户明确要求简报时才使用 `--depth-level briefing`。
 
-### 3. 建立证据并写报告
+### 2. Plan
 
-按照 [研究协议](references/research-protocol.md) 填充研究计划、来源登记、Claim-Evidence 账本、矛盾和不确定性记录。写作前必须完成 `research-plan.report_outline`：为每个章节分配篇幅、STORM 问题、Claim 和展开要素。材料性事实必须有可定位证据；推断必须指出已支持前提；建议必须写明适用条件和取舍。
-
-`research/source-register.jsonl` 与 `research/claim-evidence-ledger.jsonl` 是权威数据，Markdown 审计表是生成视图：
+宿主或 agent 先生成 `research-plan.json` 和 `source-plan.json`，再提交：
 
 ```bash
-"$SKILL_ROOT/.venv/bin/python" "$SKILL_ROOT/scripts/merge_claim_ledger.py" claim-updates.jsonl \
-  --package "$RUN_DIR"
-
-"$SKILL_ROOT/.venv/bin/python" "$SKILL_ROOT/scripts/render_audit_views.py" "$RUN_DIR"
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" plan "$RUN_DIR" \
+  --plan-json research-plan.json \
+  --source-plan-json source-plan.json
 ```
 
-Claim 合并器要求输入完整的 Claim 记录：新 ID 追加，同 ID 显式修订，但不会删除未出现在本次输入中的既有 Claim；校验或写入失败时原账本不变。
+`plan` 必须覆盖 STORM 多视角问题、source classes、停止条件和 `report_outline` 所需的问题闭环。
 
-### 4. 从唯一真源导出
+### 3. Ingest
+
+内置脚本不会主动联网。宿主检索结果必须符合 `schemas/retrieval-record.schema.json`，包含真实 URL 或闭合语料文件引用、快照 hash、locator 和 excerpt：
 
 ```bash
-"$SKILL_ROOT/.venv/bin/python" "$SKILL_ROOT/scripts/export_report.py" "$RUN_DIR" \
-  --template "$SKILL_ROOT/templates/report.html.j2" \
-  --title "AI Agent Skill 的工程化评估" \
-  --require-pdf
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" ingest "$RUN_DIR" \
+  --input-jsonl retrieval-records.jsonl
 ```
 
-完整模式必须生成 PDF。只有 `brief.json` 明确设置 `"output_mode": "reduced"` 时，才允许没有 PDF。
+`host` 是默认检索模式；`provider` 只在用户明确配置凭证时使用；`closed_corpus` 只使用指定文件或 URL。占位符域名、无快照、secondary-as-primary 和 blanket Tier A 会在 ingest 阶段失败。
 
-### 5. 严格验证
+### 4. Evidence
+
+提交 Claim、矛盾、不确定性和报告大纲：
 
 ```bash
-"$SKILL_ROOT/.venv/bin/python" "$SKILL_ROOT/scripts/run_checks.py" --package "$RUN_DIR"
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" evidence "$RUN_DIR" \
+  --claims claims.jsonl \
+  --contradictions contradictions.json \
+  --uncertainties uncertainties.json \
+  --report-outline report-outline.json
 ```
+
+材料性事实必须有可定位证据；推断必须指出已支持前提；建议必须写明适用条件和取舍。full dossier 至少需要 5 个视角、10 个问题、6 个 evidence-planned sections 和 12 个 material claims。
+
+### 5. Draft
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" draft "$RUN_DIR" \
+  --draft-md draft.md \
+  --paragraph-map-jsonl paragraph-map.jsonl
+```
+
+`draft.md` 不能手写 References。每个 factual paragraph 必须映射到 Claim、source 和 citation key；脚本会从 source register 生成 References。
+
+### 6. Review
+
+独立审阅者输出 claim reviews、paragraph audit、修订文档和 revision map：
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" review "$RUN_DIR" \
+  --claim-reviews claim-reviews.jsonl \
+  --report-audit report-audit.jsonl \
+  --revised-md report.md \
+  --revised-paragraph-map-jsonl reviewed-paragraph-map.jsonl \
+  --revision-map revision-map.json
+```
+
+### 7. Render
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" render "$RUN_DIR" \
+  --template "$SKILL_ROOT/templates/report.html.j2"
+```
+
+完整模式必须生成 PDF。full dossier 不能在 PDF 失败后通过 `amend` 降级到 reduced output。
+
+### 8. Validate
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" validate "$RUN_DIR"
+```
+
+成功时写入 `state/generations/g0001/receipts/70-validation.json`。失败不会写通过 receipt，也不会把 `validation-report.json` 伪装成成功。
+
+### 9. Release
+
+公开发布需要宿主控制的 Trust evidence、Registry metadata、human approval，且当前性过期来源需要 re-verification records：
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" release "$RUN_DIR" \
+  --trust /path/to/host-trust-evidence.json \
+  --registry /path/to/registry-package.json \
+  --approval /path/to/human-approval.json \
+  --reverification /path/to/reverification-records.jsonl
+```
+
+`release/` 只包含 allowlist 成品文件；`work/`、`state/`、retrieval inputs、claim updates 和 amendment inputs 不会进入发布包。
 
 退出码：
 
@@ -122,25 +173,29 @@ Claim 合并器要求输入完整的 Claim 记录：新 ID 追加，同 ID 显�
 | `5` | 来源、证据闭合、时效性或矛盾处理失败 |
 | `6` | 模板、HTML/PDF、指纹或跨格式一致性失败 |
 | `7` | 本地路径、内部 ID 或公共输出安全失败 |
-
-除非 `validation/` 本身通过符号链接逃逸包边界，验证器都会写入 `validation/validation-report.json` 和 `.md`；失败不会以零退出码伪装成功。
+| `8` | receipt chain、阶段前置条件或重试/修订边界失败 |
+| `9` | Trust、Registry、human approval、re-verification 或 release allowlist 失败 |
 
 路径、覆盖和账本规则见 [输出路径策略](references/output-path-policy.md)。HTML、PDF、审计 Markdown 和验证报告属于派生产物，可以在包内重新生成；两个 JSONL 权威账本都必须通过保留既有记录的合并器更新。
 
 ## 输出结构
 
-完整契约见 [示例输出树](examples/example-output-tree.md)。核心文件包括：
+完整契约见 [示例输出树](examples/example-output-tree.md)。权威文件位于 `work/generations/g0001/` 和 `state/generations/g0001/receipts/`；根目录 `brief.json` 与 `current/` 是只读便利视图。
 
-- `brief.json`：范围、时效、检索和输出模式。
-- `research/research-plan.json`：视角、问题、预算和停止条件。
-- `research/research-plan.json` 中的 `report_outline`：问题/Claim 到章节及篇幅预算的闭环。
-- `research/source-register.jsonl`：来源权威账本。
-- `research/claim-evidence-ledger.jsonl`：事实、推断、建议和证据状态。
-- `research/report-claim-map.json`：公共报告段落到内部 claim 的映射。
-- `report.md`：唯一内容真源。
-- `exports/report.html`、`report.pdf`：确定性派生物。
-- `validation/render-manifest.json`：跨格式哈希和章节指纹。
-- `validation/validation-report.json`：机器可读发布判定。
+核心文件包括：
+
+- `work/generations/g0001/inputs/brief.json`：范围、时效、检索和输出模式。
+- `work/generations/g0001/artifacts/research/research-plan.json`：视角、问题、预算和停止条件。
+- `work/generations/g0001/artifacts/research/report-outline.json`：问题/Claim 到章节及篇幅预算的闭环。
+- `work/generations/g0001/artifacts/research/source-register.jsonl`：来源权威账本。
+- `work/generations/g0001/artifacts/research/claim-evidence-ledger.jsonl`：事实、推断、建议和证据状态。
+- `work/generations/g0001/artifacts/research/reviewed-paragraph-map.jsonl`：公共报告段落到内部 claim/source/citation 的映射。
+- `work/generations/g0001/artifacts/report.md`：唯一内容真源。
+- `work/generations/g0001/artifacts/exports/report.html`、`report.pdf`：确定性派生物。
+- `work/generations/g0001/artifacts/validation/render-manifest.json`：跨格式哈希和章节指纹。
+- `work/generations/g0001/artifacts/validation/validation-report.json`：机器可读验证判定。
+- `state/generations/g0001/receipts/*.json`：不可跳过的阶段 receipt chain。
+- `release/`：通过 Trust 和 human approval 后生成的严格 allowlist 发布投影。
 
 可直接查看通过严格验证的 [代表性研究包](examples/validated-output/) 和 [PDF](examples/validated-output/exports/report.pdf)。
 
@@ -151,7 +206,7 @@ Claim 合并器要求输入完整的 Claim 记录：新 ID 追加，同 ID 显�
 .venv/bin/python scripts/run_checks.py --all
 ```
 
-`--all` 运行单元测试、编译检查、schema 检查和 Yao Meta Skill 验证。Yao 的 Output Lab、Trust、Conformance、Packaging 和安装模拟证据保存在 `reports/`；发布步骤见 [发布检查表](docs/release-checklist.md)。
+`--all` 运行单元测试、编译检查、schema 检查和 Yao Meta Skill 验证。Yao 的 Output Lab、Trust、Conformance、Packaging 和安装模拟证据保存在 `reports/`；最终 release 还必须运行 `storm_research.py release` 并绑定外部 trust、registry、re-verification 和 human approval。发布步骤见 [发布检查表](docs/release-checklist.md)。
 
 Yao 生成 ZIP 后、执行 package verification 前，先净化归档中的本机路径：
 
@@ -165,7 +220,7 @@ Yao 生成 ZIP 后、执行 package verification 前，先净化归档中的本�
 
 ## 版本迁移与回滚
 
-0.3.0 到 0.4.0 的路径、初始化、归一化和导出 CLI 变化见 [迁移指南](docs/migration-v0.3-to-v0.4.md)。更早版本的迁移文档保留在 `docs/`。
+0.4.0 到 1.0.0 的 governed harness、receipt chain、recovery commands 和 legacy import 变化见 [迁移指南](docs/migration-v0.4-to-v1.0.md)。更早版本的迁移文档保留在 `docs/`。
 
 ## 设计来源
 

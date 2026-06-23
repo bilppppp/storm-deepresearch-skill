@@ -1,6 +1,6 @@
 # Claim-Evidence Policy
 
-`research/claim-evidence-ledger.jsonl` is the authority for report claims. Markdown evidence maps are generated views.
+`work/generations/g0001/artifacts/research/claim-evidence-ledger.jsonl` is the authority for report claims. Markdown evidence maps are generated release views.
 
 ## Claim Types
 
@@ -25,10 +25,14 @@
 5. Contested claims include contradicting source IDs and appear in contradiction analysis.
 6. Unsupported material claims are removed, narrowed, or moved to the uncertainty ledger.
 
-Run:
+Run the governed evidence stage:
 
 ```bash
-python3 scripts/validate_evidence.py OUTPUT_DIR
+python3 scripts/storm_research.py evidence "$RUN_DIR" \
+  --claims claims.jsonl \
+  --contradictions contradictions.json \
+  --uncertainties uncertainties.json \
+  --report-outline report-outline.json
 ```
 
-Exit `5` means the evidence gate failed. Do not convert that failure into a warning.
+Exit `5` means the evidence gate failed. Do not convert that failure into a warning, do not add unmapped factual paragraphs later, and do not move unsupported facts directly into prose.

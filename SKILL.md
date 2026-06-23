@@ -1,45 +1,47 @@
 ---
 name: storm-deepresearch-skill
-description: Use for source-grounded deep research that needs multi-perspective question generation, claim-evidence traceability, contradiction and uncertainty handling, and validated Markdown, HTML, and PDF deliverables. Trigger for research reports, literature or industry reviews, decision briefs, and supplied document or URL corpora where factual reliability matters. Do not use for quick lookup, unsupported expert role-play, simple summarization, or short-answer tasks.
+description: Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.
 ---
 
 # STORM DeepResearch
 
-Build auditable research. Perspectives ask; ledgers authorize facts.
+Governed research harness: perspectives ask; ledgers authorize facts; receipts authorize progress.
 
 ## Router Rules
 
 - Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.
 - Initialize a fresh workspace-scoped run; reject existing or escaping paths.
-- Use `closed_corpus` for supplied-only material; otherwise approved host search. For high-stakes topics, avoid personalized advice.
+- Use `closed_corpus` for supplied-only material; otherwise approved host search. Avoid personalized high-stakes advice.
+- Advance only through `scripts/storm_research.py`; root files are views, not proof.
+- Stop on `missing evidence`, broken receipt chain, or absent approval.
 
 ## Compact Workflow
 
-1. Normalize the brief and lock `length_contract`.
-2. Generate questions with the [protocol](references/research-protocol.md) and [STORM mapping](references/storm-workflow-mapping.md).
-3. Retrieve through an approved [adapter](references/retrieval-adapters.md); memory is not evidence.
-4. Merge ledgers monotonically; close claims under the [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policies.
-5. Preserve contradictions and unknowns.
-6. Map every answered question and material claim into `report_outline`.
-7. Draft `report.md`, review, export, and validate.
+1. `init`: normalize brief and length; create generation `g0001`.
+2. `plan`: generate STORM questions, source plan, and `report_outline`.
+3. `ingest`: accept only approved retrieval records; memory is not evidence.
+4. `evidence`: close source and Claim ledgers under [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policy.
+5. `draft` and `review`: bind paragraphs, citations, Claims, and semantic review.
+6. `render`, `validate`, `release`: derive formats, verify gates, require Trust and approval.
 
 ## Decision Points
 
-- Provider retrieval is opt-in; credentials stay in environment variables.
-- Seek independent support for contested claims. Input length changes retrieval, not report depth; use `bounded_partial` instead of padding.
-- PDF omission requires reduced mode.
+- Input length changes retrieval, not report depth; use `bounded_partial` instead of padding.
+- Full dossiers cannot be amended to reduced output after render failure.
+- `amend` creates a new generation. `retry`, `status`, and `explain` inspect receipts; they do not bypass them.
 
 ## Output Contract
 
-Produce the brief, outline, ledgers, review, Markdown, HTML, full-mode PDF, and validation. Follow [writing](references/report-writing.md), [export](references/export-workflow.md), and [gates](references/quality-gates.md).
+Produce brief, source plan, ledgers, semantic review, Markdown, HTML, full-mode PDF, validation receipt, and allowlisted release. Follow [writing](references/report-writing.md), [export](references/export-workflow.md), [gates](references/quality-gates.md), and [output paths](references/output-path-policy.md).
 
 ## Failure Policy
 
 - Never invent citations, quotations, or metrics.
 - Never reinitialize or truncate ledgers; only derived artifacts are replaceable.
-- Fail gates non-zero with repair details.
+- Never edit receipts or validators to pass.
+- Fail non-zero with repair details; release requires Yao Trust, registry match, re-verification, and approval.
 
 ## Resources
 
-- Contracts live in `schemas/`, `references/`, and [output paths](references/output-path-policy.md); `scripts/` executes and `evals/` tests them.
+- Contracts live in `schemas/`, `references/`, and [output paths](references/output-path-policy.md); `scripts/` executes and `evals/` tests.
 - Release only after `python3 scripts/run_checks.py --all` passes.

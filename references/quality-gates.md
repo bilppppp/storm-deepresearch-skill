@@ -1,6 +1,6 @@
 # Quality Gates
 
-Run `python3 scripts/run_checks.py --package OUTPUT_DIR`. A full package is releasable only when it exits zero.
+Run `python3 scripts/storm_research.py validate "$RUN_DIR"` or `python3 scripts/run_checks.py --package "$RUN_DIR"`. A full package is releasable only when offline validation exits zero and writes `70-validation.json`.
 
 ## Contract gate: exit 4
 
@@ -39,3 +39,18 @@ Run `python3 scripts/run_checks.py --package OUTPUT_DIR`. A full package is rele
 - Credentials and raw retrieval artifacts stay outside public outputs.
 
 The validator writes JSON and Markdown reports only when the resolved `validation/` directory remains inside the package. The process returns the highest failed gate code; a failed required check cannot exit zero.
+
+## Stage gate: exit 8
+
+- The receipt chain must recompute from `00-init.json` through the required prior stage.
+- Editing a receipt status, validator hash, or bound artifact invalidates the chain.
+- `retry` accepts only the current failed or pending stage.
+- `amend` creates a new generation and cannot downgrade a full dossier to reduced output.
+
+## Release gate: exit 9
+
+- Public release requires a passing Yao Trust report.
+- Registry metadata and trust evidence must bind the current source-contract hash.
+- Human approval must bind the validation receipt and be unexpired.
+- Current claims past the freshness window need host re-verification.
+- The release package must match the strict allowlist and contain no process artifacts.

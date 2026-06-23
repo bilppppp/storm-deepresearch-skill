@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "storm-deepresearch-output-eval-case.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "fixture",
+    "prompt",
+    "expected_behavior",
+    "must_report_stage",
+    "must_not_create"
+  ],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "fixture": {"type": "string", "minLength": 1},
+    "prompt": {"type": "string", "minLength": 1},
+    "expected_behavior": {"type": "string", "minLength": 1},
+    "must_report_stage": {
+      "enum": ["init", "plan", "ingest", "evidence", "draft", "review", "render", "validate", "amend", "release"]
+    },
+    "must_not_create": {"type": "string", "minLength": 1}
+  }
+}

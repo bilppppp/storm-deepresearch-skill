@@ -52,18 +52,18 @@ class LibraryContractTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_manifest_declares_library_governance(self) -> None:
+    def test_manifest_declares_governed_1_0(self) -> None:
         manifest = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
         expected = {
             "name": "storm-deepresearch-skill",
-            "version": "0.4.0",
+            "version": "1.0.0",
             "owner": "陈旭",
-            "updated_at": "2026-06-22",
-            "review_cadence": "quarterly",
+            "updated_at": "2026-06-23",
+            "review_cadence": "per-release",
             "status": "active",
-            "maturity_tier": "library",
-            "lifecycle_stage": "library",
-            "context_budget_tier": "library",
+            "maturity_tier": "governed",
+            "lifecycle_stage": "governed",
+            "context_budget_tier": "governed",
         }
         for key, value in expected.items():
             self.assertEqual(manifest.get(key), value, key)
@@ -77,7 +77,10 @@ class LibraryContractTests(unittest.TestCase):
         )
 
     def test_interface_is_portable_and_has_safe_defaults(self) -> None:
-        interface = yaml.safe_load((ROOT / "agents" / "interface.yaml").read_text(encoding="utf-8"))
+        interface_text = (ROOT / "agents" / "interface.yaml").read_text(encoding="utf-8")
+        for phrase in ("receipt chain", "human approval", "missing evidence"):
+            self.assertIn(phrase, interface_text)
+        interface = yaml.safe_load(interface_text)
         self.assertEqual(interface["interface"]["display_name"], "STORM DeepResearch")
         self.assertIn("evidence", interface["interface"]["short_description"].lower())
         compatibility = interface["compatibility"]
@@ -91,6 +94,7 @@ class LibraryContractTests(unittest.TestCase):
         defaults = interface["contract"]["defaults"]
         self.assertEqual(defaults["output_collision_policy"], "fail")
         self.assertEqual(defaults["ledger_update_policy"], "monotonic-merge")
+        self.assertEqual(defaults["release_policy"], "validation-plus-trust-plus-human-approval")
 
     def test_packaging_expectations_cover_distributed_adapters(self) -> None:
         expectations = json.loads(
