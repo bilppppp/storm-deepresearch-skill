@@ -55,6 +55,14 @@ PY="$SKILL_ROOT/.venv/bin/python"
 WORKSPACE=/path/to/user-workspace
 ```
 
+宿主 agent 不应生成包含大段转录文本、报告正文或 JSON 块的单体 Python runner。大文本必须先写入 UTF-8 文件、JSON 或 JSONL，再由下面的分阶段命令读取。若宿主确实生成了临时 runner，必须先用 guard 运行；guard 会在执行前编译检查、实时输出，并在超时后终止子进程：
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/agent_run_guard.py" --timeout 1800 /path/to/host_runner.py
+```
+
+如果 guard 输出 `RUNNER_SYNTAX_ERROR`，不要继续运行该 runner；这通常表示引号、编码或大段文本替换已经损坏。`RUNNER_TIMEOUT` 表示某个子命令超时，需用 `storm_research.py status "$RUN_DIR"` 查看最后通过的 receipt，再从对应阶段修复。
+
 ### 1. Init
 
 ```bash

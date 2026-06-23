@@ -1,18 +1,19 @@
 ---
 name: storm-deepresearch-skill
-description: Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.
+description: Use for source-grounded deep research with STORM questions, claim-evidence ledgers, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, briefs, and supplied corpora. Do not use for quick lookup, role-play, simple summary, or short answers.
 ---
 
 # STORM DeepResearch
 
-Governed research harness: perspectives ask; ledgers authorize facts; receipts authorize progress.
+Governed research harness: perspectives ask; ledgers prove; receipts gate.
 
 ## Router Rules
 
 - Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.
 - Initialize a fresh workspace-scoped run; reject existing or escaping paths.
-- Use `closed_corpus` for supplied-only material; otherwise approved host search. Avoid personalized high-stakes advice.
+- Use `closed_corpus` for supplied-only material; otherwise approved host search.
 - Advance only through `scripts/storm_research.py`; root files are views, not proof.
+- Put large text in files/JSONL; guard host runners with `scripts/agent_run_guard.py`.
 - Stop on `missing evidence`, broken receipt chain, or absent approval.
 
 ## Compact Workflow
@@ -39,6 +40,7 @@ Produce brief, source plan, ledgers, semantic review, Markdown, HTML, full-mode 
 - Never invent citations, quotations, or metrics.
 - Never reinitialize or truncate ledgers; only derived artifacts are replaceable.
 - Never edit receipts or validators to pass.
+- If `agent_run_guard.py` fails, repair the runner or inputs before retrying.
 - Fail non-zero with repair details; release requires Yao Trust, registry match, re-verification, and approval.
 
 ## Resources
