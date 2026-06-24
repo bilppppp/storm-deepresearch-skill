@@ -1,6 +1,6 @@
 # STORM Article Workflow Mapping
 
-The motivating article contributes four useful reasoning stages. This Library keeps those stages but replaces prompt-chain memory with auditable artifacts.
+The motivating article contributes four useful reasoning stages. This Library keeps those stages but replaces prompt-chain memory with auditable artifacts. The reusable stage prompts live in [storm-lens-prompt-pack.md](storm-lens-prompt-pack.md).
 
 | Article stage | Library artifact and phase | Preserved idea | Safety and depth upgrade |
 |---|---|---|---|
@@ -16,4 +16,4 @@ The motivating article contributes four useful reasoning stages. This Library ke
 - Do not turn confidence scores into factual support.
 - Do not stop at a short briefing when the brief promises a full dossier.
 
-The four prompts remain the conceptual skeleton. Retrieval, ledgers, report outlining, export, and non-zero validation make that skeleton a reusable research system.
+The four prompts remain the conceptual skeleton and should run at their proper phases: perspective discovery before retrieval, contradiction mapping after findings, synthesis after conflicts, and red-team review after draft. Retrieval, ledgers, report outlining, export, and non-zero validation make that skeleton a reusable research system.

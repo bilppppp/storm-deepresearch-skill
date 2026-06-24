@@ -17,7 +17,7 @@ Example:
 For full dossiers with external research allowed, source classes cannot be only user transcript, closed corpus, local files, or supplied materials. At least half of planned questions must require external source classes, and the retrieval budget must allow at least six external sources.
 
 ## Phase 2 — Generate perspectives
-Use default perspectives as the seed, then adapt to the topic.
+Use the STORM lens prompts in [storm-lens-prompt-pack.md](storm-lens-prompt-pack.md) as the seed, then adapt to the topic.
 
 Default perspectives:
 1. Practitioner
@@ -59,13 +59,13 @@ Evidence strength guidance:
 - Unknown: plausible but not verified.
 
 ## Phase 5 — Map contradictions
-Contradictions are not defects. They are research findings. Preserve them with context. This operationalizes the article's second prompt, but reject the shortcut "all perspectives agree, therefore true": consensus still needs evidence.
+Run the evidence-grounded contradiction prompt from [storm-lens-prompt-pack.md](storm-lens-prompt-pack.md) after first findings. Contradictions are not defects. They are research findings. Preserve them with context. This operationalizes the article's second prompt, but reject the shortcut "all perspectives agree, therefore true": consensus still needs evidence.
 
 ## Phase 6 — Build the synthesis outline
-Complete `research-plan.report_outline` before prose. Allocate the full length budget across distinct sections. Each section must resolve named perspective questions, use material claim IDs, and specify evidence-led expansion elements. This is the article's third prompt turned into an auditable synthesis plan rather than a short briefing.
+Run the synthesis outline prompt only after findings, contradiction mapping, and any resolver search. Complete `research-plan.report_outline` before prose. Allocate the full length budget across distinct sections. Each section must resolve named perspective questions, use material claim IDs, and specify evidence-led expansion elements. This is the article's third prompt turned into an auditable synthesis plan rather than a short briefing.
 
 ## Phase 7 — Peer review
-Red-team the draft. Score finding confidence, identify the weakest link, check source and perspective dominance, add a missing perspective where useful, and record required revisions. This operationalizes the article's fourth prompt. Self-scores guide review; they are not evidence.
+Run the red-team prompt after `draft`. Score finding confidence, identify the weakest link, check source and perspective dominance, add a missing perspective where useful, and record required revisions. This operationalizes the article's fourth prompt. Self-scores guide review; they are not evidence.
 
 Full dossiers require three explicit independent review tracks in addition to the base semantic review: fact checks for material Claims, conflict review for the contradiction ledger, and draft audit for paragraph assertions.
 

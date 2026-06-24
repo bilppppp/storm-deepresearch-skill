@@ -22,7 +22,7 @@
     "license": "MIT-0",
     "checksums": {
       "package_sha256": "09990b2e5a52081bee38ebae32619517479ea3e57f92c546fb32520101824bea",
-      "archive_sha256": "5624002ca7d95c96fd1c63027af19e73d43c97d9cf3955af82bf096eed22f872"
+      "archive_sha256": "f933c323fefd4caf5e77d4f8f998e6630666459a868e08fa839ddfa77da65211"
     },
     "compatibility": {
       "openai": "pass",
@@ -52,16 +52,16 @@
     },
     "distribution": {
       "archive_verified": true,
-      "archive_sha256": "5624002ca7d95c96fd1c63027af19e73d43c97d9cf3955af82bf096eed22f872",
+      "archive_sha256": "f933c323fefd4caf5e77d4f8f998e6630666459a868e08fa839ddfa77da65211",
       "package_verification": "reports/package_verification.json",
       "install_simulated": true,
       "install_simulation": "reports/install_simulation.json"
     },
-    "generated_at": "2026-06-24"
+    "generated_at": "2026-06-25"
   },
   "index": {
     "schema_version": "2.0",
-    "generated_at": "2026-06-24",
+    "generated_at": "2026-06-25",
     "package_count": 1,
     "packages": [
       {

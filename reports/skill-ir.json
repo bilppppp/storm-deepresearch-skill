@@ -72,6 +72,7 @@
       "references/research-protocol.md",
       "references/retrieval-adapters.md",
       "references/source-and-evidence-policy.md",
+      "references/storm-lens-prompt-pack.md",
       "references/storm-workflow-mapping.md"
     ],
     "scripts": [

@@ -7,7 +7,7 @@
 - Owner: `陈旭`
 - License: `MIT-0`
 - Package SHA256: `09990b2e5a52081bee38ebae32619517479ea3e57f92c546fb32520101824bea`
-- Archive SHA256: `5624002ca7d95c96fd1c63027af19e73d43c97d9cf3955af82bf096eed22f872`
+- Archive SHA256: `f933c323fefd4caf5e77d4f8f998e6630666459a868e08fa839ddfa77da65211`
 - Install simulated: `True`
 
 ## Compatibility

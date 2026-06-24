@@ -93,6 +93,8 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 
 `plan` 必须覆盖 STORM 多视角问题、source classes、停止条件和 `report_outline` 所需的问题闭环。full dossier 且非 `closed_corpus` 时，source plan 不能只依赖用户转录、封闭语料或本地材料：至少一半问题要要求外部 source classes，且 `retrieval_budget.max_sources` 不得低于 `6`。成功后会自动生成 `research/storm-tasklets.jsonl`，每个 STORM 问题变成后续 findings 的最小执行单元。
 
+生成 plan 时先使用 [STORM Lens Prompt Pack](references/storm-lens-prompt-pack.md)：Prompt 1 只生成视角、研究问题和证据需求；检索和 findings 完成后再用 Prompt 2 做证据支持的矛盾地图；Prompt 3 只在 findings 和矛盾处理后生成 `report_outline`；Prompt 4 只在 draft 后做 red-team review。不要先把四条 STORM prompt 一次性跑完再联网搜索。
+
 ### 3. Ingest
 
 内置脚本不会主动联网。宿主检索结果必须符合 `schemas/retrieval-record.schema.json`，包含真实 URL 或闭合语料文件引用、快照 hash、locator 和 excerpt：

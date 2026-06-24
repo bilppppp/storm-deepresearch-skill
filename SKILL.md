@@ -42,4 +42,4 @@ Produce brief, plans, tasklets, findings, ledgers, review, Markdown, HTML, full-
 
 ## Resources
 
-Run `python3 scripts/run_checks.py --all`; `evals/` holds cases.
+Lens: [prompts](references/storm-lens-prompt-pack.md). Check: `python3 scripts/run_checks.py --all`; cases: `evals/`.
