@@ -4,7 +4,7 @@
   "title": "STORM DeepResearch",
   "job_to_be_done": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
   "trigger_surface": {
-    "description": "Use for source-grounded deep research with governed STORM tasklets, findings, claim ledgers, receipts, and Markdown/HTML/PDF release. Trigger for dossiers, reviews, briefs, and corpora. Do not use for lookup, role-play, summary, or short answers.",
+    "description": "Use for source-grounded deep research with STORM tasklets, findings, claim ledgers, receipts, and Markdown/HTML/PDF release. Trigger for dossiers, reviews, and corpora. Do not use for lookup, role-play, summary, or short answers.",
     "should_trigger": [
       "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
       "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
@@ -44,7 +44,7 @@
       "Default Chinese full dossiers to `8000–10000` body characters; `briefing` must be explicit.",
       "Initialize a fresh safe output path; reject existing, escaping, or symlinked targets.",
       "Use `closed_corpus` for supplied material; otherwise use approved host search.",
-      "Run `scripts/storm_research.py`; stop on missing findings/evidence, broken receipts, or absent approval.",
+      "Run `scripts/storm_research.py`; stop on missing findings/evidence, broken receipts, or approval.",
       "Ask one focused clarification when the real job, output, or exclusion boundary is unclear.",
       "Escalate visible tradeoffs when benchmark patterns conflict with local privacy, naming, or governance constraints.",
       "Do not silently broaden the skill into adjacent jobs just because the examples are nearby."

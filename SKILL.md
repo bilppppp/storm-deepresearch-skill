@@ -1,18 +1,16 @@
 ---
 name: storm-deepresearch-skill
-description: Use for source-grounded deep research with governed STORM tasklets, findings, claim ledgers, receipts, and Markdown/HTML/PDF release. Trigger for dossiers, reviews, briefs, and corpora. Do not use for lookup, role-play, summary, or short answers.
+description: Use for source-grounded deep research with STORM tasklets, findings, claim ledgers, receipts, and Markdown/HTML/PDF release. Trigger for dossiers, reviews, and corpora. Do not use for lookup, role-play, summary, or short answers.
 ---
 
 # STORM DeepResearch
-
-Perspectives ask; findings pool; ledgers prove.
 
 ## Router Rules
 
 - Default Chinese full dossiers to `8000–10000` body characters; `briefing` must be explicit.
 - Initialize a fresh safe output path; reject existing, escaping, or symlinked targets.
 - Use `closed_corpus` for supplied material; otherwise use approved host search.
-- Run `scripts/storm_research.py`; stop on missing findings/evidence, broken receipts, or absent approval.
+- Run `scripts/storm_research.py`; stop on missing findings/evidence, broken receipts, or approval.
 
 ## Compact Workflow
 

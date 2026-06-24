@@ -1,9 +1,9 @@
 {
   "ok": true,
-  "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
+  "skill_dir": "$SKILL_ROOT",
   "summary": {
-    "scanned_files": 62,
-    "script_count": 19,
+    "scanned_files": 64,
+    "script_count": 20,
     "internal_module_count": 7,
     "secret_findings": 0,
     "dependency_files": [
@@ -12,23 +12,37 @@
     "network_script_count": 0,
     "network_policy_covered_count": 0,
     "network_policy_missing_count": 0,
-    "file_write_script_count": 9,
+    "file_write_script_count": 10,
     "permission_required_count": 2,
     "permission_approved_count": 2,
     "permission_missing_count": 0,
     "permission_invalid_count": 0,
     "permission_expired_count": 0,
-    "help_smoke_checked_count": 12,
+    "help_smoke_checked_count": 13,
     "help_smoke_failed_count": 0,
     "interactive_script_count": 0,
     "package_hash_scope": "source-contract-without-generated-reports",
-    "package_hash_file_count": 62,
-    "package_sha256": "09990b2e5a52081bee38ebae32619517479ea3e57f92c546fb32520101824bea"
+    "package_hash_file_count": 64,
+    "package_sha256": "91a9fb0e091403a8d724a6fbdcf616289679b99f5add56fc7355b86a87092b28"
   },
   "failures": [],
   "warnings": [],
   "secrets": [],
   "scripts": [
+    {
+      "path": "scripts/agent_run_guard.py",
+      "interface": "cli",
+      "interface_declared": true,
+      "interface_reason": "Host agents may generate orchestration runners; this guard fails fast on syntax corruption and kills long-running children instead of hiding output.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": false,
+      "uses_subprocess": true,
+      "network_urls": [],
+      "network_hosts": []
+    },
     {
       "path": "scripts/contract_io.py",
       "interface": "internal-module",
@@ -108,8 +122,8 @@
       "has_main_guard": true,
       "uses_input": false,
       "uses_network": false,
-      "uses_file_write": false,
-      "uses_subprocess": false,
+      "uses_file_write": true,
+      "uses_subprocess": true,
       "network_urls": [],
       "network_hosts": []
     },
@@ -325,13 +339,23 @@
   "help_smoke": {
     "enabled": true,
     "timeout_seconds": 5.0,
-    "candidate_count": 12,
-    "checked_count": 12,
-    "passed_count": 12,
+    "candidate_count": 13,
+    "checked_count": 13,
+    "passed_count": 13,
     "failed_count": 0,
     "skipped_count": 7,
     "failed_scripts": [],
     "results": [
+      {
+        "path": "scripts/agent_run_guard.py",
+        "command": "python3 scripts/agent_run_guard.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: agent_run_guard.py [-h] [--python PYTHON] [--cwd CWD]\n                          [--timeout TIMEOUT]\n                          runner ...\n\nCompile-check and run host-generated Python runners with a hard timeout.\n\npositional arguments:",
+        "stderr_excerpt": ""
+      },
       {
         "path": "scripts/export_report.py",
         "command": "python3 scripts/export_report.py --help",
@@ -359,7 +383,7 @@
         "timed_out": false,
         "passed": true,
         "has_help_text": true,
-        "stdout_excerpt": "usage: local_output_eval_runner.py [-h]\n\nExercise Yao's deterministic runner contract without claiming model execution.\n\noptions:\n  -h, --help  show this help message and exit",
+        "stdout_excerpt": "usage: local_output_eval_runner.py [-h] [--cases-jsonl CASES_JSONL]\n                                   [--out-dir OUT_DIR] [--timeout TIMEOUT]\n\nExercise Yao's deterministic runner contract without claiming model execution.\n\noptions:\n  -h, -",
         "stderr_excerpt": ""
       },
       {
@@ -419,7 +443,7 @@
         "timed_out": false,
         "passed": true,
         "has_help_text": true,
-        "stdout_excerpt": "usage: storm_research.py [-h]\n                         {init,plan,ingest,evidence,draft,review,render,validate,release,amend,retry,status,explain,import-legacy}\n                         ...\n\nRun the governed STORM DeepResearch stage harness",
+        "stdout_excerpt": "usage: storm_research.py [-h]\n                         {init,plan,lens-perspectives,ingest,findings,lens-conflicts,lens-outline,evidence,draft,review,lens-review,render,validate,collect,release,amend,retry,status,explain,repair-plan,import-",
         "stderr_excerpt": ""
       },
       {
@@ -513,6 +537,7 @@
           "scripts/export_report.py",
           "scripts/governed_release.py",
           "scripts/harness_io.py",
+          "scripts/local_output_eval_runner.py",
           "scripts/normalize_retrieval.py",
           "scripts/render_audit_views.py",
           "scripts/run_state.py",
@@ -542,7 +567,9 @@
         "capability": "subprocess",
         "status": "approved",
         "scripts": [
+          "scripts/agent_run_guard.py",
           "scripts/export_report.py",
+          "scripts/local_output_eval_runner.py",
           "scripts/run_checks.py"
         ],
         "reviewer": "陈旭 via explicit task authorization",
@@ -570,7 +597,7 @@
     "remote_metadata_policy": "allow-metadata-only"
   },
   "artifacts": {
-    "json": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/security_trust_report.json",
-    "markdown": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/security_trust_report.md"
+    "json": "$SKILL_ROOT/reports/security_trust_report.json",
+    "markdown": "$SKILL_ROOT/reports/security_trust_report.md"
   }
 }

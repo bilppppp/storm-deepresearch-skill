@@ -45,6 +45,7 @@
     },
     "retrieval_mode": {"enum": ["host", "provider", "closed_corpus"]},
     "output_mode": {"enum": ["full", "reduced"]},
+    "storm_lens_mode": {"enum": ["advisory", "strict"]},
     "uncertainty_tolerance": {"enum": ["low", "medium", "high"]},
     "high_stakes": {"type": "boolean"},
     "user_materials": {"type": "array", "items": {"type": "string"}},

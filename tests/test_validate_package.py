@@ -41,6 +41,17 @@ class ValidatePackageTests(unittest.TestCase):
             self.assertTrue((artifacts / "validation/validation-report.md").is_file())
             self.assertTrue((run / "state/generations/g0001/receipts/70-validation.json").is_file())
 
+    def test_strict_lens_run_validates_phase_order(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run = build_valid_governed_run(Path(tmp), strict_lens=True)
+            result = self.validate(run)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(
+                (artifact_root(run) / "validation/validation-report.json").read_text(encoding="utf-8")
+            )
+            checks = {item["check_id"]: item for item in payload["checks"]}
+            self.assertEqual(checks["storm-lens-phase-order"]["status"], "pass")
+
     def test_collect_copies_only_validated_deliverables(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
@@ -133,9 +144,9 @@ def artifact_root(run: Path) -> Path:
     return run / "work/generations/g0001/artifacts"
 
 
-def build_valid_governed_run(parent: Path) -> Path:
+def build_valid_governed_run(parent: Path, *, strict_lens: bool = False) -> Path:
     helper = render_stage_helpers.RenderStageTests(methodName="runTest")
-    run = helper.reviewed_run(parent)
+    run = helper.reviewed_run(parent, strict_lens=strict_lens)
     result = helper.invoke("render", str(run), "--pdf-renderer", "weasyprint")
     if result.returncode != 0:
         raise AssertionError(result.stdout + result.stderr)

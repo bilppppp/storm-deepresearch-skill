@@ -1,22 +1,22 @@
 # Security Trust Report
 
 - OK: `True`
-- Scanned files: `62`
-- Scripts: `19`
+- Scanned files: `64`
+- Scripts: `20`
 - Internal script modules: `7`
 - Secret findings: `0`
 - Network-capable scripts: `0`
 - Network policy covered scripts: `0`
 - Network policy missing scripts: `0`
-- File-write scripts: `9`
+- File-write scripts: `10`
 - Permission approvals: `2 / 2`
 - Permission approval gaps: `0`
-- CLI help smoke checked: `12`
+- CLI help smoke checked: `13`
 - CLI help smoke failures: `0`
 - Interactive scripts: `0`
 - Package hash scope: `source-contract-without-generated-reports`
-- Package hash files: `62`
-- Package SHA256: `09990b2e5a52081bee38ebae32619517479ea3e57f92c546fb32520101824bea`
+- Package hash files: `64`
+- Package SHA256: `91a9fb0e091403a8d724a6fbdcf616289679b99f5add56fc7355b86a87092b28`
 
 ## Failures
 
@@ -54,20 +54,21 @@
 
 - Enabled: `True`
 - Timeout seconds: `5.0`
-- Checked scripts: `12`
-- Passed scripts: `12`
+- Checked scripts: `13`
+- Passed scripts: `13`
 - Failed scripts: `none`
 
 ## Script Surface
 
 | Script | Interface | Declared | Argparse | Main Guard | Input | Network | File Write | Subprocess | Reason |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| scripts/agent_run_guard.py | cli | True | True | True | False | False | False | True | Host agents may generate orchestration runners; this guard fails fast on syntax corruption and kills long-running children instead of hiding output. |
 | scripts/contract_io.py | internal-module | True | False | False | False | False | False | False | Shared contract loading and validation functions imported by package CLIs. |
 | scripts/export_report.py | cli | False | True | True | False | False | True | True | Default CLI classification; add SCRIPT_INTERFACE for internal modules. |
 | scripts/governed_release.py | internal-module | True | False | False | False | False | True | False | Imported by the single storm-research release command. |
 | scripts/harness_io.py | internal-module | True | False | False | False | False | True | False | Provides deterministic identity and promotion primitives for stage receipts. |
 | scripts/init_research_package.py | deprecated-cli | True | True | True | False | False | False | False | Compatibility surface forwarding initialization to the governed orchestrator. |
-| scripts/local_output_eval_runner.py | cli | False | True | True | False | False | False | False | Default CLI classification; add SCRIPT_INTERFACE for internal modules. |
+| scripts/local_output_eval_runner.py | cli | False | True | True | False | False | True | True | Default CLI classification; add SCRIPT_INTERFACE for internal modules. |
 | scripts/merge_claim_ledger.py | internal-worker-cli | True | True | True | False | False | False | False | Returns a merged Claim set; only storm_research may commit stage receipts. |
 | scripts/normalize_retrieval.py | internal-worker-cli | True | True | True | False | False | True | False | Produces validated staging records; only storm_research may commit receipts. |
 | scripts/output_paths.py | internal-module | True | False | False | False | False | False | False | Shared output boundary checks imported by package CLIs. |

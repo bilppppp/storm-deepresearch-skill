@@ -43,6 +43,7 @@ contract:
       - "retrieval_mode"
       - "report_language"
       - "length_contract"
+      - "storm_lens_mode"
       - "workspace_root"
       - "output_root"
   defaults:
@@ -53,6 +54,7 @@ contract:
     en_length_contract: "3500-7000 words"
     output_root: "output/storm-deepresearch"
     output_collision_policy: "fail"
+    storm_lens_mode: "advisory"
     ledger_update_policy: "monotonic-merge"
     state_model: "generation artifacts plus immutable receipt chain"
     research_pool_policy: "storm-tasklets require usable findings before evidence"

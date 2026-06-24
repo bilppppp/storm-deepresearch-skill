@@ -47,6 +47,8 @@ The validator writes JSON and Markdown reports only when the resolved `validatio
 
 - The receipt chain must recompute from `00-init.json` through the required prior stage.
 - Editing a receipt status, validator hash, or bound artifact invalidates the chain.
+- `storm_lens_mode=strict` requires Prompt 1 before plan, Prompt 2 and Prompt 3 after findings and before evidence, and Prompt 4 after draft and before review.
+- Strict STORM lens artifacts must be bound into the dependent stage receipts: P1 into plan, P2/P3 into evidence, and P4 into review.
 - `retry` accepts only the current failed or pending stage.
 - `amend` creates a new generation and cannot downgrade a full dossier to reduced output.
 - `repair-plan` may write `current/repair-plan.json`, but it does not create or replace receipts.

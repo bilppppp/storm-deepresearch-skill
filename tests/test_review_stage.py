@@ -8,12 +8,14 @@ import unittest
 from pathlib import Path
 
 from scripts.harness_io import canonical_json_sha256
+from scripts.harness_io import sha256_file
 from scripts.report_traceability import (
     extract_paragraphs,
     validate_review_bindings,
     validate_semantic_review,
 )
 import tests.test_evidence_stage as evidence_stage_helpers
+from tests.governed_fixtures import valid_storm_lens_artifact
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -60,12 +62,29 @@ class ReviewStageTests(unittest.TestCase):
             self.assertTrue((artifacts / "research/peer-review.md").is_file())
             self.assertTrue((run / "state/generations/g0001/receipts/50-review.json").is_file())
 
-    def drafted_run(self, workspace: Path) -> Path:
-        helper = evidence_stage_helpers.EvidenceStageTests(methodName="runTest")
-        return helper.drafted_run(workspace)
+    def test_strict_lens_mode_requires_p4_after_draft_before_review(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.drafted_run(workspace, strict_lens=True)
+            inputs = self.write_review_inputs(run, workspace)
+            result = self.invoke_review(run, inputs)
+            self.assertEqual(result.returncode, 8, result.stdout + result.stderr)
+            self.assertIn("storm-lens-red-team.json", result.stderr)
 
-    def reviewed_run(self, workspace: Path) -> Path:
-        run = self.drafted_run(workspace)
+            self.register_lens_review(run, workspace)
+            result = self.invoke_review(run, inputs)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            receipt = json.loads((run / "state/generations/g0001/receipts/50-review.json").read_text(encoding="utf-8"))
+            self.assertIn("artifacts/research/storm-lens-red-team.json", receipt["input_artifacts"])
+
+    def drafted_run(self, workspace: Path, *, strict_lens: bool = False) -> Path:
+        helper = evidence_stage_helpers.EvidenceStageTests(methodName="runTest")
+        return helper.drafted_run(workspace, strict_lens=strict_lens)
+
+    def reviewed_run(self, workspace: Path, *, strict_lens: bool = False) -> Path:
+        run = self.drafted_run(workspace, strict_lens=strict_lens)
+        if strict_lens:
+            self.register_lens_review(run, workspace)
         inputs = self.write_review_inputs(run, workspace)
         result = self.invoke_review(run, inputs)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -166,6 +185,27 @@ class ReviewStageTests(unittest.TestCase):
             "required_action": "none",
             "reviewed_at": "2026-06-23T00:00:00Z",
         }
+
+    def register_lens_review(self, run: Path, workspace: Path) -> None:
+        artifacts = run / "work/generations/g0001/artifacts"
+        draft = artifacts / "drafts/report-v1.md"
+        paragraph_map = artifacts / "research/paragraph-map.jsonl"
+        inputs = {
+            "artifacts/drafts/report-v1.md": sha256_file(draft),
+            "artifacts/research/paragraph-map.jsonl": sha256_file(paragraph_map),
+        }
+        lens = workspace / "storm-lens-red-team.json"
+        lens.write_text(json.dumps(valid_storm_lens_artifact(
+            "P4",
+            sha256_file(ROOT / "references/storm-lens-prompt-pack.md"),
+            inputs,
+            target_sha256=sha256_file(draft),
+        )), encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, str(CLI), "lens-review", str(run), "--input-json", str(lens)],
+            cwd=ROOT, capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def invoke_review(
         self, run: Path, inputs: tuple[Path, Path, Path, Path, Path, Path, Path, Path]

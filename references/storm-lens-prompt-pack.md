@@ -12,6 +12,15 @@ Never run all four prompts before retrieval. Use each prompt at its proper phase
 4. Prompt 3 runs after conflicts and findings to build `research-plan.report_outline`.
 5. Prompt 4 runs after a draft to red-team the report and route repairs back to retrieval, evidence, outline, or draft.
 
+In `storm_lens_mode=strict`, each prompt must also produce a `schemas/storm-lens-artifact.schema.json` artifact and register it through the matching helper command:
+
+- P1: `storm_research.py lens-perspectives RUN_DIR --input-json storm-lens-perspectives.json`
+- P2: `storm_research.py lens-conflicts RUN_DIR --input-json storm-lens-conflicts.json`
+- P3: `storm_research.py lens-outline RUN_DIR --input-json storm-lens-outline.json`
+- P4: `storm_research.py lens-review RUN_DIR --input-json storm-lens-red-team.json`
+
+The helper artifacts are not final research evidence. They prove phase order and bind prompt outputs to later receipts.
+
 ## Prompt 1 — Perspective Discovery
 
 Run before search. Output perspective briefs, research questions, evidence needs, likely sources, and blind spots. Do not answer factual questions from memory.

@@ -227,6 +227,62 @@ def valid_uncertainty_ledger_v2() -> dict[str, object]:
     return {"schema_version": "2.0", "uncertainties": []}
 
 
+def valid_storm_lens_artifact(
+    prompt_id: str,
+    prompt_pack_sha256: str,
+    input_artifacts: dict[str, str],
+    *,
+    target_sha256: str | None = None,
+) -> dict[str, object]:
+    phases = {
+        "P1": "before_retrieval",
+        "P2": "after_findings",
+        "P3": "after_conflicts",
+        "P4": "after_draft",
+    }
+    outputs: dict[str, dict[str, object]] = {
+        "P1": {
+            "perspectives": ["historian", "domain_expert", "skeptic", "practitioner", "affected_party"],
+            "question_ids": [f"Q{index:03d}" for index in range(1, 11)],
+            "source_class_ids": ["official-record"],
+            "notes": "Prompt 1 created perspective questions and source needs before retrieval.",
+        },
+        "P2": {
+            "finding_ids": [f"F{index:03d}" for index in range(1, 11)],
+            "conflict_claim_ids": [],
+            "consensus_candidates": ["Fixture findings agree inside their limited scope."],
+            "blind_spots": ["No external blind spot is material in this fixture."],
+            "resolver_questions": [],
+        },
+        "P3": {
+            "section_ids": [f"SEC{index:02d}" for index in range(1, 7)],
+            "claim_ids": [f"C{index:03d}" for index in range(1, 13)],
+            "finding_ids": [f"F{index:03d}" for index in range(1, 11)],
+            "contradiction_ids": [],
+            "uncertainty_ids": [],
+            "length_budget_note": "Each section receives evidence-led expansion from findings and Claims.",
+        },
+        "P4": {
+            "target_kind": "draft",
+            "target_sha256": target_sha256 or "0" * 64,
+            "weakest_claim_ids": ["C012"],
+            "overstated_paragraphs": [],
+            "missing_perspectives": [],
+            "citation_support_issues": [],
+            "repair_actions": [],
+        },
+    }
+    return {
+        "schema_version": "2.0",
+        "prompt_id": prompt_id,
+        "prompt_pack_sha256": prompt_pack_sha256,
+        "phase": phases[prompt_id],
+        "input_artifacts": input_artifacts,
+        "output": outputs[prompt_id],
+        "created_at": "2026-06-23T00:00:00Z",
+    }
+
+
 def valid_retrieval_evidence() -> dict[str, object]:
     return {
         "schema_version": "2.0",

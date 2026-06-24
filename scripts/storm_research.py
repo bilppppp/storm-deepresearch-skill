@@ -9,7 +9,7 @@ import sys
 import uuid
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -96,6 +96,19 @@ THEORY_CLAIM_TERMS = {
 }
 THEORY_SOURCE_TYPES = {
     "academic", "book", "expert", "peer_reviewed_paper", "secondary_synthesis",
+}
+STORM_LENS_PROMPT_PACK = ROOT / "references/storm-lens-prompt-pack.md"
+STORM_LENS_FILES = {
+    "P1": ("storm-lens-perspectives.json", "before_retrieval"),
+    "P2": ("storm-lens-conflicts.json", "after_findings"),
+    "P3": ("storm-lens-outline.json", "after_conflicts"),
+    "P4": ("storm-lens-red-team.json", "after_draft"),
+}
+STORM_LENS_OUTPUT_FIELDS = {
+    "P1": {"perspectives", "question_ids", "source_class_ids", "notes"},
+    "P2": {"finding_ids", "conflict_claim_ids", "consensus_candidates", "blind_spots", "resolver_questions"},
+    "P3": {"section_ids", "claim_ids", "finding_ids", "contradiction_ids", "uncertainty_ids", "length_budget_note"},
+    "P4": {"target_kind", "target_sha256", "weakest_claim_ids", "overstated_paragraphs", "missing_perspectives", "citation_support_issues", "repair_actions"},
 }
 
 
@@ -193,6 +206,7 @@ def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
         },
         "retrieval_mode": args.retrieval_mode,
         "output_mode": args.output_mode,
+        "storm_lens_mode": args.storm_lens_mode,
         "uncertainty_tolerance": args.uncertainty_tolerance,
         "high_stakes": args.high_stakes,
         "user_materials": list(args.user_material),
@@ -206,6 +220,121 @@ def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
 def validate_or_raise(errors: list[str]) -> None:
     if errors:
         raise CLIContractError("; ".join(errors))
+
+
+def _storm_lens_mode(brief: dict[str, object]) -> str:
+    return str(brief.get("storm_lens_mode", "advisory"))
+
+
+def _storm_lens_artifact_path(layout: RunLayout, generation: int, prompt_id: str) -> Path:
+    return layout.artifact(generation, f"research/{STORM_LENS_FILES[prompt_id][0]}")
+
+
+def _storm_lens_logical_path(prompt_id: str) -> str:
+    return f"artifacts/research/{STORM_LENS_FILES[prompt_id][0]}"
+
+
+def _is_sha256(value: object) -> bool:
+    return bool(re.fullmatch(r"[0-9a-f]{64}", str(value)))
+
+
+def _is_iso_datetime(value: object) -> bool:
+    try:
+        datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return True
+
+
+def _string_list(value: object, field: str, *, pattern: str | None = None) -> list[str]:
+    if not isinstance(value, list):
+        return [f"{field} must be an array"]
+    errors: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            errors.append(f"{field} must contain non-empty strings")
+            break
+        if pattern and not re.fullmatch(pattern, item):
+            errors.append(f"{field} contains invalid ID: {item}")
+            break
+    return errors
+
+
+def validate_storm_lens_artifact(
+    payload: dict[str, Any],
+    *,
+    prompt_id: str,
+    expected_inputs: dict[str, str],
+) -> list[str]:
+    errors: list[str] = []
+    expected_fields = {
+        "schema_version", "prompt_id", "prompt_pack_sha256", "phase",
+        "input_artifacts", "output", "created_at",
+    }
+    if set(payload) != expected_fields:
+        errors.append("storm lens artifact has invalid top-level fields")
+        return errors
+    if payload.get("schema_version") != "2.0":
+        errors.append("storm lens artifact schema_version must be 2.0")
+    if payload.get("prompt_id") != prompt_id:
+        errors.append(f"storm lens artifact prompt_id must be {prompt_id}")
+    if payload.get("phase") != STORM_LENS_FILES[prompt_id][1]:
+        errors.append(f"storm lens artifact phase must be {STORM_LENS_FILES[prompt_id][1]}")
+    if payload.get("prompt_pack_sha256") != sha256_file(STORM_LENS_PROMPT_PACK):
+        errors.append("storm lens artifact prompt_pack_sha256 does not match prompt pack")
+    inputs = payload.get("input_artifacts")
+    if not isinstance(inputs, dict) or set(inputs) != set(expected_inputs):
+        errors.append("storm lens artifact input_artifacts do not match required phase inputs")
+    elif any(inputs[path] != digest for path, digest in expected_inputs.items()):
+        errors.append("storm lens artifact input_artifacts hash mismatch")
+    output = payload.get("output")
+    if not isinstance(output, dict) or set(output) != STORM_LENS_OUTPUT_FIELDS[prompt_id]:
+        errors.append(f"storm lens {prompt_id} output has invalid fields")
+        return errors
+    if not _is_iso_datetime(payload.get("created_at")):
+        errors.append("storm lens artifact created_at must be an ISO datetime")
+
+    if prompt_id == "P1":
+        errors.extend(_string_list(output.get("perspectives"), "perspectives"))
+        errors.extend(_string_list(output.get("question_ids"), "question_ids", pattern=r"Q\d{3}"))
+        errors.extend(_string_list(output.get("source_class_ids"), "source_class_ids"))
+        if not isinstance(output.get("notes"), str):
+            errors.append("notes must be a string")
+    elif prompt_id == "P2":
+        errors.extend(_string_list(output.get("finding_ids"), "finding_ids", pattern=r"F\d{3}"))
+        errors.extend(_string_list(output.get("conflict_claim_ids"), "conflict_claim_ids", pattern=r"C\d{3}"))
+        for field in ("consensus_candidates", "blind_spots", "resolver_questions"):
+            errors.extend(_string_list(output.get(field), field))
+    elif prompt_id == "P3":
+        errors.extend(_string_list(output.get("section_ids"), "section_ids", pattern=r"SEC\d{2}"))
+        errors.extend(_string_list(output.get("claim_ids"), "claim_ids", pattern=r"C\d{3}"))
+        errors.extend(_string_list(output.get("finding_ids"), "finding_ids", pattern=r"F\d{3}"))
+        errors.extend(_string_list(output.get("contradiction_ids"), "contradiction_ids"))
+        errors.extend(_string_list(output.get("uncertainty_ids"), "uncertainty_ids"))
+        if not isinstance(output.get("length_budget_note"), str) or not output.get("length_budget_note"):
+            errors.append("length_budget_note must be a non-empty string")
+    elif prompt_id == "P4":
+        if output.get("target_kind") != "draft":
+            errors.append("target_kind must be draft")
+        if not _is_sha256(output.get("target_sha256")):
+            errors.append("target_sha256 must be a SHA-256 value")
+        errors.extend(_string_list(output.get("weakest_claim_ids"), "weakest_claim_ids", pattern=r"C\d{3}"))
+        for field in ("overstated_paragraphs", "missing_perspectives", "citation_support_issues"):
+            errors.extend(_string_list(output.get(field), field))
+        repairs = output.get("repair_actions")
+        if not isinstance(repairs, list):
+            errors.append("repair_actions must be an array")
+        else:
+            for index, repair in enumerate(repairs, start=1):
+                fields = {"action_id", "path", "status", "reason"}
+                if not isinstance(repair, dict) or set(repair) != fields:
+                    errors.append(f"repair_action {index} has invalid fields")
+                    continue
+                if not all(isinstance(repair.get(field), str) and repair.get(field) for field in fields):
+                    errors.append(f"repair_action {index} fields must be non-empty strings")
+                if repair.get("status") not in {"applied", "not_applied"}:
+                    errors.append(f"repair_action {index} status must be applied or not_applied")
+    return errors
 
 
 def create_run_layout(root: Path) -> RunLayout:
@@ -250,6 +379,7 @@ def initialize_at_output(
     minimum_units: int | None = None,
     maximum_units: int | None = None,
     output_mode: str = "full",
+    storm_lens_mode: str = "advisory",
     high_stakes: bool = False,
     briefing_reason: str = "",
 ) -> RunLayout:
@@ -269,6 +399,7 @@ def initialize_at_output(
         max_age_days=365,
         retrieval_mode="host",
         output_mode=output_mode,
+        storm_lens_mode=storm_lens_mode,
         uncertainty_tolerance="low",
         high_stakes=high_stakes,
         briefing_reason=briefing_reason,
@@ -309,6 +440,7 @@ def command_init(args: argparse.Namespace) -> int:
         minimum_units=args.min_units,
         maximum_units=args.max_units,
         output_mode=args.output_mode,
+        storm_lens_mode=args.storm_lens_mode,
         high_stakes=args.high_stakes,
         briefing_reason=args.briefing_reason,
     )
@@ -343,6 +475,234 @@ def validate_plan_bundle(
         if len(questions) < 10:
             errors.append("full_dossier requires at least ten research questions")
     validate_or_raise(errors)
+
+
+def _generation_logical_path(layout: RunLayout, generation: int, logical_path: str) -> Path:
+    return package_child(layout.generation_root(generation), logical_path)
+
+
+def _hash_inputs(layout: RunLayout, generation: int, logical_paths: list[str]) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for logical_path in logical_paths:
+        path = _generation_logical_path(layout, generation, logical_path)
+        if not path.is_file() or path.is_symlink():
+            raise StagePreconditionError(f"missing storm lens input artifact: {logical_path}")
+        result[logical_path] = sha256_file(path)
+    return result
+
+
+def _storm_lens_expected_inputs(
+    layout: RunLayout, generation: int, prompt_id: str
+) -> dict[str, str]:
+    if prompt_id == "P1":
+        return _hash_inputs(layout, generation, ["inputs/brief.json"])
+    if prompt_id == "P2":
+        return _hash_inputs(layout, generation, [
+            "artifacts/research/storm-findings-pool.jsonl",
+            "artifacts/research/finding-coverage.json",
+            "artifacts/research/source-register.jsonl",
+            "artifacts/research/retrieval-manifest.jsonl",
+        ])
+    if prompt_id == "P3":
+        return _hash_inputs(layout, generation, [
+            "artifacts/research/storm-findings-pool.jsonl",
+            _storm_lens_logical_path("P2"),
+        ])
+    if prompt_id == "P4":
+        return _hash_inputs(layout, generation, [
+            "artifacts/drafts/report-v1.md",
+            "artifacts/research/paragraph-map.jsonl",
+        ])
+    raise CLIContractError(f"unknown STORM lens prompt: {prompt_id}")
+
+
+def _validate_p1_against_plan(
+    lens: dict[str, Any],
+    plan: dict[str, object],
+    source_plan: dict[str, object],
+) -> list[str]:
+    output = lens.get("output") if isinstance(lens.get("output"), dict) else {}
+    lens_questions = set(str(item) for item in output.get("question_ids", []))
+    plan_questions = {
+        str(item.get("question_id"))
+        for item in plan.get("questions", [])
+        if isinstance(item, dict)
+    }
+    errors: list[str] = []
+    if not plan_questions <= lens_questions:
+        errors.append("storm lens P1 must cover every planned research question")
+    lens_source_classes = set(str(item) for item in output.get("source_class_ids", []))
+    source_classes = {
+        str(item.get("class_id"))
+        for item in source_plan.get("source_classes", [])
+        if isinstance(item, dict)
+    }
+    if not source_classes <= lens_source_classes:
+        errors.append("storm lens P1 must cover every source class")
+    return errors
+
+
+def _validate_p2_against_research_state(
+    lens: dict[str, Any],
+    findings: list[dict[str, object]],
+    contradictions: dict[str, object],
+) -> list[str]:
+    output = lens.get("output") if isinstance(lens.get("output"), dict) else {}
+    finding_ids = {
+        str(finding.get("finding_id"))
+        for finding in findings
+        if isinstance(finding, dict)
+    }
+    conflict_claim_ids = set(str(item) for item in output.get("conflict_claim_ids", []))
+    errors = [
+        f"storm lens P2 references unknown finding {finding_id}"
+        for finding_id in output.get("finding_ids", [])
+        if str(finding_id) not in finding_ids
+    ]
+    for conflict in contradictions.get("conflicts", []):
+        if isinstance(conflict, dict):
+            claim_id = str(conflict.get("claim_id", ""))
+            if claim_id and claim_id not in conflict_claim_ids:
+                errors.append(f"contradiction {claim_id} is not represented in storm lens P2")
+    return errors
+
+
+def _validate_p3_against_evidence_inputs(
+    lens: dict[str, Any],
+    outline: dict[str, object],
+    claims: list[dict[str, object]],
+    findings: list[dict[str, object]],
+) -> list[str]:
+    output = lens.get("output") if isinstance(lens.get("output"), dict) else {}
+    lens_sections = set(str(item) for item in output.get("section_ids", []))
+    outline_sections = {
+        str(section.get("section_id"))
+        for section in outline.get("sections", [])
+        if isinstance(section, dict)
+    }
+    errors: list[str] = []
+    if not outline_sections <= lens_sections:
+        errors.append("storm lens P3 must cover every outline section")
+    lens_claims = set(str(item) for item in output.get("claim_ids", []))
+    material_claims = {
+        str(claim.get("claim_id"))
+        for claim in claims
+        if isinstance(claim, dict) and claim.get("material")
+    }
+    if not material_claims <= lens_claims:
+        errors.append("storm lens P3 must cover every material Claim")
+    finding_ids = {
+        str(finding.get("finding_id"))
+        for finding in findings
+        if isinstance(finding, dict)
+    }
+    for finding_id in output.get("finding_ids", []):
+        if str(finding_id) not in finding_ids:
+            errors.append(f"storm lens P3 references unknown finding {finding_id}")
+    return errors
+
+
+def _validate_p4_against_draft(
+    lens: dict[str, Any],
+    draft_path: Path,
+) -> list[str]:
+    output = lens.get("output") if isinstance(lens.get("output"), dict) else {}
+    if output.get("target_sha256") != sha256_file(draft_path):
+        return ["storm lens P4 target_sha256 must match draft report-v1.md"]
+    return []
+
+
+def _load_valid_lens_artifact(
+    path: Path,
+    *,
+    prompt_id: str,
+    expected_inputs: dict[str, str],
+) -> dict[str, Any]:
+    payload = load_json(path)
+    errors = validate_storm_lens_artifact(
+        payload, prompt_id=prompt_id, expected_inputs=expected_inputs
+    )
+    if errors:
+        raise CLIContractError("; ".join(dict.fromkeys(errors)))
+    return payload
+
+
+def _optional_lens_inputs(
+    layout: RunLayout,
+    generation: int,
+    prompt_id: str,
+    expected_inputs: dict[str, str],
+    *,
+    required: bool,
+) -> tuple[dict[str, Any] | None, dict[str, str]]:
+    path = _storm_lens_artifact_path(layout, generation, prompt_id)
+    if not path.is_file() or path.is_symlink():
+        if required:
+            raise StagePreconditionError(
+                f"strict STORM lens mode requires {_storm_lens_logical_path(prompt_id)}"
+            )
+        return None, {}
+    payload = _load_valid_lens_artifact(
+        path, prompt_id=prompt_id, expected_inputs=expected_inputs
+    )
+    return payload, {_storm_lens_logical_path(prompt_id): sha256_file(path)}
+
+
+def _write_storm_lens_artifact(
+    layout: RunLayout, generation: int, prompt_id: str, payload: dict[str, Any]
+) -> Path:
+    path = _storm_lens_artifact_path(layout, generation, prompt_id)
+    atomic_write_json(path, payload)
+    atomic_write_json(package_child(layout.root, f"current/research/{path.name}"), payload)
+    return path
+
+
+def _command_lens(args: argparse.Namespace, prompt_id: str) -> int:
+    layout = RunLayout(args.run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        raise StagePreconditionError("run has no generation")
+    package_hash = compute_skill_package_hash(ROOT)
+    if prompt_id == "P1":
+        verify_stage_precondition(layout, generation, Stage.PLAN, package_hash)
+        if layout.receipt(generation, Stage.PLAN).exists():
+            raise StagePreconditionError("cannot register P1 after plan receipt exists")
+    elif prompt_id in {"P2", "P3"}:
+        verify_stage_precondition(layout, generation, Stage.EVIDENCE, package_hash)
+        if layout.receipt(generation, Stage.EVIDENCE).exists():
+            raise StagePreconditionError(f"cannot register {prompt_id} after evidence receipt exists")
+    else:
+        verify_stage_precondition(layout, generation, Stage.REVIEW, package_hash)
+        if layout.receipt(generation, Stage.REVIEW).exists():
+            raise StagePreconditionError("cannot register P4 after review receipt exists")
+    expected_inputs = _storm_lens_expected_inputs(layout, generation, prompt_id)
+    payload = _load_valid_lens_artifact(
+        args.input_json, prompt_id=prompt_id, expected_inputs=expected_inputs
+    )
+    if prompt_id == "P4":
+        draft_path = layout.artifact(generation, "drafts/report-v1.md")
+        errors = _validate_p4_against_draft(payload, draft_path)
+        if errors:
+            raise CLIContractError("; ".join(errors))
+    path = _write_storm_lens_artifact(layout, generation, prompt_id, payload)
+    print(f"Registered STORM lens {prompt_id} artifact: {path}")
+    return EXIT_OK
+
+
+def command_lens_perspectives(args: argparse.Namespace) -> int:
+    return _command_lens(args, "P1")
+
+
+def command_lens_conflicts(args: argparse.Namespace) -> int:
+    return _command_lens(args, "P2")
+
+
+def command_lens_outline(args: argparse.Namespace) -> int:
+    return _command_lens(args, "P3")
+
+
+def command_lens_review(args: argparse.Namespace) -> int:
+    return _command_lens(args, "P4")
 
 
 def _is_full_external_dossier(brief: dict[str, object]) -> bool:
@@ -533,17 +893,28 @@ def command_plan(args: argparse.Namespace) -> int:
     tasklet_errors = validate_storm_tasklets(tasklets, plan, source_plan)
     if tasklet_errors:
         raise CLIContractError("; ".join(dict.fromkeys(tasklet_errors)))
+    p1_expected_inputs = _storm_lens_expected_inputs(layout, generation, "P1")
+    p1, p1_receipt_inputs = _optional_lens_inputs(
+        layout, generation, "P1", p1_expected_inputs,
+        required=_storm_lens_mode(brief) == "strict",
+    )
+    if p1:
+        p1_errors = _validate_p1_against_plan(p1, plan, source_plan)
+        if p1_errors:
+            raise CLIContractError("; ".join(dict.fromkeys(p1_errors)))
     plan_path, source_plan_path, tasklet_path = _promote_plan_artifacts(
         layout, generation, plan, source_plan, tasklets
     )
     brief_path = layout.generation_input(generation, "brief.json")
+    plan_inputs = {"inputs/brief.json": sha256_file(brief_path)}
+    plan_inputs.update(p1_receipt_inputs)
     commit_stage_receipt(
         layout,
         generation=generation,
         stage=Stage.PLAN,
         package_hash=package_hash,
         validator_hash=sha256_file(Path(__file__)),
-        input_artifacts={"inputs/brief.json": sha256_file(brief_path)},
+        input_artifacts=plan_inputs,
         output_paths=[plan_path, source_plan_path, tasklet_path],
     )
     _refresh_current_plan_view(layout, plan, source_plan, tasklets)
@@ -1078,6 +1449,29 @@ def command_evidence(args: argparse.Namespace) -> int:
                 findings, tasklets, sources, manifests, require_tasklet_coverage=True
             ))
             errors.extend(validate_findings_claim_links(claims, findings))
+    strict_lens = _storm_lens_mode(brief) == "strict"
+    p2_path = _storm_lens_artifact_path(layout, generation, "P2")
+    p3_path = _storm_lens_artifact_path(layout, generation, "P3")
+    p2_receipt_inputs: dict[str, str] = {}
+    p3_receipt_inputs: dict[str, str] = {}
+    if strict_lens or p2_path.is_file() or p3_path.is_file():
+        p2_expected_inputs = _storm_lens_expected_inputs(layout, generation, "P2")
+        p2, p2_receipt_inputs = _optional_lens_inputs(
+            layout, generation, "P2", p2_expected_inputs, required=strict_lens,
+        )
+        if p2:
+            if not findings:
+                findings = load_jsonl(findings_path)
+            errors.extend(_validate_p2_against_research_state(p2, findings, contradictions))
+    if strict_lens or p3_path.is_file():
+        p3_expected_inputs = _storm_lens_expected_inputs(layout, generation, "P3")
+        p3, p3_receipt_inputs = _optional_lens_inputs(
+            layout, generation, "P3", p3_expected_inputs, required=strict_lens,
+        )
+        if p3:
+            if not findings:
+                findings = load_jsonl(findings_path)
+            errors.extend(_validate_p3_against_evidence_inputs(p3, outline, claims, findings))
     if brief.get("depth_level") == "full_dossier":
         material_claims = [claim for claim in claims if claim.get("material")]
         sections = outline.get("sections") if isinstance(outline.get("sections"), list) else []
@@ -1101,6 +1495,8 @@ def command_evidence(args: argparse.Namespace) -> int:
         evidence_inputs["artifacts/research/storm-findings-pool.jsonl"] = sha256_file(findings_path)
     if coverage_path.is_file() and not coverage_path.is_symlink():
         evidence_inputs["artifacts/research/finding-coverage.json"] = sha256_file(coverage_path)
+    evidence_inputs.update(p2_receipt_inputs)
+    evidence_inputs.update(p3_receipt_inputs)
     commit_stage_receipt(
         layout,
         generation=generation,
@@ -1471,6 +1867,16 @@ def command_review(args: argparse.Namespace) -> int:
         revision_map,
         [*claim_reviews, *paragraph_reviews, *fact_checks, *draft_audits],
     ))
+    p4_path = _storm_lens_artifact_path(layout, generation, "P4")
+    p4_receipt_inputs: dict[str, str] = {}
+    if _storm_lens_mode(brief) == "strict" or p4_path.is_file():
+        p4_expected_inputs = _storm_lens_expected_inputs(layout, generation, "P4")
+        p4, p4_receipt_inputs = _optional_lens_inputs(
+            layout, generation, "P4", p4_expected_inputs,
+            required=_storm_lens_mode(brief) == "strict",
+        )
+        if p4:
+            errors.extend(_validate_p4_against_draft(p4, draft_path))
     if errors:
         raise ReviewGateError("; ".join(dict.fromkeys(errors)))
     reviewer_ids = sorted({
@@ -1498,18 +1904,20 @@ def command_review(args: argparse.Namespace) -> int:
     outputs = _promote_review_artifacts(
         layout, generation, report, paragraph_map, revision_map, peer_review
     )
+    review_inputs = {
+        "artifacts/drafts/report-v1.md": sha256_file(draft_path),
+        "artifacts/research/paragraph-map.jsonl": sha256_file(draft_map_path),
+        "artifacts/research/claim-evidence-ledger.jsonl": sha256_file(claim_path),
+        "artifacts/research/source-register.jsonl": sha256_file(source_path),
+    }
+    review_inputs.update(p4_receipt_inputs)
     commit_stage_receipt(
         layout,
         generation=generation,
         stage=Stage.REVIEW,
         package_hash=package_hash,
         validator_hash=sha256_file(Path(__file__)),
-        input_artifacts={
-            "artifacts/drafts/report-v1.md": sha256_file(draft_path),
-            "artifacts/research/paragraph-map.jsonl": sha256_file(draft_map_path),
-            "artifacts/research/claim-evidence-ledger.jsonl": sha256_file(claim_path),
-            "artifacts/research/source-register.jsonl": sha256_file(source_path),
-        },
+        input_artifacts=review_inputs,
         output_paths=outputs,
     )
     atomic_write_text(package_child(layout.root, "current/report.md"), report)
@@ -1978,6 +2386,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--max-age-days", type=int, default=365)
     init.add_argument("--retrieval-mode", choices=("host", "provider", "closed_corpus"), default="host")
     init.add_argument("--output-mode", choices=("full", "reduced"), default="full")
+    init.add_argument("--storm-lens-mode", choices=("advisory", "strict"), default="advisory")
     init.add_argument("--uncertainty-tolerance", choices=("low", "medium", "high"), default="low")
     init.add_argument("--high-stakes", action="store_true")
     init.add_argument("--user-material", action="append", default=[])
@@ -1990,6 +2399,11 @@ def build_parser() -> argparse.ArgumentParser:
     plan.add_argument("--source-plan-json", type=Path, required=True)
     plan.set_defaults(handler=command_plan)
 
+    lens_perspectives = subparsers.add_parser("lens-perspectives", help="Register Prompt 1 perspective artifact before plan.")
+    lens_perspectives.add_argument("run_dir", type=Path)
+    lens_perspectives.add_argument("--input-json", type=Path, required=True)
+    lens_perspectives.set_defaults(handler=command_lens_perspectives)
+
     ingest = subparsers.add_parser("ingest", help="Validate and commit captured retrieval evidence.")
     ingest.add_argument("run_dir", type=Path)
     ingest.add_argument("--input-jsonl", type=Path, required=True)
@@ -1999,6 +2413,16 @@ def build_parser() -> argparse.ArgumentParser:
     findings.add_argument("run_dir", type=Path)
     findings.add_argument("--findings-jsonl", type=Path, required=True)
     findings.set_defaults(handler=command_findings)
+
+    lens_conflicts = subparsers.add_parser("lens-conflicts", help="Register Prompt 2 conflict artifact after findings.")
+    lens_conflicts.add_argument("run_dir", type=Path)
+    lens_conflicts.add_argument("--input-json", type=Path, required=True)
+    lens_conflicts.set_defaults(handler=command_lens_conflicts)
+
+    lens_outline = subparsers.add_parser("lens-outline", help="Register Prompt 3 outline artifact after conflicts.")
+    lens_outline.add_argument("run_dir", type=Path)
+    lens_outline.add_argument("--input-json", type=Path, required=True)
+    lens_outline.set_defaults(handler=command_lens_outline)
 
     evidence = subparsers.add_parser("evidence", help="Validate and commit Claims and report outline.")
     evidence.add_argument("run_dir", type=Path)
@@ -2027,6 +2451,11 @@ def build_parser() -> argparse.ArgumentParser:
     review.add_argument("--revised-paragraph-map-jsonl", type=Path, required=True)
     review.add_argument("--revision-map", type=Path, required=True)
     review.set_defaults(handler=command_review)
+
+    lens_review = subparsers.add_parser("lens-review", help="Register Prompt 4 red-team artifact after draft.")
+    lens_review.add_argument("run_dir", type=Path)
+    lens_review.add_argument("--input-json", type=Path, required=True)
+    lens_review.set_defaults(handler=command_lens_review)
 
     render = subparsers.add_parser("render", help="Render canonical Markdown to governed formats.")
     render.add_argument("run_dir", type=Path)

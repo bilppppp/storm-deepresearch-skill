@@ -14,8 +14,10 @@ from tests.governed_fixtures import (
     valid_report_outline_v2,
     valid_research_plan_v2,
     valid_source_plan,
+    valid_storm_lens_artifact,
     valid_uncertainty_ledger_v2,
 )
+from scripts.harness_io import sha256_file
 from scripts.report_traceability import citation_index, extract_paragraphs
 
 
@@ -57,6 +59,23 @@ class EvidenceStageTests(unittest.TestCase):
             ):
                 self.assertTrue((research / name).is_file(), name)
             self.assertTrue((run / "state/generations/g0001/receipts/30-evidence.json").is_file())
+
+    def test_strict_lens_mode_requires_p2_and_p3_before_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.retrieved_run(workspace, strict_lens=True)
+            inputs = self.write_evidence_inputs(run, workspace)
+            result = self.invoke_evidence(run, inputs)
+            self.assertEqual(result.returncode, 8, result.stdout + result.stderr)
+            self.assertIn("storm-lens-conflicts.json", result.stderr)
+
+            self.register_lens_conflicts(run, workspace)
+            self.register_lens_outline(run, workspace)
+            result = self.invoke_evidence(run, inputs)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            receipt = json.loads((run / "state/generations/g0001/receipts/30-evidence.json").read_text(encoding="utf-8"))
+            self.assertIn("artifacts/research/storm-lens-conflicts.json", receipt["input_artifacts"])
+            self.assertIn("artifacts/research/storm-lens-outline.json", receipt["input_artifacts"])
 
     def test_evidence_requires_findings_pool_for_full_dossier(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -261,8 +280,14 @@ class EvidenceStageTests(unittest.TestCase):
         path.write_text("".join(json.dumps(item) + "\n" for item in findings), encoding="utf-8")
         return path
 
-    def retrieved_run(self, workspace: Path, *, register_findings: bool = True) -> Path:
-        run = self.planned_run(workspace)
+    def retrieved_run(
+        self,
+        workspace: Path,
+        *,
+        register_findings: bool = True,
+        strict_lens: bool = False,
+    ) -> Path:
+        run = self.planned_run(workspace, strict_lens=strict_lens)
         cache = run / "work/generations/g0001/evidence-cache"
         records = []
         for index in range(1, 11):
@@ -281,15 +306,18 @@ class EvidenceStageTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return run
 
-    def evidenced_run(self, workspace: Path) -> Path:
-        run = self.retrieved_run(workspace)
+    def evidenced_run(self, workspace: Path, *, strict_lens: bool = False) -> Path:
+        run = self.retrieved_run(workspace, strict_lens=strict_lens)
+        if strict_lens:
+            self.register_lens_conflicts(run, workspace)
+            self.register_lens_outline(run, workspace)
         inputs = self.write_evidence_inputs(run, workspace)
         result = self.invoke_evidence(run, inputs)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return run
 
-    def drafted_run(self, workspace: Path) -> Path:
-        run = self.evidenced_run(workspace)
+    def drafted_run(self, workspace: Path, *, strict_lens: bool = False) -> Path:
+        run = self.evidenced_run(workspace, strict_lens=strict_lens)
         draft, mapping = self.write_draft_inputs(run, workspace)
         result = self.invoke(
             "draft", str(run), "--draft-md", str(draft),
@@ -334,24 +362,69 @@ class EvidenceStageTests(unittest.TestCase):
         mapping.write_text("".join(json.dumps(item) + "\n" for item in records), encoding="utf-8")
         return draft, mapping
 
-    def planned_run(self, workspace: Path) -> Path:
-        result = self.invoke(
+    def planned_run(self, workspace: Path, *, strict_lens: bool = False) -> Path:
+        init_args = [
             "init", "--topic", "Governed research", "--question",
             "What evidence supports the conclusion?", "--workspace", str(workspace),
             "--output", "test-run",
-        )
+        ]
+        if strict_lens:
+            init_args.extend(["--storm-lens-mode", "strict"])
+        result = self.invoke(*init_args)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         run = workspace / "output/storm-deepresearch/test-run"
         plan = workspace / "research-plan.json"
         source_plan = workspace / "source-plan.json"
         plan.write_text(json.dumps(valid_research_plan_v2()), encoding="utf-8")
         source_plan.write_text(json.dumps(valid_source_plan()), encoding="utf-8")
+        if strict_lens:
+            self.register_lens_perspectives(run, workspace)
         result = self.invoke(
             "plan", str(run), "--plan-json", str(plan),
             "--source-plan-json", str(source_plan),
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return run
+
+    def prompt_pack_hash(self) -> str:
+        return sha256_file(ROOT / "references/storm-lens-prompt-pack.md")
+
+    def register_lens_perspectives(self, run: Path, workspace: Path) -> None:
+        brief = run / "work/generations/g0001/inputs/brief.json"
+        lens = workspace / "storm-lens-perspectives.json"
+        lens.write_text(json.dumps(valid_storm_lens_artifact(
+            "P1", self.prompt_pack_hash(), {"inputs/brief.json": sha256_file(brief)}
+        )), encoding="utf-8")
+        result = self.invoke("lens-perspectives", str(run), "--input-json", str(lens))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def register_lens_conflicts(self, run: Path, workspace: Path) -> None:
+        artifacts = run / "work/generations/g0001/artifacts"
+        inputs = {
+            "artifacts/research/storm-findings-pool.jsonl": sha256_file(artifacts / "research/storm-findings-pool.jsonl"),
+            "artifacts/research/finding-coverage.json": sha256_file(artifacts / "research/finding-coverage.json"),
+            "artifacts/research/source-register.jsonl": sha256_file(artifacts / "research/source-register.jsonl"),
+            "artifacts/research/retrieval-manifest.jsonl": sha256_file(artifacts / "research/retrieval-manifest.jsonl"),
+        }
+        lens = workspace / "storm-lens-conflicts.json"
+        lens.write_text(json.dumps(valid_storm_lens_artifact(
+            "P2", self.prompt_pack_hash(), inputs
+        )), encoding="utf-8")
+        result = self.invoke("lens-conflicts", str(run), "--input-json", str(lens))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def register_lens_outline(self, run: Path, workspace: Path) -> None:
+        artifacts = run / "work/generations/g0001/artifacts"
+        inputs = {
+            "artifacts/research/storm-findings-pool.jsonl": sha256_file(artifacts / "research/storm-findings-pool.jsonl"),
+            "artifacts/research/storm-lens-conflicts.json": sha256_file(artifacts / "research/storm-lens-conflicts.json"),
+        }
+        lens = workspace / "storm-lens-outline.json"
+        lens.write_text(json.dumps(valid_storm_lens_artifact(
+            "P3", self.prompt_pack_hash(), inputs
+        )), encoding="utf-8")
+        result = self.invoke("lens-outline", str(run), "--input-json", str(lens))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def invoke(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(

@@ -90,7 +90,18 @@ RENDER_ARTIFACTS = {
 OPTIONAL_ARTIFACTS = {
     "research/finding-coverage.json",
     "research/storm-findings-pool.jsonl",
+    "research/storm-lens-perspectives.json",
+    "research/storm-lens-conflicts.json",
+    "research/storm-lens-outline.json",
+    "research/storm-lens-red-team.json",
 }
+STORM_LENS_ARTIFACTS = {
+    "P1": ("research/storm-lens-perspectives.json", "before_retrieval"),
+    "P2": ("research/storm-lens-conflicts.json", "after_findings"),
+    "P3": ("research/storm-lens-outline.json", "after_conflicts"),
+    "P4": ("research/storm-lens-red-team.json", "after_draft"),
+}
+STORM_LENS_PROMPT_PACK = ROOT / "references/storm-lens-prompt-pack.md"
 LOCAL_PATH_PATTERNS = (
     re.compile(r"/Users/[^\s<]+"),
     re.compile(r"/mnt/data/[^\s<]+"),
@@ -422,6 +433,132 @@ def _validate_conflict_reviews(
     return errors
 
 
+def _validate_lens_artifact(
+    payload: dict[str, Any], *, prompt_id: str
+) -> list[str]:
+    fields = {
+        "schema_version", "prompt_id", "prompt_pack_sha256", "phase",
+        "input_artifacts", "output", "created_at",
+    }
+    errors: list[str] = []
+    if set(payload) != fields:
+        return [f"storm lens {prompt_id} has invalid top-level fields"]
+    if payload.get("schema_version") != "2.0":
+        errors.append(f"storm lens {prompt_id} schema_version must be 2.0")
+    if payload.get("prompt_id") != prompt_id:
+        errors.append(f"storm lens {prompt_id} prompt_id mismatch")
+    if payload.get("phase") != STORM_LENS_ARTIFACTS[prompt_id][1]:
+        errors.append(f"storm lens {prompt_id} phase mismatch")
+    if payload.get("prompt_pack_sha256") != sha256_file(STORM_LENS_PROMPT_PACK):
+        errors.append(f"storm lens {prompt_id} prompt pack hash mismatch")
+    if not isinstance(payload.get("input_artifacts"), dict):
+        errors.append(f"storm lens {prompt_id} input_artifacts must be an object")
+    if not isinstance(payload.get("output"), dict):
+        errors.append(f"storm lens {prompt_id} output must be an object")
+    return errors
+
+
+def _receipt_input_keys(artifacts: Path, receipt_name: str) -> set[str]:
+    run_root = artifacts.parents[3]
+    generation_name = artifacts.parent.name
+    receipt = load_json(run_root / f"state/generations/{generation_name}/receipts/{receipt_name}")
+    inputs = receipt.get("input_artifacts")
+    return set(inputs) if isinstance(inputs, dict) else set()
+
+
+def _validate_storm_lens_traceability(
+    artifacts: Path,
+    brief: dict[str, Any],
+    plan: dict[str, Any],
+    outline: dict[str, Any],
+    claims: list[dict[str, Any]],
+    findings: list[dict[str, Any]],
+    contradictions: dict[str, Any],
+) -> list[str]:
+    if brief.get("storm_lens_mode", "advisory") != "strict":
+        return []
+    errors: list[str] = []
+    lens_payloads: dict[str, dict[str, Any]] = {}
+    for prompt_id, (relative, _phase) in STORM_LENS_ARTIFACTS.items():
+        path = artifacts / relative
+        if not path.is_file() or path.is_symlink():
+            errors.append(f"strict STORM lens mode requires {relative}")
+            continue
+        payload = load_json(path)
+        errors.extend(_validate_lens_artifact(payload, prompt_id=prompt_id))
+        lens_payloads[prompt_id] = payload
+    if errors:
+        return errors
+
+    receipt_expectations = {
+        "10-plan.json": "artifacts/research/storm-lens-perspectives.json",
+        "30-evidence.json": "artifacts/research/storm-lens-conflicts.json",
+        "30-evidence.json#outline": "artifacts/research/storm-lens-outline.json",
+        "50-review.json": "artifacts/research/storm-lens-red-team.json",
+    }
+    plan_inputs = _receipt_input_keys(artifacts, "10-plan.json")
+    evidence_inputs = _receipt_input_keys(artifacts, "30-evidence.json")
+    review_inputs = _receipt_input_keys(artifacts, "50-review.json")
+    if receipt_expectations["10-plan.json"] not in plan_inputs:
+        errors.append("plan receipt does not bind storm-lens-perspectives.json")
+    if receipt_expectations["30-evidence.json"] not in evidence_inputs:
+        errors.append("evidence receipt does not bind storm-lens-conflicts.json")
+    if receipt_expectations["30-evidence.json#outline"] not in evidence_inputs:
+        errors.append("evidence receipt does not bind storm-lens-outline.json")
+    if receipt_expectations["50-review.json"] not in review_inputs:
+        errors.append("review receipt does not bind storm-lens-red-team.json")
+
+    p1_output = lens_payloads["P1"]["output"]
+    p1_questions = set(str(item) for item in p1_output.get("question_ids", []))
+    plan_questions = {
+        str(item.get("question_id"))
+        for item in plan.get("questions", [])
+        if isinstance(item, dict)
+    }
+    if not plan_questions <= p1_questions:
+        errors.append("storm lens P1 does not cover all planned questions")
+
+    p2_output = lens_payloads["P2"]["output"]
+    finding_ids = {
+        str(finding.get("finding_id"))
+        for finding in findings
+        if isinstance(finding, dict)
+    }
+    unknown_findings = sorted(set(str(item) for item in p2_output.get("finding_ids", [])) - finding_ids)
+    if unknown_findings:
+        errors.append("storm lens P2 references unknown findings: " + ", ".join(unknown_findings))
+    p2_conflict_claims = set(str(item) for item in p2_output.get("conflict_claim_ids", []))
+    for conflict in contradictions.get("conflicts", []):
+        if isinstance(conflict, dict) and str(conflict.get("claim_id", "")) not in p2_conflict_claims:
+            errors.append(f"contradiction {conflict.get('claim_id')} is absent from storm lens P2")
+
+    p3_output = lens_payloads["P3"]["output"]
+    p3_sections = set(str(item) for item in p3_output.get("section_ids", []))
+    outline_sections = {
+        str(section.get("section_id"))
+        for section in outline.get("sections", [])
+        if isinstance(section, dict)
+    }
+    if not outline_sections <= p3_sections:
+        errors.append("storm lens P3 does not cover all outline sections")
+    p3_claims = set(str(item) for item in p3_output.get("claim_ids", []))
+    material_claims = {
+        str(claim.get("claim_id"))
+        for claim in claims
+        if isinstance(claim, dict) and claim.get("material")
+    }
+    if not material_claims <= p3_claims:
+        errors.append("storm lens P3 does not cover all material Claims")
+
+    p4_output = lens_payloads["P4"]["output"]
+    draft_path = artifacts / "drafts/report-v1.md"
+    if p4_output.get("target_kind") != "draft":
+        errors.append("storm lens P4 target_kind must be draft")
+    if p4_output.get("target_sha256") != sha256_file(draft_path):
+        errors.append("storm lens P4 target hash does not match draft report-v1.md")
+    return errors
+
+
 def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
     checks: list[Check] = []
     brief = load_json(brief_path)
@@ -486,6 +623,18 @@ def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
         checks, "evidence-closure", evidence_errors, "artifacts/research/claim-evidence-ledger.jsonl",
         "material Claims, sources, snapshots, contradictions, and outline are closed",
         "repair the Claim-Evidence ledger and rerun evidence", EXIT_EVIDENCE,
+    )
+
+    add_check(
+        checks,
+        "storm-lens-phase-order",
+        _validate_storm_lens_traceability(
+            artifacts, brief, plan, outline, claims, findings, contradictions
+        ),
+        "artifacts/research/storm-lens-*.json; receipts/",
+        "STORM lens artifacts are phase-bound or advisory mode is explicit",
+        "register lens artifacts at the required phase and rerun the dependent stage",
+        EXIT_STAGE,
     )
 
     traceability_errors = validate_report_traceability(report, paragraph_map, claims, sources)

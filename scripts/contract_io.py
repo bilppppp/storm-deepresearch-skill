@@ -23,7 +23,7 @@ BRIEF_REQUIRED_FIELDS = {
     "freshness_policy", "retrieval_mode", "output_mode", "uncertainty_tolerance",
     "report_language", "length_contract", "high_stakes", "user_materials", "assumptions",
 }
-BRIEF_FIELDS = BRIEF_REQUIRED_FIELDS | {"briefing_reason"}
+BRIEF_FIELDS = BRIEF_REQUIRED_FIELDS | {"briefing_reason", "storm_lens_mode"}
 RESEARCH_PLAN_FIELDS = {
     "schema_version", "status", "perspectives", "questions", "source_priorities",
     "stopping_conditions", "retrieval_budget",
@@ -231,6 +231,8 @@ def validate_brief(data: dict[str, Any]) -> list[str]:
         errors.append("full_dossier requires full output")
     if data.get("uncertainty_tolerance") not in {"low", "medium", "high"}:
         errors.append("uncertainty_tolerance is invalid")
+    if data.get("storm_lens_mode", "advisory") not in {"advisory", "strict"}:
+        errors.append("storm_lens_mode is invalid")
     if not isinstance(data.get("high_stakes"), bool):
         errors.append("high_stakes must be boolean")
     freshness = data.get("freshness_policy")

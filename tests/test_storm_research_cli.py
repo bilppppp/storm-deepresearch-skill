@@ -11,7 +11,9 @@ from tests.governed_fixtures import (
     valid_adapter_record,
     valid_research_plan_v2,
     valid_source_plan,
+    valid_storm_lens_artifact,
 )
+from scripts.harness_io import sha256_file
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -111,6 +113,42 @@ class StormResearchCLITests(unittest.TestCase):
             self.assertEqual((current / "research-plan.json").read_bytes(), (artifacts / "research-plan.json").read_bytes())
             tasklets = [json.loads(line) for line in (artifacts / "storm-tasklets.jsonl").read_text(encoding="utf-8").splitlines()]
             self.assertEqual({item["question_id"] for item in tasklets}, {f"Q{i:03d}" for i in range(1, 11)})
+
+    def test_strict_lens_mode_requires_p1_before_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            result = self.invoke_init(workspace, "--storm-lens-mode", "strict")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            run = workspace / "output" / "storm-deepresearch" / "test-run"
+            plan_path, source_plan_path = self.write_plans(workspace)
+            result = self.invoke(
+                "plan", str(run), "--plan-json", str(plan_path),
+                "--source-plan-json", str(source_plan_path),
+            )
+            self.assertEqual(result.returncode, 8, result.stdout + result.stderr)
+            self.assertIn("storm-lens-perspectives.json", result.stderr)
+
+            brief = run / "work/generations/g0001/inputs/brief.json"
+            lens = workspace / "storm-lens-perspectives.json"
+            lens.write_text(json.dumps(valid_storm_lens_artifact(
+                "P1",
+                sha256_file(ROOT / "references/storm-lens-prompt-pack.md"),
+                {"inputs/brief.json": sha256_file(brief)},
+            )), encoding="utf-8")
+            result = self.invoke(
+                "lens-perspectives", str(run), "--input-json", str(lens),
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            result = self.invoke(
+                "plan", str(run), "--plan-json", str(plan_path),
+                "--source-plan-json", str(source_plan_path),
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            receipt = json.loads((run / "state/generations/g0001/receipts/10-plan.json").read_text(encoding="utf-8"))
+            self.assertIn(
+                "artifacts/research/storm-lens-perspectives.json",
+                receipt["input_artifacts"],
+            )
 
     def test_plan_rejects_full_dossier_closed_transcript_only_source_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

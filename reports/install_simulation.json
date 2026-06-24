@@ -8,7 +8,7 @@
   "installed_skill_dir": "$SKILL_ROOT/dist/install-simulation/simulate-storm-deepresearch-skill/storm-deepresearch-skill",
   "summary": {
     "archive_present": true,
-    "archive_entry_count": 290,
+    "archive_entry_count": 291,
     "archive_extracted": true,
     "entrypoint_loaded": true,
     "manifest_loaded": true,

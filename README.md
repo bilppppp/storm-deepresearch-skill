@@ -81,9 +81,17 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 
 中文 full dossier 默认为 `8000–10000` characters，英文为 `3500–7000` words。只有用户明确要求简报时才使用 `--depth-level briefing`，并且必须同时提供 `--briefing-reason "用户明确要求简报的证据"`；宿主默认降级到 briefing 会在 init 阶段失败。
 
+默认 `storm_lens_mode` 是 `advisory`：必须遵循 STORM Lens Prompt Pack，但不额外要求 lens artifacts。需要证明四个 STORM prompt 按阶段发生时，在 init 加 `--storm-lens-mode strict`；strict run 会要求四个 `storm-lens-*.json` helper artifact，并把它们绑定进后续 receipts。
+
 ### 2. Plan
 
 宿主或 agent 先生成 `research-plan.json` 和 `source-plan.json`，再提交：
+
+```bash
+# strict mode only: register Prompt 1 artifact before plan
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" lens-perspectives "$RUN_DIR" \
+  --input-json storm-lens-perspectives.json
+```
 
 ```bash
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" plan "$RUN_DIR" \
@@ -116,6 +124,16 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 ```
 
 full dossier 要求每个 `storm-tasklets.jsonl` 里的 tasklet 至少有一个 `usable` finding。后续 evidence 阶段会要求材料性 Claim 链接到 usable finding，且 finding 与 Claim 必须共享 supporting source。
+
+strict mode 下，findings 后必须先注册 Prompt 2 和 Prompt 3 artifacts，不能把 contradictions、uncertainties、outline 和 claims 一次性批处理进 evidence：
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" lens-conflicts "$RUN_DIR" \
+  --input-json storm-lens-conflicts.json
+
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" lens-outline "$RUN_DIR" \
+  --input-json storm-lens-outline.json
+```
 
 ### 5. Evidence
 
@@ -161,6 +179,12 @@ full dossier 要求每个 `storm-tasklets.jsonl` 里的 tasklet 至少有一个 
 ### 7. Review
 
 独立审阅者输出 claim reviews、paragraph audit、修订文档和 revision map。full dossier 还必须提供 fact checks、conflict reviews 和 draft audit：
+
+```bash
+# strict mode only: register Prompt 4 artifact after draft and before review
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" lens-review "$RUN_DIR" \
+  --input-json storm-lens-red-team.json
+```
 
 ```bash
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" review "$RUN_DIR" \
@@ -241,6 +265,7 @@ full dossier 要求每个 `storm-tasklets.jsonl` 里的 tasklet 至少有一个 
 - `work/generations/g0001/inputs/brief.json`：范围、时效、检索和输出模式。
 - `work/generations/g0001/artifacts/research/research-plan.json`：视角、问题、预算和停止条件。
 - `work/generations/g0001/artifacts/research/storm-tasklets.jsonl`：每个 STORM 问题对应的执行单元。
+- `work/generations/g0001/artifacts/research/storm-lens-*.json`：strict mode 下四个 STORM prompt 的 phase-bound helper artifact。
 - `work/generations/g0001/artifacts/research/storm-findings-pool.jsonl`：可用发现、来源、locator 和候选 Claim 绑定。
 - `work/generations/g0001/artifacts/research/finding-coverage.json`：tasklet 与 finding 覆盖摘要。
 - `work/generations/g0001/artifacts/research/report-outline.json`：问题/Claim 到章节及篇幅预算的闭环。

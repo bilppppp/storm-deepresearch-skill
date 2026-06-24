@@ -5,6 +5,8 @@ Create `brief.json`. Classify the user packet as thin, moderate, or rich. User m
 
 In 1.1, this is the `storm_research.py init` stage. The authoritative brief is `work/generations/g0001/inputs/brief.json`; root `brief.json` is a view. A changed view cannot advance the receipt chain.
 
+`storm_lens_mode` defaults to `advisory`: the workflow must follow the prompt pack, but the harness does not require separate lens artifacts. Use `--storm-lens-mode strict` when the run must prove that Prompt 1, Prompt 2, Prompt 3, and Prompt 4 ran at their required phase.
+
 ## Phase 1 — Build a source plan
 List expected source classes before searching. For each source class, define what it can and cannot prove.
 
@@ -40,6 +42,8 @@ Optional perspectives:
 
 This operationalizes the article's first prompt. Perspectives are question generators, not sources. Do not ask an imagined persona to provide "its strongest evidence" from memory; retrieve evidence for the persona's questions.
 
+In strict mode, register `research/storm-lens-perspectives.json` with `lens-perspectives` before `plan`. The plan receipt must bind that artifact.
+
 ## Phase 3 — Research through tasklets
 For each perspective, generate at least two concrete research questions for a full dossier. Search for answers. Every question records `planned`, `answered`, `unresolved`, or `out_of_scope`; answered questions link claim IDs, while unresolved questions enter the uncertainty ledger.
 
@@ -61,15 +65,21 @@ Evidence strength guidance:
 ## Phase 5 — Map contradictions
 Run the evidence-grounded contradiction prompt from [storm-lens-prompt-pack.md](storm-lens-prompt-pack.md) after first findings. Contradictions are not defects. They are research findings. Preserve them with context. This operationalizes the article's second prompt, but reject the shortcut "all perspectives agree, therefore true": consensus still needs evidence.
 
+In strict mode, register `research/storm-lens-conflicts.json` with `lens-conflicts` after findings and before evidence. The evidence receipt must bind that artifact.
+
 ## Phase 6 — Build the synthesis outline
 Run the synthesis outline prompt only after findings, contradiction mapping, and any resolver search. Complete `research-plan.report_outline` before prose. Allocate the full length budget across distinct sections. Each section must resolve named perspective questions, use material claim IDs, and specify evidence-led expansion elements. This is the article's third prompt turned into an auditable synthesis plan rather than a short briefing.
+
+In strict mode, register `research/storm-lens-outline.json` with `lens-outline` after `lens-conflicts` and before evidence. The evidence receipt must bind that artifact.
 
 ## Phase 7 — Peer review
 Run the red-team prompt after `draft`. Score finding confidence, identify the weakest link, check source and perspective dominance, add a missing perspective where useful, and record required revisions. This operationalizes the article's fourth prompt. Self-scores guide review; they are not evidence.
 
 Full dossiers require three explicit independent review tracks in addition to the base semantic review: fact checks for material Claims, conflict review for the contradiction ledger, and draft audit for paragraph assertions.
 
+In strict mode, register `research/storm-lens-red-team.json` with `lens-review` after draft and before review. The review receipt must bind that artifact and the artifact must target the current draft hash.
+
 ## Phase 8 — Export and validate
 Generate final Markdown, HTML, and PDF-ready outputs. Run validation.
 
-In governed runs, every major phase after init maps to a stage receipt: `plan`, `ingest`, `evidence`, `draft`, `review`, `render`, `validate`, and optionally `release`. `findings` and `repair-plan` are governed helper commands: findings are bound into the evidence receipt, and repair-plan creates current repair actions without writing a receipt. If any phase has missing evidence, do not continue to the next stage. Use `status`, `explain`, `repair-plan`, and `retry` to inspect or repair the chain; use `amend` only to create a new generation.
+In governed runs, every major phase after init maps to a stage receipt: `plan`, `ingest`, `evidence`, `draft`, `review`, `render`, `validate`, and optionally `release`. `findings`, `lens-perspectives`, `lens-conflicts`, `lens-outline`, `lens-review`, and `repair-plan` are governed helper commands: findings and strict lens artifacts are bound into the dependent stage receipts, and repair-plan creates current repair actions without writing a receipt. If any phase has missing evidence, do not continue to the next stage. Use `status`, `explain`, `repair-plan`, and `retry` to inspect or repair the chain; use `amend` only to create a new generation.
