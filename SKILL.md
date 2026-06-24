@@ -1,49 +1,45 @@
 ---
 name: storm-deepresearch-skill
-description: Use for source-grounded deep research with STORM questions, claim-evidence ledgers, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, briefs, and supplied corpora. Do not use for quick lookup, role-play, simple summary, or short answers.
+description: Use for source-grounded deep research with governed STORM tasklets, findings, claim ledgers, receipts, and Markdown/HTML/PDF release. Trigger for dossiers, reviews, briefs, and corpora. Do not use for lookup, role-play, summary, or short answers.
 ---
 
 # STORM DeepResearch
 
-Governed research harness: perspectives ask; ledgers prove; receipts gate.
+Perspectives ask; findings pool; ledgers prove.
 
 ## Router Rules
 
-- Default Chinese dossiers to `8000–10000` body characters; shorten only for explicit `briefing` or evidence boundary.
-- Initialize fresh workspace run; reject existing or escaping paths.
-- Use `closed_corpus` for supplied-only material; otherwise approved host search.
-- Advance only through `scripts/storm_research.py`; root files are views.
-- Put large text in files/JSONL; guard host runners with `scripts/agent_run_guard.py`.
-- Stop on `missing evidence`, broken receipt chain, or absent approval.
+- Default Chinese full dossiers to `8000–10000` body characters; `briefing` must be explicit.
+- Initialize a fresh safe output path; reject existing, escaping, or symlinked targets.
+- Use `closed_corpus` for supplied material; otherwise use approved host search.
+- Run `scripts/storm_research.py`; stop on missing findings/evidence, broken receipts, or absent approval.
 
 ## Compact Workflow
 
-1. `init`: normalize brief and length; create generation `g0001`.
-2. `plan`: generate STORM questions, source plan, and `report_outline`.
-3. `ingest`: accept only approved retrieval records; memory is not evidence.
+1. `init`: normalize brief and create generation `g0001`.
+2. `plan`: generate STORM questions, source plan, tasklets, and `report_outline`.
+3. `ingest` + `findings`: accept retrieval records; register usable discoveries before Claims close.
 4. `evidence`: close source and Claim ledgers under [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policy.
-5. `draft` and `review`: bind paragraphs, citations, Claims, and semantic review.
-6. `render`, `validate`, `release`: derive formats, verify gates, require Trust and approval.
+5. `draft` + `review`: bind paragraphs, citations, Claims, fact checks, conflict review, draft audit, and semantic review.
+6. `render` + `validate` + `release`: derive formats, use `repair-plan` on failure, then require Trust and approval.
 
 ## Decision Points
 
-- Input length changes retrieval, not report depth; use `bounded_partial` instead of padding.
-- Full dossiers cannot be amended to reduced output after render failure.
-- `amend` creates a new generation. `retry`, `status`, and `explain` inspect receipts; they do not bypass them.
+- Input length changes retrieval, not report depth; use `bounded_partial`, not padding.
+- Full dossiers cannot be downgraded to reduced output after render failure.
+- `amend` creates a new generation; `retry`, `status`, and `explain` inspect receipts.
 
 ## Output Contract
 
-Produce brief, source plan, ledgers, semantic review, Markdown, HTML, full-mode PDF, validation receipt, and allowlisted release. Follow [writing](references/report-writing.md), [export](references/export-workflow.md), [gates](references/quality-gates.md), and [output paths](references/output-path-policy.md).
+Produce brief, plans, tasklets, findings, ledgers, review, Markdown, HTML, full-mode PDF, validation receipt, optional repair plan, and allowlisted release. Follow [workflow](references/research-protocol.md), [writing](references/report-writing.md), [export](references/export-workflow.md), [gates](references/quality-gates.md), and [output paths](references/output-path-policy.md).
 
 ## Failure Policy
 
-- Never invent citations, quotations, or metrics.
+- Never invent citations, quotes, metrics, or full-dossier findings.
 - Never reinitialize or truncate ledgers; only derived artifacts are replaceable.
 - Never edit receipts or validators to pass.
-- If `agent_run_guard.py` fails, repair the runner or inputs before retrying.
 - Fail non-zero with repair details; release requires Yao Trust, registry match, re-verification, and approval.
 
 ## Resources
 
-- Contracts live in `schemas/`, `references/`, and [output paths](references/output-path-policy.md); `scripts/` executes and `evals/` tests.
-- Release only after `python3 scripts/run_checks.py --all` passes.
+Run `python3 scripts/run_checks.py --all`; `evals/` holds cases.

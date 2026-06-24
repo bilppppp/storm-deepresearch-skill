@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -61,6 +62,37 @@ class LocalOutputEvalRunnerTests(unittest.TestCase):
         self.assertEqual(payload["execution_kind"], "command")
         self.assertEqual(payload["provider"], "local-deterministic-fixture")
         self.assertTrue(payload["usage"]["estimated"])
+
+    def test_runner_batch_isolates_cases_in_subprocess_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cases = root / "cases.jsonl"
+            out = root / "out"
+            cases.write_text(
+                "\n".join([
+                    json.dumps({"id": "case-a", "prompt": "A", "with_skill_output": "Output A"}),
+                    json.dumps({"id": "case-b", "prompt": "B", "with_skill_output": "Output B"}),
+                ]) + "\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    str(ROOT / ".venv" / "bin" / "python"),
+                    str(ROOT / "scripts" / "local_output_eval_runner.py"),
+                    "--cases-jsonl", str(cases),
+                    "--out-dir", str(out),
+                    "--timeout", "10",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            summary = json.loads((out / "summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(summary["case_count"], 2)
+            self.assertEqual(summary["passed"], 2)
+            self.assertTrue((out / "case-a.result.json").is_file())
+            self.assertTrue((out / "case-b.log").is_file())
 
 
 if __name__ == "__main__":

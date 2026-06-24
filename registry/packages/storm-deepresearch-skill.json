@@ -1,8 +1,8 @@
 {
   "schema_version": "2.0",
   "name": "storm-deepresearch-skill",
-  "version": "1.0.0",
-  "description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
+  "version": "1.1.0",
+  "description": "Use for source-grounded deep research with governed STORM tasklets, findings, claim ledgers, receipts, and Markdown/HTML/PDF release. Trigger for dossiers, reviews, briefs, and corpora. Do not use for lookup, role-play, summary, or short answers.",
   "targets": [
     "openai",
     "claude",
@@ -17,7 +17,7 @@
   "license": "MIT-0",
   "checksums": {
     "package_sha256": "09990b2e5a52081bee38ebae32619517479ea3e57f92c546fb32520101824bea",
-    "archive_sha256": "b3bb953fde3531f9eb0c2f8b065497cae68ef7dd6ae9851584ddf00dec378e64"
+    "archive_sha256": "5624002ca7d95c96fd1c63027af19e73d43c97d9cf3955af82bf096eed22f872"
   },
   "compatibility": {
     "openai": "pass",
@@ -27,7 +27,7 @@
     "generic": "pass"
   },
   "source": {
-    "skill_dir": ".",
+    "skill_dir": "$SKILL_ROOT",
     "skill_ir": "reports/skill-ir.json",
     "ir_schema_version": "2.0.0",
     "canonical_metadata": "agents/interface.yaml"
@@ -47,7 +47,7 @@
   },
   "distribution": {
     "archive_verified": true,
-    "archive_sha256": "b3bb953fde3531f9eb0c2f8b065497cae68ef7dd6ae9851584ddf00dec378e64",
+    "archive_sha256": "5624002ca7d95c96fd1c63027af19e73d43c97d9cf3955af82bf096eed22f872",
     "package_verification": "reports/package_verification.json",
     "install_simulated": true,
     "install_simulation": "reports/install_simulation.json"

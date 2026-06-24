@@ -21,9 +21,12 @@ from scripts.contract_io import (
     ContractError,
     load_json,
     load_jsonl,
+    validate_conflict_review_record,
+    validate_finding_record,
     validate_brief,
     validate_report_outline,
     validate_research_plan,
+    validate_tasklet_record,
     validate_source_plan,
 )
 from scripts.export_report import markdown_sections, markdown_title
@@ -32,6 +35,7 @@ from scripts.harness_io import (
     atomic_promote,
     atomic_write_json,
     atomic_write_text,
+    canonical_json_sha256,
     compute_skill_package_hash,
     sha256_file,
 )
@@ -79,8 +83,13 @@ RENDER_ARTIFACTS = {
     "research/revision-map.json",
     "research/source-plan.json",
     "research/source-register.jsonl",
+    "research/storm-tasklets.jsonl",
     "research/uncertainty-ledger.json",
     "validation/render-manifest.json",
+}
+OPTIONAL_ARTIFACTS = {
+    "research/finding-coverage.json",
+    "research/storm-findings-pool.jsonl",
 }
 LOCAL_PATH_PATTERNS = (
     re.compile(r"/Users/[^\s<]+"),
@@ -171,7 +180,7 @@ def _structural_checks(artifacts: Path, *, pdf_required: bool) -> tuple[list[Che
     if unsafe:
         return checks, EXIT_SAFETY
     missing = sorted(RENDER_ARTIFACTS - files)
-    unexpected = sorted(files - RENDER_ARTIFACTS)
+    unexpected = sorted(files - RENDER_ARTIFACTS - OPTIONAL_ARTIFACTS)
     missing_non_pdf = [item for item in missing if item != "exports/report.pdf"]
     add_check(
         checks, "artifact-inventory", [
@@ -275,6 +284,144 @@ def _validate_uncertainties(payload: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _is_full_external_dossier(brief: dict[str, Any]) -> bool:
+    return (
+        brief.get("depth_level") == "full_dossier"
+        and brief.get("source_policy") != "closed_corpus"
+        and brief.get("retrieval_mode") != "closed_corpus"
+    )
+
+
+def _validate_tasklets(
+    tasklets: list[dict[str, Any]], plan: dict[str, Any], source_plan: dict[str, Any]
+) -> list[str]:
+    errors: list[str] = []
+    question_ids = {
+        str(item.get("question_id"))
+        for item in plan.get("questions", [])
+        if isinstance(item, dict)
+    }
+    source_question_ids = {
+        str(item.get("query_id"))
+        for item in source_plan.get("questions", [])
+        if isinstance(item, dict)
+    }
+    seen_tasklets: set[str] = set()
+    seen_questions: set[str] = set()
+    for index, tasklet in enumerate(tasklets, start=1):
+        errors.extend(f"tasklet {index}: {item}" for item in validate_tasklet_record(tasklet))
+        tasklet_id = str(tasklet.get("tasklet_id", ""))
+        if tasklet_id in seen_tasklets:
+            errors.append(f"duplicate tasklet_id {tasklet_id}")
+        seen_tasklets.add(tasklet_id)
+        question_id = str(tasklet.get("question_id", ""))
+        seen_questions.add(question_id)
+        if question_id not in question_ids:
+            errors.append(f"tasklet {tasklet_id} references unknown research question {question_id}")
+        if question_id not in source_question_ids:
+            errors.append(f"tasklet {tasklet_id} lacks source-plan coverage")
+    missing = sorted(question_ids - seen_questions)
+    if missing:
+        errors.append("storm tasklets must cover every research question: " + ", ".join(missing))
+    return errors
+
+
+def _validate_findings(
+    findings: list[dict[str, Any]],
+    tasklets: list[dict[str, Any]],
+    sources: list[dict[str, Any]],
+    manifests: list[dict[str, Any]],
+    claims: list[dict[str, Any]],
+    *,
+    require_tasklet_coverage: bool,
+) -> list[str]:
+    errors: list[str] = []
+    tasklet_by_id = {str(item.get("tasklet_id")): item for item in tasklets}
+    question_by_tasklet = {
+        str(item.get("tasklet_id")): str(item.get("question_id"))
+        for item in tasklets
+    }
+    source_ids = {str(item.get("source_id")) for item in sources}
+    manifests_by_source: dict[str, list[dict[str, Any]]] = {}
+    for manifest in manifests:
+        manifests_by_source.setdefault(str(manifest.get("source_id")), []).append(manifest)
+    usable_tasklets: set[str] = set()
+    usable_by_claim: dict[str, list[dict[str, Any]]] = {}
+    seen_findings: set[str] = set()
+    for index, finding in enumerate(findings, start=1):
+        errors.extend(f"finding {index}: {item}" for item in validate_finding_record(finding))
+        finding_id = str(finding.get("finding_id", ""))
+        if finding_id in seen_findings:
+            errors.append(f"duplicate finding_id {finding_id}")
+        seen_findings.add(finding_id)
+        tasklet_id = str(finding.get("tasklet_id", ""))
+        if tasklet_id not in tasklet_by_id:
+            errors.append(f"finding {finding_id} references unknown tasklet {tasklet_id}")
+        elif str(finding.get("question_id")) != question_by_tasklet[tasklet_id]:
+            errors.append(f"finding {finding_id} question_id does not match its tasklet")
+        for source_id in finding.get("source_ids", []):
+            if str(source_id) not in source_ids:
+                errors.append(f"finding {finding_id} references unknown source {source_id}")
+        for locator in finding.get("evidence_locators", []):
+            if not isinstance(locator, dict):
+                continue
+            source_id = str(locator.get("source_id", ""))
+            if source_id not in source_ids:
+                continue
+            if not any(
+                str(manifest.get("snapshot_sha256")) == str(locator.get("snapshot_sha256"))
+                for manifest in manifests_by_source.get(source_id, [])
+            ):
+                errors.append(f"finding {finding_id} locator snapshot does not bind source {source_id}")
+        if finding.get("status") == "usable":
+            usable_tasklets.add(tasklet_id)
+            for claim_id in finding.get("claim_ids", []):
+                usable_by_claim.setdefault(str(claim_id), []).append(finding)
+    if require_tasklet_coverage:
+        missing = sorted(set(tasklet_by_id) - usable_tasklets)
+        if missing:
+            errors.append("findings pool must cover every STORM tasklet: " + ", ".join(missing))
+    for claim in claims:
+        if not claim.get("material"):
+            continue
+        claim_id = str(claim.get("claim_id", ""))
+        linked = usable_by_claim.get(claim_id, [])
+        if not linked:
+            errors.append(f"material claim {claim_id} is not linked to a usable STORM finding")
+            continue
+        claim_sources = {str(source_id) for source_id in claim.get("supporting_source_ids", [])}
+        if not any(claim_sources & {str(source_id) for source_id in finding.get("source_ids", [])} for finding in linked):
+            errors.append(f"material claim {claim_id} finding link does not share supporting sources")
+    return errors
+
+
+def _validate_conflict_reviews(
+    contradictions: dict[str, Any], reviews: list[dict[str, Any]]
+) -> list[str]:
+    if not reviews:
+        return ["contradiction ledger lacks independent conflict review"]
+    errors: list[str] = []
+    ledger_reviewed = False
+    seen_reviews: set[str] = set()
+    for index, review in enumerate(reviews, start=1):
+        errors.extend(f"conflict review {index}: {item}" for item in validate_conflict_review_record(review))
+        review_id = str(review.get("review_id", ""))
+        if review_id in seen_reviews:
+            errors.append(f"duplicate conflict review ID {review_id}")
+        seen_reviews.add(review_id)
+        if review.get("target_kind") == "contradiction_ledger":
+            ledger_reviewed = True
+            if review.get("target_id") != "contradiction-ledger":
+                errors.append("contradiction ledger review target_id must be contradiction-ledger")
+            if review.get("target_sha256") != canonical_json_sha256(contradictions):
+                errors.append("contradiction ledger review hash mismatch")
+        if review.get("verdict") != "supported":
+            errors.append(f"conflict review did not pass: {review_id}")
+    if not ledger_reviewed:
+        errors.append("contradiction ledger requires a ledger-level review")
+    return errors
+
+
 def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
     checks: list[Check] = []
     brief = load_json(brief_path)
@@ -282,10 +429,15 @@ def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
     source_plan = load_json(artifacts / "research/source-plan.json")
     sources = load_jsonl(artifacts / "research/source-register.jsonl")
     manifests = load_jsonl(artifacts / "research/retrieval-manifest.jsonl")
+    tasklets = load_jsonl(artifacts / "research/storm-tasklets.jsonl")
+    findings_path = artifacts / "research/storm-findings-pool.jsonl"
+    coverage_path = artifacts / "research/finding-coverage.json"
+    findings = load_jsonl(findings_path) if findings_path.exists() else []
     claims = load_jsonl(artifacts / "research/claim-evidence-ledger.jsonl")
     outline = load_json(artifacts / "research/report-outline.json")
     contradictions = load_json(artifacts / "research/contradiction-ledger.json")
     uncertainties = load_json(artifacts / "research/uncertainty-ledger.json")
+    finding_coverage = load_json(coverage_path) if coverage_path.exists() else {}
     paragraph_map = load_jsonl(artifacts / "research/reviewed-paragraph-map.jsonl")
     peer_review = load_json(artifacts / "research/peer-review.json")
     report = (artifacts / "report.md").read_text(encoding="utf-8")
@@ -296,6 +448,7 @@ def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
     contract_errors.extend(validate_research_plan(plan, brief, claim_ids))
     contract_errors.extend(validate_source_plan(source_plan))
     contract_errors.extend(validate_report_outline(outline, brief, question_ids, claim_ids))
+    contract_errors.extend(_validate_tasklets(tasklets, plan, source_plan))
     add_check(
         checks, "contracts", contract_errors, "inputs/brief.json; artifacts/research/*.json",
         "brief, plan, source plan, and outline contracts are valid", "repair contracts and restart from the responsible stage", EXIT_CONTRACT,
@@ -304,6 +457,26 @@ def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
     evidence_errors = validate_claim_closure(claims, sources, outline, manifests)
     evidence_errors.extend(_validate_contradictions(contradictions, claims))
     evidence_errors.extend(_validate_uncertainties(uncertainties))
+    full_external_dossier = _is_full_external_dossier(brief)
+    if full_external_dossier:
+        if not findings_path.exists():
+            evidence_errors.append("full external dossier requires storm-findings-pool.jsonl")
+        if not coverage_path.exists():
+            evidence_errors.append("full external dossier requires finding-coverage.json")
+    if findings:
+        evidence_errors.extend(_validate_findings(
+            findings, tasklets, sources, manifests, claims,
+            require_tasklet_coverage=full_external_dossier,
+        ))
+    elif full_external_dossier:
+        evidence_errors.append("full external dossier requires non-empty STORM findings")
+    if finding_coverage and (
+        finding_coverage.get("schema_version") != "2.0"
+        or not isinstance(finding_coverage.get("missing_tasklet_ids"), list)
+    ):
+        evidence_errors.append("finding coverage has invalid contract")
+    elif full_external_dossier and finding_coverage.get("missing_tasklet_ids"):
+        evidence_errors.append("finding coverage still has missing tasklets")
     coverage = compute_coverage(claims)
     if coverage["material_fact_closure"] != 1.0:
         evidence_errors.append("material fact closure is below 100%")
@@ -318,10 +491,19 @@ def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
     traceability_errors = validate_report_traceability(report, paragraph_map, claims, sources)
     claim_reviews = peer_review.get("claim_reviews", [])
     paragraph_reviews = peer_review.get("paragraph_reviews", [])
+    fact_checks = peer_review.get("fact_checks", [])
+    conflict_reviews = peer_review.get("conflict_reviews", [])
+    draft_audits = peer_review.get("draft_audits", [])
     if not isinstance(claim_reviews, list) or not isinstance(paragraph_reviews, list):
         traceability_errors.append("peer review must contain claim and paragraph review arrays")
     else:
         traceability_errors.extend(validate_review_set(report, claims, claim_reviews, paragraph_reviews))
+    if _is_full_external_dossier(brief):
+        if not all(isinstance(value, list) and value for value in (fact_checks, conflict_reviews, draft_audits)):
+            traceability_errors.append("full dossier requires fact_checks, conflict_reviews, and draft_audits")
+        else:
+            traceability_errors.extend(validate_review_set(report, claims, fact_checks, draft_audits))
+            traceability_errors.extend(_validate_conflict_reviews(contradictions, conflict_reviews))
     summary = peer_review.get("summary")
     if not isinstance(summary, dict) or summary.get("decision") != "passed":
         traceability_errors.append("peer review summary is not passing")

@@ -58,6 +58,16 @@ class EvidenceStageTests(unittest.TestCase):
                 self.assertTrue((research / name).is_file(), name)
             self.assertTrue((run / "state/generations/g0001/receipts/30-evidence.json").is_file())
 
+    def test_evidence_requires_findings_pool_for_full_dossier(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.retrieved_run(workspace, register_findings=False)
+            inputs = self.write_evidence_inputs(run, workspace)
+            result = self.invoke_evidence(run, inputs)
+            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+            self.assertIn("storm findings pool", result.stderr)
+            self.assertFalse((run / "state/generations/g0001/receipts/30-evidence.json").exists())
+
     def test_theory_claim_requires_theory_grade_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
@@ -216,7 +226,42 @@ class EvidenceStageTests(unittest.TestCase):
         outline_path.write_text(json.dumps(outline), encoding="utf-8")
         return claims_path, contradictions, uncertainties, outline_path
 
-    def retrieved_run(self, workspace: Path) -> Path:
+    def write_findings_inputs(self, run: Path, workspace: Path) -> Path:
+        manifest_path = run / "work/generations/g0001/artifacts/research/retrieval-manifest.jsonl"
+        manifests = [json.loads(line) for line in manifest_path.read_text(encoding="utf-8").splitlines()]
+        findings = []
+        for index, manifest in enumerate(manifests, start=1):
+            question_id = str(manifest["query_id"])
+            question_index = int(question_id[1:])
+            claim_ids = [f"C{question_index:03d}"]
+            if question_index == 10:
+                claim_ids.extend(["C011", "C012"])
+            source_id = str(manifest["source_id"])
+            findings.append({
+                "schema_version": "2.0",
+                "finding_id": f"F{index:03d}",
+                "tasklet_id": question_id.replace("Q", "T", 1),
+                "question_id": question_id,
+                "summary": f"Finding {index} closes the planned research tasklet with inspectable evidence.",
+                "source_ids": [source_id],
+                "evidence_locators": [{
+                    "source_id": source_id,
+                    "locator": manifest["locator"],
+                    "excerpt": manifest["excerpt"],
+                    "snapshot_sha256": manifest["snapshot_sha256"],
+                }],
+                "claim_ids": claim_ids,
+                "status": "usable",
+                "confidence": "high",
+                "limitations": ["The finding is scoped to the cited source."],
+                "produced_by": "subagent-fixture-1",
+                "created_at": "2026-06-23T00:00:00Z",
+            })
+        path = workspace / "findings.jsonl"
+        path.write_text("".join(json.dumps(item) + "\n" for item in findings), encoding="utf-8")
+        return path
+
+    def retrieved_run(self, workspace: Path, *, register_findings: bool = True) -> Path:
         run = self.planned_run(workspace)
         cache = run / "work/generations/g0001/evidence-cache"
         records = []
@@ -230,6 +275,10 @@ class EvidenceStageTests(unittest.TestCase):
         retrieval.write_text("".join(json.dumps(item) + "\n" for item in records), encoding="utf-8")
         result = self.invoke("ingest", str(run), "--input-jsonl", str(retrieval))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        if register_findings:
+            findings = self.write_findings_inputs(run, workspace)
+            result = self.invoke("findings", str(run), "--findings-jsonl", str(findings))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return run
 
     def evidenced_run(self, workspace: Path) -> Path:

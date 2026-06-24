@@ -19,10 +19,16 @@ def replacements(redact_roots: list[Path]) -> list[tuple[bytes, bytes]]:
     pairs: list[tuple[str, str]] = []
     seen: set[str] = set()
     roots_and_markers: list[tuple[Path, str]] = []
+    home = Path.home().absolute()
     for path in redact_roots:
         expanded = path.expanduser().absolute()
         roots_and_markers.extend([(expanded, "$SKILL_ROOT"), (expanded.resolve(), "$SKILL_ROOT")])
-    home = Path.home().absolute()
+        for root in (expanded, expanded.resolve()):
+            try:
+                relative = root.relative_to(home)
+            except ValueError:
+                continue
+            roots_and_markers.append((Path("$HOME") / relative, "$SKILL_ROOT"))
     roots_and_markers.extend([(home, "$HOME"), (home.resolve(), "$HOME")])
     for root, marker in roots_and_markers:
         value = str(root)

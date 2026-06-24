@@ -11,7 +11,7 @@ Input size does not determine output depth. A one-sentence topic triggers more d
 
 If credible evidence cannot support the minimum, stop as `bounded_partial`, name the missing evidence, and do not mark the package releasable.
 
-Before drafting, complete `research-plan.report_outline`. Give each section a distinct purpose, a length budget, the STORM question IDs it resolves, the Claim-Evidence IDs it uses, and at least three expansion elements.
+Before drafting, complete `research-plan.report_outline` and `storm-findings-pool.jsonl`. Give each section a distinct purpose, a length budget, the STORM question IDs it resolves, the finding IDs it uses, the Claim-Evidence IDs it uses, and at least three expansion elements.
 
 Use `storm_research.py draft --preflight` before committing the draft when length, paragraph hashes, or citation bindings are still changing. Preflight reports the body count, paragraph previews, citation keys, and traceability errors without writing a draft receipt.
 
@@ -28,7 +28,7 @@ Use research depth rather than verbal padding. A core section should usually mov
 7. **Limitation**: name where the conclusion stops applying.
 8. **Change condition**: state what new evidence would revise the judgment.
 
-Not every section needs all eight, but each planned section needs at least three and every major finding should include claim, evidence, implication, and limitation.
+Not every section needs all eight, but each planned section needs at least three and every major finding should include claim, evidence, implication, and limitation. Do not mention internal finding IDs in public prose; use them to keep the paragraph map, Claim ledger, and review inputs aligned.
 
 ## Suggested 9000-character Chinese budget
 

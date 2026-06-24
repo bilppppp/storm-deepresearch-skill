@@ -73,11 +73,12 @@ class ReviewStageTests(unittest.TestCase):
 
     def write_review_inputs(
         self, run: Path, workspace: Path
-    ) -> tuple[Path, Path, Path, Path, Path]:
+    ) -> tuple[Path, Path, Path, Path, Path, Path, Path, Path]:
         artifacts = run / "work/generations/g0001/artifacts"
         draft = artifacts / "drafts/report-v1.md"
         paragraph_map = artifacts / "research/paragraph-map.jsonl"
         claims = [json.loads(line) for line in (artifacts / "research/claim-evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()]
+        contradictions = json.loads((artifacts / "research/contradiction-ledger.json").read_text(encoding="utf-8"))
         report = draft.read_text(encoding="utf-8")
         claim_reviews = []
         review_index = 1
@@ -88,22 +89,39 @@ class ReviewStageTests(unittest.TestCase):
             ))
             review_index += 1
         paragraph_reviews = []
+        draft_audits = []
         for paragraph in extract_paragraphs(report):
             paragraph_reviews.append(self.review_record(
                 review_index, "paragraph", paragraph.locator, paragraph.sha256
             ))
             review_index += 1
+            draft_audits.append(self.review_record(
+                review_index + 500, "paragraph", paragraph.locator, paragraph.sha256
+            ))
+        fact_checks = []
+        for offset, claim in enumerate(claims, start=1):
+            fact_checks.append(self.review_record(
+                offset + 700, "claim", str(claim["claim_id"]),
+                canonical_json_sha256(claim), material=bool(claim["material"]),
+            ))
+        conflict_reviews = [self.conflict_review_record(contradictions)]
         claim_path = workspace / "claim-reviews.jsonl"
         paragraph_path = workspace / "report-audit.jsonl"
+        fact_path = workspace / "fact-checks.jsonl"
+        conflict_path = workspace / "conflict-reviews.jsonl"
+        draft_audit_path = workspace / "draft-audit.jsonl"
         revised = workspace / "revised.md"
         revised_map = workspace / "revised-paragraph-map.jsonl"
         revision_map = workspace / "revision-map.json"
         claim_path.write_text("".join(json.dumps(item) + "\n" for item in claim_reviews), encoding="utf-8")
         paragraph_path.write_text("".join(json.dumps(item) + "\n" for item in paragraph_reviews), encoding="utf-8")
+        fact_path.write_text("".join(json.dumps(item) + "\n" for item in fact_checks), encoding="utf-8")
+        conflict_path.write_text("".join(json.dumps(item) + "\n" for item in conflict_reviews), encoding="utf-8")
+        draft_audit_path.write_text("".join(json.dumps(item) + "\n" for item in draft_audits), encoding="utf-8")
         revised.write_text(report, encoding="utf-8")
         revised_map.write_bytes(paragraph_map.read_bytes())
         revision_map.write_text(json.dumps({"schema_version": "2.0", "revisions": []}), encoding="utf-8")
-        return claim_path, paragraph_path, revised, revised_map, revision_map
+        return claim_path, paragraph_path, fact_path, conflict_path, draft_audit_path, revised, revised_map, revision_map
 
     def review_record(
         self,
@@ -133,14 +151,33 @@ class ReviewStageTests(unittest.TestCase):
             "reviewed_at": "2026-06-23T00:00:00Z",
         }
 
+    def conflict_review_record(self, contradictions: dict[str, object]) -> dict[str, object]:
+        return {
+            "schema_version": "2.0",
+            "review_id": "CRV001",
+            "author_run_id": "author-run-1",
+            "reviewer_run_id": "conflict-reviewer-run-1",
+            "independent": True,
+            "target_kind": "contradiction_ledger",
+            "target_id": "contradiction-ledger",
+            "target_sha256": canonical_json_sha256(contradictions),
+            "verdict": "supported",
+            "reason": "The contradiction ledger is empty and no contested claims are present.",
+            "required_action": "none",
+            "reviewed_at": "2026-06-23T00:00:00Z",
+        }
+
     def invoke_review(
-        self, run: Path, inputs: tuple[Path, Path, Path, Path, Path]
+        self, run: Path, inputs: tuple[Path, Path, Path, Path, Path, Path, Path, Path]
     ) -> subprocess.CompletedProcess[str]:
-        claims, audit, revised, revised_map, revision_map = inputs
+        claims, audit, fact_checks, conflict_reviews, draft_audit, revised, revised_map, revision_map = inputs
         return subprocess.run(
             [
                 sys.executable, str(CLI), "review", str(run),
                 "--claim-reviews", str(claims), "--report-audit", str(audit),
+                "--fact-checks", str(fact_checks),
+                "--conflict-reviews", str(conflict_reviews),
+                "--draft-audit", str(draft_audit),
                 "--revised-md", str(revised),
                 "--revised-paragraph-map-jsonl", str(revised_map),
                 "--revision-map", str(revision_map),

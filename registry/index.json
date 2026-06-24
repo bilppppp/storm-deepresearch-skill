@@ -5,7 +5,7 @@
   "packages": [
     {
       "name": "storm-deepresearch-skill",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "maturity": "governed",
       "owner": "陈旭",
       "targets": [

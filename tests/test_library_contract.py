@@ -52,13 +52,13 @@ class LibraryContractTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_manifest_declares_governed_1_0(self) -> None:
+    def test_manifest_declares_governed_1_1(self) -> None:
         manifest = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
         expected = {
             "name": "storm-deepresearch-skill",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "owner": "陈旭",
-            "updated_at": "2026-06-23",
+            "updated_at": "2026-06-24",
             "review_cadence": "per-release",
             "status": "active",
             "maturity_tier": "governed",

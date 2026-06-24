@@ -4,7 +4,7 @@
   "title": "STORM DeepResearch",
   "job_to_be_done": "Turn a research topic or supplied corpus into a source-grounded, auditable deep-research package instead of a four-prompt role-play transcript.",
   "trigger_surface": {
-    "description": "Use for source-grounded deep research with STORM questions, claim-evidence traceability, contradictions, uncertainty, governed receipts, and Markdown/HTML/PDF release. Trigger for reports, reviews, decision briefs, and supplied corpora. Do not use for quick lookup, unsupported role-play, simple summary, or short answers.",
+    "description": "Use for source-grounded deep research with governed STORM tasklets, findings, claim ledgers, receipts, and Markdown/HTML/PDF release. Trigger for dossiers, reviews, briefs, and corpora. Do not use for lookup, role-play, summary, or short answers.",
     "should_trigger": [
       "Research a complex topic and produce a cited report with Markdown, HTML, PDF, and an evidence audit.",
       "Use these papers and URLs as a starting corpus, retrieve missing evidence, and show contradictions and uncertainty.",
@@ -33,19 +33,18 @@
   },
   "workflow": {
     "steps": [
-      "`init`: normalize brief and length; create generation `g0001`.",
-      "`plan`: generate STORM questions, source plan, and `report_outline`.",
-      "`ingest`: accept only approved retrieval records; memory is not evidence.",
+      "`init`: normalize brief and create generation `g0001`.",
+      "`plan`: generate STORM questions, source plan, tasklets, and `report_outline`.",
+      "`ingest` + `findings`: accept retrieval records; register usable discoveries before Claims close.",
       "`evidence`: close source and Claim ledgers under [source](references/source-and-evidence-policy.md) and [claim](references/claim-evidence-policy.md) policy.",
-      "`draft` and `review`: bind paragraphs, citations, Claims, and semantic review.",
-      "`render`, `validate`, `release`: derive formats, verify gates, require Trust and approval."
+      "`draft` + `review`: bind paragraphs, citations, Claims, fact checks, conflict review, draft audit, and semantic review.",
+      "`render` + `validate` + `release`: derive formats, use `repair-plan` on failure, then require Trust and approval."
     ],
     "decision_points": [
-      "Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.",
-      "Initialize a fresh workspace-scoped run; reject existing or escaping paths.",
-      "Use `closed_corpus` for supplied-only material; otherwise approved host search. Avoid personalized high-stakes advice.",
-      "Advance only through `scripts/storm_research.py`; root files are views, not proof.",
-      "Stop on `missing evidence`, broken receipt chain, or absent approval.",
+      "Default Chinese full dossiers to `8000–10000` body characters; `briefing` must be explicit.",
+      "Initialize a fresh safe output path; reject existing, escaping, or symlinked targets.",
+      "Use `closed_corpus` for supplied material; otherwise use approved host search.",
+      "Run `scripts/storm_research.py`; stop on missing findings/evidence, broken receipts, or absent approval.",
       "Ask one focused clarification when the real job, output, or exclusion boundary is unclear.",
       "Escalate visible tradeoffs when benchmark patterns conflict with local privacy, naming, or governance constraints.",
       "Do not silently broaden the skill into adjacent jobs just because the examples are nearby."
@@ -76,6 +75,7 @@
       "references/storm-workflow-mapping.md"
     ],
     "scripts": [
+      "scripts/agent_run_guard.py",
       "scripts/contract_io.py",
       "scripts/export_report.py",
       "scripts/governed_release.py",
@@ -141,7 +141,8 @@
       "reports/runtime_permission_probes.json",
       "reports/runtime_permission_probes.md",
       "reports/skill_atlas.json",
-      "reports/skill_atlas.html"
+      "reports/skill_atlas.html",
+      "reports/skill-os-2-review.md"
     ]
   },
   "eval_plan": {
@@ -152,6 +153,7 @@
       "evals/evals.json",
       "evals/failure-cases.md",
       "evals/output/cases.jsonl",
+      "evals/output/fixtures/closed-corpus-source.md",
       "evals/output/fixtures/gemini-bypass-redacted/README.md",
       "evals/output/fixtures/gemini-bypass-redacted/cases.json",
       "evals/output/schema.json",
@@ -161,6 +163,7 @@
     ],
     "output": [
       "evals/output/cases.jsonl",
+      "evals/output/fixtures/closed-corpus-source.md",
       "evals/output/fixtures/gemini-bypass-redacted/README.md",
       "evals/output/fixtures/gemini-bypass-redacted/cases.json",
       "evals/output/schema.json"

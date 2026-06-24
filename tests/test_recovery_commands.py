@@ -85,6 +85,20 @@ class RecoveryCommandTests(unittest.TestCase):
             self.assertIn("artifacts/research/research-plan.json", payload["invalidated_artifacts"])
             self.assertEqual(self.receipt_path(run, "plan").read_bytes(), receipt_before)
 
+    def test_repair_plan_writes_structured_actions_without_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace)
+            plan = run / "work/generations/g0001/artifacts/research/research-plan.json"
+            plan.write_text("{}\n", encoding="utf-8")
+            result = self.invoke("repair-plan", str(run))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["target_stage"], "plan")
+            self.assertTrue(payload["actions"])
+            self.assertTrue((run / "current/repair-plan.json").is_file())
+            self.assertFalse(self.receipt_path(run, "retrieval").exists())
+
     def test_retry_accepts_only_current_failed_stage(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)

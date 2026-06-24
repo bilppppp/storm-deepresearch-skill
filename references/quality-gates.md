@@ -18,6 +18,7 @@ Run `python3 scripts/storm_research.py validate "$RUN_DIR"` or `python3 scripts/
 - Contested claims retain contradicting evidence.
 - No unsupported material claim reaches the report.
 - Every perspective question has a disposition; every answered question is used by `report_outline`.
+- Full external dossiers require `storm-tasklets`, `storm-findings-pool`, and `finding-coverage` before evidence; every material Claim must link to a usable finding that shares its supporting source.
 - Full dossiers use at least five researched perspectives, ten questions, six evidence-planned sections, and twelve material claims unless the run is explicitly bounded and unreleased.
 
 `storm_research.py evidence --preflight-theory --claims claims.jsonl` can be run after retrieval to list theory claims, matched terms, supporting source types, and missing theory-grade support. It does not write an evidence receipt or weaken the evidence gate.
@@ -48,6 +49,7 @@ The validator writes JSON and Markdown reports only when the resolved `validatio
 - Editing a receipt status, validator hash, or bound artifact invalidates the chain.
 - `retry` accepts only the current failed or pending stage.
 - `amend` creates a new generation and cannot downgrade a full dossier to reduced output.
+- `repair-plan` may write `current/repair-plan.json`, but it does not create or replace receipts.
 
 ## Release gate: exit 9
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.0 - 2026-06-24
+
+### Added
+
+- STORM tasklets generated from every planned research question.
+- `findings` command for registering a source-bound findings pool before evidence closure.
+- Evidence gate requiring full dossiers to link material Claims to usable findings.
+- Full-dossier review inputs for fact checks, conflict review, and draft audit.
+- `repair-plan` command that writes structured repair actions without creating receipts.
+- Batch mode for the local output eval runner with subprocess isolation per case.
+
+### Changed
+
+- Validation now includes tasklet coverage, finding coverage, and the expanded independent review bundle.
+- README and references document the findings pool as the bridge between retrieval and Claim ledgers.
+
 ## 1.0.0 - 2026-06-23
 
 ### Added

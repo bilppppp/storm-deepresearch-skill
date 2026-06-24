@@ -2,15 +2,15 @@
 
 `storm-deepresearch-skill` 是一个证据驱动的 governed 深度研究 harness。它保留 STORM 的多视角提问思想，但不把角色观点当证据：视角只生成检索问题，事实必须进入来源登记和 Claim-Evidence 账本，每个阶段必须写入可重算 receipt，最终从单一 `report.md` 渲染并验证 Markdown、HTML 和 PDF。
 
-当前版本：`1.0.0`
+当前版本：`1.1.0`
 
 ## 能做什么
 
 - 研究报告、文献综述、行业分析和决策简报。
 - 基于用户文件、URL 或封闭语料完成可审计研究。
 - 区分事实、推断、建议、矛盾和未知项。
-- 生成来源登记、证据账本、报告映射和验证报告。
-- 通过 `storm_research.py` 的 init、plan、ingest、evidence、draft、review、render、validate、release 阶段推进，阶段之间由 receipt chain 约束。
+- 生成来源登记、STORM tasklets、findings pool、证据账本、报告映射和验证报告。
+- 通过 `storm_research.py` 的 init、plan、ingest、findings、evidence、draft、review、render、validate、release 阶段推进，关键阶段由 receipt chain 约束，findings 作为 evidence 的必要前提被绑定进 evidence receipt。
 - 以 `report.md` 为唯一内容真源，导出一致的 HTML/PDF。
 - 默认中文完整研究为 `8000–10000` 正文字符；输入长度只改变检索量，不会自动把成品压缩成摘要。
 - 强制将已回答的 STORM 问题和材料性 Claim 映射到 `research-plan.report_outline`，避免研究停留在中间产物。
@@ -91,7 +91,7 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
   --source-plan-json source-plan.json
 ```
 
-`plan` 必须覆盖 STORM 多视角问题、source classes、停止条件和 `report_outline` 所需的问题闭环。full dossier 且非 `closed_corpus` 时，source plan 不能只依赖用户转录、封闭语料或本地材料：至少一半问题要要求外部 source classes，且 `retrieval_budget.max_sources` 不得低于 `6`。
+`plan` 必须覆盖 STORM 多视角问题、source classes、停止条件和 `report_outline` 所需的问题闭环。full dossier 且非 `closed_corpus` 时，source plan 不能只依赖用户转录、封闭语料或本地材料：至少一半问题要要求外部 source classes，且 `retrieval_budget.max_sources` 不得低于 `6`。成功后会自动生成 `research/storm-tasklets.jsonl`，每个 STORM 问题变成后续 findings 的最小执行单元。
 
 ### 3. Ingest
 
@@ -104,7 +104,18 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 
 `host` 是默认检索模式；`provider` 只在用户明确配置凭证时使用；`closed_corpus` 只使用指定文件或 URL。占位符域名、`.internal` 伪来源、无快照、secondary-as-primary、Wikipedia 伪装成 primary/Tier A 和 blanket Tier A 会在 ingest 阶段失败。full dossier 的外部研究至少需要 `6` 个非用户、非百科的外部来源；Wikipedia 可作背景线索，但不能替代 deep research。
 
-### 4. Evidence
+### 4. Findings
+
+检索后先提交 findings pool，把每个 tasklet 的可用发现、来源和候选 Claim 绑定起来：
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" findings "$RUN_DIR" \
+  --findings-jsonl findings.jsonl
+```
+
+full dossier 要求每个 `storm-tasklets.jsonl` 里的 tasklet 至少有一个 `usable` finding。后续 evidence 阶段会要求材料性 Claim 链接到 usable finding，且 finding 与 Claim 必须共享 supporting source。
+
+### 5. Evidence
 
 提交 Claim、矛盾、不确定性和报告大纲：
 
@@ -126,7 +137,7 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
   --preflight-theory
 ```
 
-### 5. Draft
+### 6. Draft
 
 ```bash
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" draft "$RUN_DIR" \
@@ -145,20 +156,23 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
   --preflight
 ```
 
-### 6. Review
+### 7. Review
 
-独立审阅者输出 claim reviews、paragraph audit、修订文档和 revision map：
+独立审阅者输出 claim reviews、paragraph audit、修订文档和 revision map。full dossier 还必须提供 fact checks、conflict reviews 和 draft audit：
 
 ```bash
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" review "$RUN_DIR" \
   --claim-reviews claim-reviews.jsonl \
   --report-audit report-audit.jsonl \
+  --fact-checks fact-checks.jsonl \
+  --conflict-reviews conflict-reviews.jsonl \
+  --draft-audit draft-audit.jsonl \
   --revised-md report.md \
   --revised-paragraph-map-jsonl reviewed-paragraph-map.jsonl \
   --revision-map revision-map.json
 ```
 
-### 7. Render
+### 8. Render
 
 ```bash
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" render "$RUN_DIR" \
@@ -167,13 +181,19 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 
 完整模式必须生成 PDF。full dossier 不能在 PDF 失败后通过 `amend` 降级到 reduced output。
 
-### 8. Validate
+### 9. Validate
 
 ```bash
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" validate "$RUN_DIR"
 ```
 
 成功时写入 `state/generations/g0001/receipts/70-validation.json`。失败不会写通过 receipt，也不会把 `validation-report.json` 伪装成成功。
+
+验证或 receipt 失败后，可以生成结构化修复计划；它只写 `current/repair-plan.json`，不写 receipt：
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" repair-plan "$RUN_DIR"
+```
 
 本地使用可把已验证成品收集到浅层目录；`collect` 需要通过 validation，只复制 `report.md`、HTML、PDF 和 validation report，不替代 public `release`：
 
@@ -182,7 +202,7 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
   --to "$WORKSPACE/output/storm-deepresearch/final-report"
 ```
 
-### 9. Release
+### 10. Release
 
 公开发布需要宿主控制的 Trust evidence、Registry metadata、human approval，且当前性过期来源需要 re-verification records：
 
@@ -218,6 +238,9 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 
 - `work/generations/g0001/inputs/brief.json`：范围、时效、检索和输出模式。
 - `work/generations/g0001/artifacts/research/research-plan.json`：视角、问题、预算和停止条件。
+- `work/generations/g0001/artifacts/research/storm-tasklets.jsonl`：每个 STORM 问题对应的执行单元。
+- `work/generations/g0001/artifacts/research/storm-findings-pool.jsonl`：可用发现、来源、locator 和候选 Claim 绑定。
+- `work/generations/g0001/artifacts/research/finding-coverage.json`：tasklet 与 finding 覆盖摘要。
 - `work/generations/g0001/artifacts/research/report-outline.json`：问题/Claim 到章节及篇幅预算的闭环。
 - `work/generations/g0001/artifacts/research/source-register.jsonl`：来源权威账本。
 - `work/generations/g0001/artifacts/research/claim-evidence-ledger.jsonl`：事实、推断、建议和证据状态。
@@ -227,6 +250,7 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 - `work/generations/g0001/artifacts/validation/render-manifest.json`：跨格式哈希和章节指纹。
 - `work/generations/g0001/artifacts/validation/validation-report.json`：机器可读验证判定。
 - `state/generations/g0001/receipts/*.json`：不可跳过的阶段 receipt chain。
+- `current/repair-plan.json`：失败后可选生成的结构化修复计划，不是权威 receipt。
 - `release/`：通过 Trust 和 human approval 后生成的严格 allowlist 发布投影。
 
 可直接查看通过严格验证的 [代表性研究包](examples/validated-output/) 和 [PDF](examples/validated-output/exports/report.pdf)。

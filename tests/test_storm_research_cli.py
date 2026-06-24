@@ -105,9 +105,12 @@ class StormResearchCLITests(unittest.TestCase):
             artifacts = run / "work/generations/g0001/artifacts/research"
             self.assertTrue((artifacts / "research-plan.json").is_file())
             self.assertTrue((artifacts / "source-plan.json").is_file())
+            self.assertTrue((artifacts / "storm-tasklets.jsonl").is_file())
             self.assertTrue((run / "state/generations/g0001/receipts/10-plan.json").is_file())
             current = run / "current/research"
             self.assertEqual((current / "research-plan.json").read_bytes(), (artifacts / "research-plan.json").read_bytes())
+            tasklets = [json.loads(line) for line in (artifacts / "storm-tasklets.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertEqual({item["question_id"] for item in tasklets}, {f"Q{i:03d}" for i in range(1, 11)})
 
     def test_plan_rejects_full_dossier_closed_transcript_only_source_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -167,6 +170,21 @@ class StormResearchCLITests(unittest.TestCase):
             self.assertIn("non-user, non-encyclopedia external sources", result.stderr)
             self.assertFalse((run / "state/generations/g0001/receipts/20-retrieval.json").exists())
 
+    def test_findings_registers_pool_after_retrieval(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace)
+            input_path = self.write_retrieval_inputs(run, workspace)
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(input_path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            findings = self.write_findings_inputs(run, workspace)
+            result = self.invoke("findings", str(run), "--findings-jsonl", str(findings))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            research = run / "work/generations/g0001/artifacts/research"
+            self.assertTrue((research / "storm-findings-pool.jsonl").is_file())
+            coverage = json.loads((research / "finding-coverage.json").read_text(encoding="utf-8"))
+            self.assertEqual(coverage["missing_tasklet_ids"], [])
+
     def invoke_init(self, workspace: Path, *extra: str) -> subprocess.CompletedProcess[str]:
         return self.invoke(
             "init", "--topic", "Governed research", "--question",
@@ -225,6 +243,37 @@ class StormResearchCLITests(unittest.TestCase):
             records.append(record)
         path = workspace / "retrieval-inputs.jsonl"
         path.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
+        return path
+
+    def write_findings_inputs(self, run: Path, workspace: Path) -> Path:
+        manifest_path = run / "work/generations/g0001/artifacts/research/retrieval-manifest.jsonl"
+        manifests = [json.loads(line) for line in manifest_path.read_text(encoding="utf-8").splitlines()]
+        findings = []
+        for index, manifest in enumerate(manifests, start=1):
+            question_id = str(manifest["query_id"])
+            source_id = str(manifest["source_id"])
+            findings.append({
+                "schema_version": "2.0",
+                "finding_id": f"F{index:03d}",
+                "tasklet_id": question_id.replace("Q", "T", 1),
+                "question_id": question_id,
+                "summary": f"Finding {index} closes a planned STORM tasklet.",
+                "source_ids": [source_id],
+                "evidence_locators": [{
+                    "source_id": source_id,
+                    "locator": manifest["locator"],
+                    "excerpt": manifest["excerpt"],
+                    "snapshot_sha256": manifest["snapshot_sha256"],
+                }],
+                "claim_ids": [f"C{index:03d}"],
+                "status": "usable",
+                "confidence": "high",
+                "limitations": ["Fixture scope only."],
+                "produced_by": "subagent-fixture-1",
+                "created_at": "2026-06-23T00:00:00Z",
+            })
+        path = workspace / "findings.jsonl"
+        path.write_text("".join(json.dumps(item) + "\n" for item in findings), encoding="utf-8")
         return path
 
     def invoke(self, *arguments: str) -> subprocess.CompletedProcess[str]:

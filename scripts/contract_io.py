@@ -80,6 +80,21 @@ SEMANTIC_REVIEW_FIELDS = {
     "independent", "target_kind", "target_id", "target_sha256", "material", "verdict",
     "reason", "allowable_scope", "required_action", "findings", "reviewed_at",
 }
+TASKLET_FIELDS = {
+    "schema_version", "tasklet_id", "question_id", "perspective", "question",
+    "evidence_need", "required_source_classes", "status", "output_contract",
+}
+FINDING_LOCATOR_FIELDS = {"source_id", "locator", "excerpt", "snapshot_sha256"}
+FINDING_FIELDS = {
+    "schema_version", "finding_id", "tasklet_id", "question_id", "summary",
+    "source_ids", "evidence_locators", "claim_ids", "status", "confidence",
+    "limitations", "produced_by", "created_at",
+}
+CONFLICT_REVIEW_FIELDS = {
+    "schema_version", "review_id", "author_run_id", "reviewer_run_id",
+    "independent", "target_kind", "target_id", "target_sha256", "verdict",
+    "reason", "required_action", "reviewed_at",
+}
 HUMAN_APPROVAL_FIELDS = {
     "schema_version", "approval_id", "reviewer", "scope", "decision", "reason",
     "approved_artifact_sha256", "reviewed_at", "expires_at",
@@ -572,6 +587,103 @@ def validate_semantic_review_record(data: dict[str, Any]) -> list[str]:
         errors.append("non-supported verdict requires an action")
     if not isinstance(data.get("findings"), list):
         errors.append("findings must be an array")
+    if not _valid_iso_datetime(data.get("reviewed_at")):
+        errors.append("reviewed_at must be an ISO datetime")
+    return errors
+
+
+def validate_tasklet_record(data: dict[str, Any]) -> list[str]:
+    errors = _strict_record(data, TASKLET_FIELDS)
+    if not re.fullmatch(r"T\d{3}", str(data.get("tasklet_id", ""))):
+        errors.append("tasklet_id must match T followed by three digits")
+    if not re.fullmatch(r"Q\d{3}", str(data.get("question_id", ""))):
+        errors.append("question_id must match Q followed by three digits")
+    for field in ("perspective", "question", "evidence_need"):
+        if not isinstance(data.get(field), str) or not str(data.get(field, "")).strip():
+            errors.append(f"{field} must be a non-empty string")
+    if not isinstance(data.get("required_source_classes"), list) or not all(
+        isinstance(item, str) and item.strip() for item in data.get("required_source_classes", [])
+    ):
+        errors.append("required_source_classes must be a non-empty string array")
+    if data.get("status") not in {"planned", "covered", "unresolved"}:
+        errors.append("tasklet status is invalid")
+    if not isinstance(data.get("output_contract"), list) or not all(
+        isinstance(item, str) and item.strip() for item in data.get("output_contract", [])
+    ):
+        errors.append("output_contract must be a non-empty string array")
+    return errors
+
+
+def validate_finding_record(data: dict[str, Any]) -> list[str]:
+    errors = _strict_record(data, FINDING_FIELDS)
+    if not re.fullmatch(r"F\d{3}", str(data.get("finding_id", ""))):
+        errors.append("finding_id must match F followed by three digits")
+    if not re.fullmatch(r"T\d{3}", str(data.get("tasklet_id", ""))):
+        errors.append("tasklet_id must match T followed by three digits")
+    if not re.fullmatch(r"Q\d{3}", str(data.get("question_id", ""))):
+        errors.append("question_id must match Q followed by three digits")
+    if not isinstance(data.get("summary"), str) or not str(data.get("summary", "")).strip():
+        errors.append("summary must be a non-empty string")
+    if not isinstance(data.get("source_ids"), list) or not all(
+        re.fullmatch(r"S\d{3}", str(item)) for item in data.get("source_ids", [])
+    ):
+        errors.append("source_ids must contain source IDs")
+    locators = data.get("evidence_locators")
+    if not isinstance(locators, list):
+        errors.append("evidence_locators must be an array")
+    else:
+        for index, locator in enumerate(locators, start=1):
+            if not isinstance(locator, dict) or set(locator) != FINDING_LOCATOR_FIELDS:
+                errors.append(f"finding locator {index} has invalid fields")
+                continue
+            if not re.fullmatch(r"S\d{3}", str(locator.get("source_id", ""))):
+                errors.append(f"finding locator {index} has invalid source_id")
+            if not str(locator.get("locator", "")).strip() or not str(locator.get("excerpt", "")).strip():
+                errors.append(f"finding locator {index} requires locator and excerpt")
+            if not _is_sha256(locator.get("snapshot_sha256")):
+                errors.append(f"finding locator {index} snapshot_sha256 must be a SHA-256 value")
+    if not isinstance(data.get("claim_ids"), list) or not all(
+        re.fullmatch(r"C\d{3}", str(item)) for item in data.get("claim_ids", [])
+    ):
+        errors.append("claim_ids must contain Claim IDs")
+    if data.get("status") not in {"usable", "needs_more_evidence", "rejected"}:
+        errors.append("finding status is invalid")
+    if data.get("confidence") not in {"high", "medium", "low"}:
+        errors.append("finding confidence is invalid")
+    if not isinstance(data.get("limitations"), list) or not all(
+        isinstance(item, str) for item in data.get("limitations", [])
+    ):
+        errors.append("limitations must be a string array")
+    if not isinstance(data.get("produced_by"), str) or not data.get("produced_by"):
+        errors.append("produced_by must be a non-empty string")
+    if not _valid_iso_datetime(data.get("created_at")):
+        errors.append("created_at must be an ISO datetime")
+    if data.get("status") == "usable" and (not data.get("source_ids") or not data.get("evidence_locators")):
+        errors.append("usable finding requires source_ids and evidence_locators")
+    return errors
+
+
+def validate_conflict_review_record(data: dict[str, Any]) -> list[str]:
+    errors = _strict_record(data, CONFLICT_REVIEW_FIELDS)
+    if not re.fullmatch(r"CRV\d{3}", str(data.get("review_id", ""))):
+        errors.append("conflict review_id must match CRV followed by three digits")
+    for field in ("author_run_id", "reviewer_run_id", "target_id", "reason"):
+        if not isinstance(data.get(field), str) or not data.get(field):
+            errors.append(f"{field} must be a non-empty string")
+    if not isinstance(data.get("independent"), bool):
+        errors.append("independent must be boolean")
+    if data.get("author_run_id") == data.get("reviewer_run_id") or data.get("independent") is not True:
+        errors.append("conflict reviewer must be independent")
+    if data.get("target_kind") not in {"contradiction_ledger", "conflict"}:
+        errors.append("target_kind is invalid")
+    if not _is_sha256(data.get("target_sha256")):
+        errors.append("target_sha256 must be a SHA-256 value")
+    if data.get("verdict") not in {"supported", "not_supported", "unclear"}:
+        errors.append("verdict is invalid")
+    if data.get("required_action") not in {"none", "qualify", "remove", "rewrite", "add_evidence"}:
+        errors.append("required_action is invalid")
+    if data.get("verdict") != "supported" and data.get("required_action") == "none":
+        errors.append("non-supported conflict review requires an action")
     if not _valid_iso_datetime(data.get("reviewed_at")):
         errors.append("reviewed_at must be an ISO datetime")
     return errors
