@@ -53,6 +53,15 @@ class ReportTraceabilityTests(unittest.TestCase):
         self.assertIn(f"[^{key}]:", report)
         self.assertEqual(report, generate_references(draft, [source]))
 
+    def test_chinese_source_key_uses_host_and_hash_fallback(self) -> None:
+        source = valid_source_v2()
+        source["author_or_org"] = "新华社"
+        source["title"] = "中文标题"
+        source["canonical_url"] = "https://www.news.cn/politics/2026/example.html"
+        key = next(iter(citation_index([source])))
+        self.assertNotEqual(key, "source-2026-source")
+        self.assertRegex(key, r"^news-cn-2026-[0-9a-f]{6}$")
+
 
 if __name__ == "__main__":
     unittest.main()

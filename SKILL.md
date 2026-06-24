@@ -9,10 +9,10 @@ Governed research harness: perspectives ask; ledgers prove; receipts gate.
 
 ## Router Rules
 
-- Default Chinese dossiers to `8000–10000` body characters. Shorten only for a briefing or evidence boundary.
-- Initialize a fresh workspace-scoped run; reject existing or escaping paths.
+- Default Chinese dossiers to `8000–10000` body characters; shorten only for explicit `briefing` or evidence boundary.
+- Initialize fresh workspace run; reject existing or escaping paths.
 - Use `closed_corpus` for supplied-only material; otherwise approved host search.
-- Advance only through `scripts/storm_research.py`; root files are views, not proof.
+- Advance only through `scripts/storm_research.py`; root files are views.
 - Put large text in files/JSONL; guard host runners with `scripts/agent_run_guard.py`.
 - Stop on `missing evidence`, broken receipt chain, or absent approval.
 

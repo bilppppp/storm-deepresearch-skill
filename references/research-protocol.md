@@ -1,7 +1,7 @@
 # Research Protocol
 
 ## Phase 0 — Normalize the brief
-Create `brief.json`. Classify the user packet as thin, moderate, or rich. User material defines intent and angle; external research verifies, completes, updates, and challenges it. Lock language, depth, and `length_contract`. A short prompt does not authorize a short dossier.
+Create `brief.json`. Classify the user packet as thin, moderate, or rich. User material defines intent and angle; external research verifies, completes, updates, and challenges it. Lock language, depth, and `length_contract`. A short prompt does not authorize a short dossier; `briefing` depth requires an explicit user-request reason.
 
 In 1.0, this is the `storm_research.py init` stage. The authoritative brief is `work/generations/g0001/inputs/brief.json`; root `brief.json` is a view. A changed view cannot advance the receipt chain.
 
@@ -13,6 +13,8 @@ Example:
 - Academic papers can prove study findings but may not generalize to current practice.
 - News can prove reported events but may not prove causality.
 - Community posts can reveal pain points but are anecdotal.
+
+For full dossiers with external research allowed, source classes cannot be only user transcript, closed corpus, local files, or supplied materials. At least half of planned questions must require external source classes, and the retrieval budget must allow at least six external sources.
 
 ## Phase 2 — Generate perspectives
 Use default perspectives as the seed, then adapt to the topic.
@@ -40,6 +42,8 @@ This operationalizes the article's first prompt. Perspectives are question gener
 
 ## Phase 3 — Research through questions
 For each perspective, generate at least two concrete research questions for a full dossier. Search for answers. Every question records `planned`, `answered`, `unresolved`, or `out_of_scope`; answered questions link claim IDs, while unresolved questions enter the uncertainty ledger.
+
+For film reviews or essay prompts, do not search only the film's background page. Turn the user's concepts, comparisons, and named theorists into separate research questions, then retrieve sources that can actually prove or challenge those claims.
 
 ## Phase 4 — Create evidence map
 Each key claim must be recorded with source IDs, confidence, strength, contradictions, and notes.

@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 import tests.test_render_stage as render_stage_helpers
+from scripts.harness_io import sha256_file
 from scripts.validate_package import RENDER_ARTIFACTS, _structural_checks
 
 
@@ -39,6 +40,30 @@ class ValidatePackageTests(unittest.TestCase):
             self.assertEqual(payload["summary"]["failed"], 0)
             self.assertTrue((artifacts / "validation/validation-report.md").is_file())
             self.assertTrue((run / "state/generations/g0001/receipts/70-validation.json").is_file())
+
+    def test_collect_copies_only_validated_deliverables(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = build_valid_governed_run(workspace)
+            result = self.validate(run)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            target = workspace / "collected"
+            result = subprocess.run(
+                [sys.executable, str(CLI), "collect", str(run), "--to", str(target)],
+                cwd=ROOT, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue((target / "report.md").is_file())
+            self.assertTrue((target / "exports/report.html").is_file())
+            self.assertTrue((target / "exports/report.pdf").is_file())
+            self.assertTrue((target / "validation/validation-report.json").is_file())
+            self.assertFalse((target / "work").exists())
+            self.assertFalse((target / "state").exists())
+            manifest = json.loads((target / "collect-manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                manifest["files"]["report.md"],
+                sha256_file(target / "report.md"),
+            )
 
     def test_validator_rejects_forged_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

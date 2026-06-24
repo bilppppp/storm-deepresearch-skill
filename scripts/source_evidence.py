@@ -19,7 +19,7 @@ SCRIPT_INTERFACE = "internal-module"
 SCRIPT_INTERFACE_REASON = "Computes authoritative source hashes and provenance for the retrieval stage."
 
 RESERVED_HOSTS = {"example.com", "example.org", "example.net", "localhost"}
-RESERVED_SUFFIXES = (".example", ".invalid", ".localhost", ".test")
+RESERVED_SUFFIXES = (".example", ".internal", ".invalid", ".localhost", ".test")
 TRACKING_KEYS = {"fbclid", "gclid", "mc_cid", "mc_eid"}
 SECONDARY_SOURCE_TYPES = {
     "blog", "community", "encyclopedia", "news", "search_result", "secondary_synthesis",
@@ -155,6 +155,15 @@ def _classification_errors(record: dict[str, Any]) -> list[str]:
             errors.append("Tier A requires a compatible primary source role")
         if not notes:
             errors.append("Tier A requires a concrete reliability basis")
+    canonical_url = str(record.get("canonical_url") or "")
+    host = urlsplit(canonical_url).hostname or ""
+    if host.casefold().endswith("wikipedia.org"):
+        if source_type != "encyclopedia":
+            errors.append("Wikipedia sources must use source_type encyclopedia")
+        if primary_class != "secondary":
+            errors.append("Wikipedia sources must be classified as secondary")
+        if tier == "A":
+            errors.append("Wikipedia sources cannot be Tier A")
     return errors
 
 

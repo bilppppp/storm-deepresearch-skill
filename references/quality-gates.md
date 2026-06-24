@@ -20,6 +20,8 @@ Run `python3 scripts/storm_research.py validate "$RUN_DIR"` or `python3 scripts/
 - Every perspective question has a disposition; every answered question is used by `report_outline`.
 - Full dossiers use at least five researched perspectives, ten questions, six evidence-planned sections, and twelve material claims unless the run is explicitly bounded and unreleased.
 
+`storm_research.py evidence --preflight-theory --claims claims.jsonl` can be run after retrieval to list theory claims, matched terms, supporting source types, and missing theory-grade support. It does not write an evidence receipt or weaken the evidence gate.
+
 ## Export gate: exit 6
 
 - Markdown and HTML titles and sections match.

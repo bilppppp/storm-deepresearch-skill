@@ -17,12 +17,13 @@ class ContractError(ValueError):
     """Raised when a contract file cannot be decoded safely."""
 
 
-BRIEF_FIELDS = {
+BRIEF_REQUIRED_FIELDS = {
     "schema_version", "topic", "research_question", "user_goal", "audience",
     "depth_level", "geography", "timeframe", "source_policy",
     "freshness_policy", "retrieval_mode", "output_mode", "uncertainty_tolerance",
     "report_language", "length_contract", "high_stakes", "user_materials", "assumptions",
 }
+BRIEF_FIELDS = BRIEF_REQUIRED_FIELDS | {"briefing_reason"}
 RESEARCH_PLAN_FIELDS = {
     "schema_version", "status", "perspectives", "questions", "source_priorities",
     "stopping_conditions", "retrieval_budget",
@@ -174,7 +175,7 @@ def _validate_hash_map(value: object, field: str) -> list[str]:
 
 
 def validate_brief(data: dict[str, Any]) -> list[str]:
-    errors = _unknown_fields(data, BRIEF_FIELDS) + _missing_fields(data, BRIEF_FIELDS)
+    errors = _unknown_fields(data, BRIEF_FIELDS) + _missing_fields(data, BRIEF_REQUIRED_FIELDS)
     if data.get("schema_version") != "2.0":
         errors.append("schema_version must be 2.0")
     for field in ("topic", "research_question", "user_goal", "audience", "geography", "timeframe"):
@@ -182,6 +183,11 @@ def validate_brief(data: dict[str, Any]) -> list[str]:
             errors.append(f"{field} must be a non-empty string")
     if data.get("depth_level") not in {"briefing", "standard_report", "full_dossier"}:
         errors.append("depth_level is invalid")
+    if data.get("depth_level") == "briefing":
+        if not isinstance(data.get("briefing_reason"), str) or not str(data.get("briefing_reason", "")).strip():
+            errors.append("briefing requires briefing_reason")
+    elif "briefing_reason" in data:
+        errors.append("briefing_reason is only valid for briefing depth")
     if not isinstance(data.get("report_language"), str) or len(str(data.get("report_language", "")).strip()) < 2:
         errors.append("report_language must be a language tag")
     length_contract = data.get("length_contract")

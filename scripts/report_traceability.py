@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 from scripts.contract_io import validate_paragraph_map_record, validate_semantic_review_record
 from scripts.harness_io import canonical_json_sha256, sha256_bytes
@@ -37,6 +38,20 @@ def _slug(value: str, *, words: int = 4) -> str:
     return "-".join(parts) or "source"
 
 
+def _host_slug(value: str) -> str:
+    host = urlsplit(value).hostname or ""
+    labels = [part for part in host.casefold().split(".") if part and part != "www"]
+    return _slug("-".join(labels[:2]), words=2)
+
+
+def _short_source_hash(source: dict[str, Any]) -> str:
+    seed = "|".join(
+        str(source.get(field, ""))
+        for field in ("author_or_org", "title", "canonical_url", "file_ref", "content_hash")
+    )
+    return sha256_bytes(seed.encode("utf-8"))[:6]
+
+
 def citation_index(sources: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     result: dict[str, dict[str, Any]] = {}
     counts: dict[str, int] = {}
@@ -44,10 +59,16 @@ def citation_index(sources: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
         published = source.get("published_at")
         retrieved = str(source.get("retrieved_at", ""))
         year = str(published)[:4] if published else retrieved[:4] or "undated"
+        author_slug = _slug(str(source.get("author_or_org", "source")), words=2)
+        if author_slug == "source":
+            author_slug = _host_slug(str(source.get("canonical_url", "")))
+        title_slug = _slug(str(source.get("title", "source")), words=3)
+        if title_slug == "source":
+            title_slug = _short_source_hash(source)
         base = "-".join((
-            _slug(str(source.get("author_or_org", "source")), words=2),
+            author_slug,
             year,
-            _slug(str(source.get("title", "source")), words=3),
+            title_slug,
         ))
         counts[base] = counts.get(base, 0) + 1
         key = base if counts[base] == 1 else f"{base}-{counts[base]}"

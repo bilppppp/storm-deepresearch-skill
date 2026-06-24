@@ -1,14 +1,14 @@
 {
   "ok": true,
   "schema_version": "2.0",
-  "generated_at": "2026-06-23",
-  "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
-  "package_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist",
-  "install_root": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist/install-simulation/simulate-storm-deepresearch-skill",
-  "installed_skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist/install-simulation/simulate-storm-deepresearch-skill/storm-deepresearch-skill",
+  "generated_at": "2026-06-24",
+  "skill_dir": "$SKILL_ROOT",
+  "package_dir": "$SKILL_ROOT/dist",
+  "install_root": "$SKILL_ROOT/dist/install-simulation/simulate-storm-deepresearch-skill",
+  "installed_skill_dir": "$SKILL_ROOT/dist/install-simulation/simulate-storm-deepresearch-skill/storm-deepresearch-skill",
   "summary": {
     "archive_present": true,
-    "archive_entry_count": 287,
+    "archive_entry_count": 289,
     "archive_extracted": true,
     "entrypoint_loaded": true,
     "manifest_loaded": true,
@@ -26,7 +26,7 @@
     {
       "id": "archive-present",
       "status": "pass",
-      "detail": "Package archive exists: /Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist/storm-deepresearch-skill.zip"
+      "detail": "Package archive exists: $SKILL_ROOT/dist/storm-deepresearch-skill.zip"
     },
     {
       "id": "archive-safe-paths",
@@ -232,9 +232,9 @@
   "failures": [],
   "warnings": [],
   "artifacts": {
-    "archive": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist/storm-deepresearch-skill.zip",
-    "package_manifest": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist/manifest.json",
-    "json": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/install_simulation.json",
-    "markdown": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/install_simulation.md"
+    "archive": "$SKILL_ROOT/dist/storm-deepresearch-skill.zip",
+    "package_manifest": "$SKILL_ROOT/dist/manifest.json",
+    "json": "$SKILL_ROOT/reports/install_simulation.json",
+    "markdown": "$SKILL_ROOT/reports/install_simulation.md"
   }
 }

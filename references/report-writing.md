@@ -13,6 +13,8 @@ If credible evidence cannot support the minimum, stop as `bounded_partial`, name
 
 Before drafting, complete `research-plan.report_outline`. Give each section a distinct purpose, a length budget, the STORM question IDs it resolves, the Claim-Evidence IDs it uses, and at least three expansion elements.
 
+Use `storm_research.py draft --preflight` before committing the draft when length, paragraph hashes, or citation bindings are still changing. Preflight reports the body count, paragraph previews, citation keys, and traceability errors without writing a draft receipt.
+
 ## Evidence-led expansion
 
 Use research depth rather than verbal padding. A core section should usually move through:

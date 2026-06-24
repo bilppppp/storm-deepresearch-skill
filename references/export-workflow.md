@@ -36,3 +36,5 @@ Full dossiers cannot be amended from full to reduced after PDF failure. Fix the 
 ## Render manifest
 
 The exporter reads the generation artifact report and writes fixed generation `exports/` and `validation/` children. It rejects parent traversal and symlink escape. The render manifest records Markdown, HTML, PDF, and section fingerprints; validation fails when files drift, titles or sections diverge, template markers remain, or required PDF content is unavailable.
+
+After validation passes, use `storm_research.py collect "$RUN_DIR" --to <new-dir>` for local handoff. It copies only report Markdown, HTML, PDF, and validation reports, verifies hashes, and does not create a public release package.

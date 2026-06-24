@@ -54,6 +54,18 @@ class ContractTests(unittest.TestCase):
         brief["output_mode"] = "reduced"
         self.assertIn("full_dossier requires full output", validate_brief(brief))
 
+    def test_briefing_requires_explicit_reason(self) -> None:
+        brief = valid_brief_v2()
+        brief["depth_level"] = "briefing"
+        self.assertIn("briefing requires briefing_reason", validate_brief(brief))
+        brief["briefing_reason"] = "user explicitly asked for a short briefing"
+        self.assertNotIn("briefing requires briefing_reason", validate_brief(brief))
+
+    def test_non_briefing_rejects_briefing_reason(self) -> None:
+        brief = valid_brief_v2()
+        brief["briefing_reason"] = "host defaulted to short mode"
+        self.assertIn("briefing_reason is only valid for briefing depth", validate_brief(brief))
+
     def test_governed_record_validators_are_strict(self) -> None:
         cases = {
             "receipt": valid_receipt,

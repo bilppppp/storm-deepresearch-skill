@@ -26,6 +26,10 @@ Every source must be registered with:
 
 Tier A is not a default. A secondary synthesis cannot be marked `primary`, and search snippets cannot be Tier A evidence. If the source role is unclear, lower the tier and record the limitation.
 
+Wikipedia and comparable encyclopedias are background sources: classify them as `encyclopedia`, `secondary`, and not Tier A. Placeholder or reserved domains, including `example.com` and `.internal`, cannot enter the source register as public URLs. Local or supplied corpus material must use a corpus-relative `file_ref`.
+
+For full dossiers with external research allowed, user material, transcripts, local files, search snippets, community posts, and encyclopedias do not count toward the required six deep external sources. Claims about named theories, thinkers, scholarly debates, or interpretive frameworks require academic, book, expert, peer-reviewed, or reputable synthesis support beyond the user's own text.
+
 ## Citation discipline
 - A citation supports only the exact sentence it is attached to.
 - Do not cite a source for a stronger claim than it makes.

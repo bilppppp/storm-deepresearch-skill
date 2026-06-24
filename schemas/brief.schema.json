@@ -17,6 +17,7 @@
     "user_goal": {"type": "string", "minLength": 1},
     "audience": {"type": "string", "minLength": 1},
     "depth_level": {"enum": ["briefing", "standard_report", "full_dossier"]},
+    "briefing_reason": {"type": "string", "minLength": 1},
     "report_language": {"type": "string", "minLength": 2},
     "length_contract": {
       "type": "object",
@@ -50,6 +51,14 @@
     "assumptions": {"type": "array", "items": {"type": "string"}}
   },
   "allOf": [
+    {
+      "if": {"properties": {"depth_level": {"const": "briefing"}}},
+      "then": {"required": ["briefing_reason"]}
+    },
+    {
+      "if": {"properties": {"depth_level": {"not": {"const": "briefing"}}}},
+      "then": {"not": {"required": ["briefing_reason"]}}
+    },
     {
       "if": {"properties": {"depth_level": {"const": "full_dossier"}}},
       "then": {"properties": {"output_mode": {"const": "full"}}}

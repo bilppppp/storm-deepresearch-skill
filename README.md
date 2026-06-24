@@ -79,7 +79,7 @@ WORKSPACE=/path/to/user-workspace
 RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 ```
 
-中文 full dossier 默认为 `8000–10000` characters，英文为 `3500–7000` words。只有用户明确要求简报时才使用 `--depth-level briefing`。
+中文 full dossier 默认为 `8000–10000` characters，英文为 `3500–7000` words。只有用户明确要求简报时才使用 `--depth-level briefing`，并且必须同时提供 `--briefing-reason "用户明确要求简报的证据"`；宿主默认降级到 briefing 会在 init 阶段失败。
 
 ### 2. Plan
 
@@ -91,7 +91,7 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
   --source-plan-json source-plan.json
 ```
 
-`plan` 必须覆盖 STORM 多视角问题、source classes、停止条件和 `report_outline` 所需的问题闭环。
+`plan` 必须覆盖 STORM 多视角问题、source classes、停止条件和 `report_outline` 所需的问题闭环。full dossier 且非 `closed_corpus` 时，source plan 不能只依赖用户转录、封闭语料或本地材料：至少一半问题要要求外部 source classes，且 `retrieval_budget.max_sources` 不得低于 `6`。
 
 ### 3. Ingest
 
@@ -102,7 +102,7 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
   --input-jsonl retrieval-records.jsonl
 ```
 
-`host` 是默认检索模式；`provider` 只在用户明确配置凭证时使用；`closed_corpus` 只使用指定文件或 URL。占位符域名、无快照、secondary-as-primary 和 blanket Tier A 会在 ingest 阶段失败。
+`host` 是默认检索模式；`provider` 只在用户明确配置凭证时使用；`closed_corpus` 只使用指定文件或 URL。占位符域名、`.internal` 伪来源、无快照、secondary-as-primary、Wikipedia 伪装成 primary/Tier A 和 blanket Tier A 会在 ingest 阶段失败。full dossier 的外部研究至少需要 `6` 个非用户、非百科的外部来源；Wikipedia 可作背景线索，但不能替代 deep research。
 
 ### 4. Evidence
 
@@ -116,7 +116,15 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
   --report-outline report-outline.json
 ```
 
-材料性事实必须有可定位证据；推断必须指出已支持前提；建议必须写明适用条件和取舍。full dossier 至少需要 5 个视角、10 个问题、6 个 evidence-planned sections 和 12 个 material claims。
+材料性事实必须有可定位证据；推断必须指出已支持前提；建议必须写明适用条件和取舍。涉及阿伦特、福柯、康德、马克思、文化工业、生命政治等理论框架的 material claim，必须由 academic、book、expert、peer_reviewed_paper 或 secondary_synthesis 类型来源支撑，用户观后感、转录文本或百科页面不能单独闭合。full dossier 至少需要 5 个视角、10 个问题、6 个 evidence-planned sections 和 12 个 material claims。
+
+提交完整 evidence 前，可以先定位理论来源问题；该命令只诊断、不写 receipt：
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" evidence "$RUN_DIR" \
+  --claims claims.jsonl \
+  --preflight-theory
+```
 
 ### 5. Draft
 
@@ -127,6 +135,15 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 ```
 
 `draft.md` 不能手写 References。每个 factual paragraph 必须映射到 Claim、source 和 citation key；脚本会从 source register 生成 References。
+
+反复调正文长度和 paragraph-map 时先跑 preflight；它会输出正文计数、段落预览、citation keys 和可定位错误，不写 `40-draft.json`：
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" draft "$RUN_DIR" \
+  --draft-md draft.md \
+  --paragraph-map-jsonl paragraph-map.jsonl \
+  --preflight
+```
 
 ### 6. Review
 
@@ -157,6 +174,13 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 ```
 
 成功时写入 `state/generations/g0001/receipts/70-validation.json`。失败不会写通过 receipt，也不会把 `validation-report.json` 伪装成成功。
+
+本地使用可把已验证成品收集到浅层目录；`collect` 需要通过 validation，只复制 `report.md`、HTML、PDF 和 validation report，不替代 public `release`：
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" collect "$RUN_DIR" \
+  --to "$WORKSPACE/output/storm-deepresearch/final-report"
+```
 
 ### 9. Release
 

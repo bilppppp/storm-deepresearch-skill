@@ -58,6 +58,39 @@ class EvidenceStageTests(unittest.TestCase):
                 self.assertTrue((research / name).is_file(), name)
             self.assertTrue((run / "state/generations/g0001/receipts/30-evidence.json").is_file())
 
+    def test_theory_claim_requires_theory_grade_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.retrieved_run(workspace)
+            inputs = self.write_evidence_inputs(run, workspace)
+            claims, _contradictions, _uncertainties, _outline = inputs
+            records = [json.loads(line) for line in claims.read_text(encoding="utf-8").splitlines()]
+            records[0]["claim_text"] = "Arendt's banality of evil is the controlling theoretical frame."
+            claims.write_text("".join(json.dumps(item) + "\n" for item in records), encoding="utf-8")
+            result = self.invoke_evidence(run, inputs)
+            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+            self.assertIn("theory claim C001 requires academic, book, expert, or peer-reviewed support", result.stderr)
+            self.assertFalse((run / "state/generations/g0001/receipts/30-evidence.json").exists())
+
+    def test_evidence_preflight_theory_reports_source_types_without_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.retrieved_run(workspace)
+            inputs = self.write_evidence_inputs(run, workspace)
+            claims, _contradictions, _uncertainties, _outline = inputs
+            records = [json.loads(line) for line in claims.read_text(encoding="utf-8").splitlines()]
+            records[0]["claim_text"] = "文化工业 is the controlling theoretical frame."
+            claims.write_text("".join(json.dumps(item) + "\n" for item in records), encoding="utf-8")
+            result = self.invoke(
+                "evidence", str(run), "--claims", str(claims), "--preflight-theory",
+            )
+            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertFalse(payload["ok"])
+            self.assertEqual(payload["theory_claims"][0]["claim_id"], "C001")
+            self.assertEqual(payload["theory_claims"][0]["supporting_sources"][0]["source_type"], "official")
+            self.assertFalse((run / "state/generations/g0001/receipts/30-evidence.json").exists())
+
     def test_draft_requires_evidence_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
@@ -106,6 +139,25 @@ class EvidenceStageTests(unittest.TestCase):
             self.assertTrue((artifact_root / "research/paragraph-map.jsonl").is_file())
             self.assertTrue((artifact_root / "research/citation-index.json").is_file())
             self.assertTrue((run / "state/generations/g0001/receipts/40-draft.json").is_file())
+
+    def test_draft_preflight_reports_paragraph_context_without_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.evidenced_run(workspace)
+            draft, mapping = self.write_draft_inputs(run, workspace)
+            rows = mapping.read_text(encoding="utf-8").splitlines()
+            mapping.write_text("\n".join(rows[:-1]) + "\n", encoding="utf-8")
+            result = self.invoke(
+                "draft", str(run), "--draft-md", str(draft),
+                "--paragraph-map-jsonl", str(mapping), "--preflight",
+            )
+            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertFalse(payload["ok"])
+            self.assertEqual(payload["mode"], "draft-preflight")
+            self.assertTrue(payload["length"]["references_excluded"])
+            self.assertTrue(any(item["paragraph"] for item in payload["errors"]))
+            self.assertFalse((run / "state/generations/g0001/receipts/40-draft.json").exists())
 
     def invoke_evidence(
         self, run: Path, inputs: tuple[Path, Path, Path, Path]

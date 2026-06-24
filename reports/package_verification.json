@@ -1,15 +1,15 @@
 {
   "ok": true,
   "schema_version": "2.0",
-  "generated_at": "2026-06-23",
-  "skill_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1",
-  "package_dir": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist",
+  "generated_at": "2026-06-24",
+  "skill_dir": "$SKILL_ROOT",
+  "package_dir": "$SKILL_ROOT/dist",
   "summary": {
     "target_count": 4,
     "adapter_count": 4,
     "archive_present": true,
-    "archive_sha256": "decb0044d88b2962f121e3dfcc15b0db59d3302bc971d11bc18835ef5181ac79",
-    "archive_entry_count": 287,
+    "archive_sha256": "b3bb953fde3531f9eb0c2f8b065497cae68ef7dd6ae9851584ddf00dec378e64",
+    "archive_entry_count": 289,
     "failure_count": 0,
     "warning_count": 0
   },
@@ -17,7 +17,7 @@
     {
       "id": "package-manifest",
       "status": "pass",
-      "detail": "Package manifest exists: /Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist/manifest.json"
+      "detail": "Package manifest exists: $SKILL_ROOT/dist/manifest.json"
     },
     {
       "id": "openai-adapter",
@@ -658,9 +658,9 @@
   "failures": [],
   "warnings": [],
   "artifacts": {
-    "manifest": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist/manifest.json",
-    "archive": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/dist/storm-deepresearch-skill.zip",
-    "json": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/package_verification.json",
-    "markdown": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/package_verification.md"
+    "manifest": "$SKILL_ROOT/dist/manifest.json",
+    "archive": "$SKILL_ROOT/dist/storm-deepresearch-skill.zip",
+    "json": "$SKILL_ROOT/reports/package_verification.json",
+    "markdown": "$SKILL_ROOT/reports/package_verification.md"
   }
 }

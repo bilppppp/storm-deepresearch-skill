@@ -31,6 +31,23 @@ class SourceEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(SourceEvidenceError, "reserved or placeholder domain"):
             capture_retrieval_evidence(record, self.cache)
 
+    def test_internal_placeholder_domain_is_rejected(self) -> None:
+        record = self.valid_input()
+        record["url"] = "https://local-corpus.internal/movie-transcript"
+        record["final_url"] = record["url"]
+        with self.assertRaisesRegex(SourceEvidenceError, "reserved or placeholder domain"):
+            capture_retrieval_evidence(record, self.cache)
+
+    def test_wikipedia_cannot_be_promoted_to_primary_tier_a(self) -> None:
+        record = self.valid_input()
+        record["url"] = "https://en.wikipedia.org/wiki/Test_fixture"
+        record["final_url"] = record["url"]
+        record["source_type"] = "official"
+        record["primary_class"] = "primary"
+        record["reliability_tier"] = "A"
+        with self.assertRaisesRegex(SourceEvidenceError, "Wikipedia sources must use source_type encyclopedia"):
+            capture_retrieval_evidence(record, self.cache)
+
     def test_excerpt_must_exist_in_captured_content(self) -> None:
         record = capture_retrieval_evidence(self.valid_input(), self.cache)
         record["excerpt"] = "invented excerpt"

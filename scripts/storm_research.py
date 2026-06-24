@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 import uuid
@@ -52,6 +53,7 @@ from scripts.run_state import (
 from scripts.report_traceability import (
     body_length,
     citation_index,
+    extract_paragraphs,
     generate_references,
     has_handwritten_references,
     validate_report_traceability,
@@ -59,7 +61,7 @@ from scripts.report_traceability import (
 )
 from scripts.source_evidence import SourceEvidenceError, resolve_snapshot
 from scripts.validate_evidence import validate_claim_closure
-from scripts.validate_package import validate_and_commit
+from scripts.validate_package import _public_safety_checks, validate_and_commit
 
 
 SCRIPT_INTERFACE = "cli"
@@ -71,6 +73,27 @@ EXIT_EVIDENCE = 5
 EXIT_EXPORT = 6
 EXIT_STAGE = 8
 EXIT_RELEASE = 9
+MIN_FULL_DOSSIER_DEEP_EXTERNAL_SOURCES = 6
+USER_MATERIAL_SOURCE_CLASS_MARKERS = {
+    "attachment", "closed", "corpus", "file", "input", "local", "provided",
+    "supplied", "transcript", "user", "转录", "用户", "口述", "语料",
+}
+USER_MATERIAL_SOURCE_MARKERS = {
+    "blogger voice", "local-corpus", "supplied", "transcript", "user",
+    "转录", "用户", "口述",
+}
+SHALLOW_SOURCE_TYPES = {"community", "encyclopedia", "search_result"}
+USER_SOURCE_TYPES = {"user_provided_file"}
+THEORY_CLAIM_TERMS = {
+    "adorno", "agamben", "arendt", "benjamin", "camus", "foucault",
+    "horkheimer", "kant", "marx", "tolstoy",
+    "阿多诺", "阿甘本", "阿伦特", "霍克海默", "康德", "马克思",
+    "福柯", "加缪", "托尔斯泰", "文化工业", "生命政治", "平庸之恶",
+    "世界公民", "反抗者", "战争与和平",
+}
+THEORY_SOURCE_TYPES = {
+    "academic", "book", "expert", "peer_reviewed_paper", "secondary_synthesis",
+}
 
 
 class CLIContractError(ValueError):
@@ -132,6 +155,11 @@ def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
     topic = args.topic.strip()
     question = args.question.strip()
     language = infer_language(topic, question, args.language)
+    briefing_reason = str(getattr(args, "briefing_reason", "") or "").strip()
+    if args.depth_level == "briefing" and not briefing_reason:
+        raise CLIContractError("briefing depth requires --briefing-reason with explicit user request evidence")
+    if args.depth_level != "briefing" and briefing_reason:
+        raise CLIContractError("--briefing-reason is only valid with --depth-level briefing")
     length_contract = default_length_contract(language, args.depth_level)
     length_overridden = args.min_units is not None or args.max_units is not None
     if args.min_units is not None:
@@ -144,7 +172,7 @@ def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
         raise CLIContractError("min-units cannot exceed max-units")
     if length_overridden:
         length_contract["target"] = (minimum + maximum) // 2
-    return {
+    brief = {
         "schema_version": "2.0",
         "topic": topic,
         "research_question": question,
@@ -167,6 +195,9 @@ def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
         "user_materials": list(args.user_material),
         "assumptions": list(args.assumption),
     }
+    if briefing_reason:
+        brief["briefing_reason"] = briefing_reason
+    return brief
 
 
 def validate_or_raise(errors: list[str]) -> None:
@@ -217,6 +248,7 @@ def initialize_at_output(
     maximum_units: int | None = None,
     output_mode: str = "full",
     high_stakes: bool = False,
+    briefing_reason: str = "",
 ) -> RunLayout:
     args = argparse.Namespace(
         topic=topic,
@@ -236,6 +268,7 @@ def initialize_at_output(
         output_mode=output_mode,
         uncertainty_tolerance="low",
         high_stakes=high_stakes,
+        briefing_reason=briefing_reason,
         user_material=[],
         assumption=[],
     )
@@ -274,6 +307,7 @@ def command_init(args: argparse.Namespace) -> int:
         maximum_units=args.max_units,
         output_mode=args.output_mode,
         high_stakes=args.high_stakes,
+        briefing_reason=args.briefing_reason,
     )
     print(f"Initialized {output}")
     return EXIT_OK
@@ -284,6 +318,7 @@ def validate_plan_bundle(
 ) -> None:
     errors = validate_research_plan(plan, brief, set())
     errors.extend(validate_source_plan(source_plan))
+    errors.extend(validate_source_depth_plan(source_plan, brief, plan))
     questions = plan.get("questions") if isinstance(plan.get("questions"), list) else []
     source_questions = source_plan.get("questions") if isinstance(source_plan.get("questions"), list) else []
     plan_ids = {str(item.get("question_id")) for item in questions if isinstance(item, dict)}
@@ -305,6 +340,68 @@ def validate_plan_bundle(
         if len(questions) < 10:
             errors.append("full_dossier requires at least ten research questions")
     validate_or_raise(errors)
+
+
+def _is_full_external_dossier(brief: dict[str, object]) -> bool:
+    return (
+        brief.get("depth_level") == "full_dossier"
+        and brief.get("source_policy") != "closed_corpus"
+        and brief.get("retrieval_mode") != "closed_corpus"
+    )
+
+
+def _source_class_text(source_class: dict[str, object]) -> str:
+    parts: list[str] = []
+    for key in ("class_id", "name"):
+        parts.append(str(source_class.get(key, "")))
+    for key in ("can_prove", "cannot_prove"):
+        value = source_class.get(key)
+        if isinstance(value, list):
+            parts.extend(str(item) for item in value)
+    return " ".join(parts).casefold()
+
+
+def _is_user_material_source_class(source_class: dict[str, object]) -> bool:
+    text = _source_class_text(source_class)
+    return any(marker in text for marker in USER_MATERIAL_SOURCE_CLASS_MARKERS)
+
+
+def validate_source_depth_plan(
+    source_plan: dict[str, object],
+    brief: dict[str, object],
+    plan: dict[str, object],
+) -> list[str]:
+    if not _is_full_external_dossier(brief):
+        return []
+    errors: list[str] = []
+    source_classes = [
+        item for item in source_plan.get("source_classes", [])
+        if isinstance(item, dict)
+    ]
+    external_class_ids = {
+        str(item.get("class_id"))
+        for item in source_classes
+        if not _is_user_material_source_class(item)
+    }
+    if not external_class_ids:
+        errors.append("full_dossier external research requires source classes beyond user, transcript, or closed corpus material")
+    source_questions = [
+        item for item in source_plan.get("questions", [])
+        if isinstance(item, dict)
+    ]
+    external_questions = [
+        item for item in source_questions
+        if set(str(class_id) for class_id in item.get("required_source_classes", [])) & external_class_ids
+    ]
+    required_external_questions = max(3, len(source_questions) // 2)
+    if len(external_questions) < required_external_questions:
+        errors.append("full_dossier external research requires at least half of source questions to require external source classes")
+    budget = plan.get("retrieval_budget") if isinstance(plan.get("retrieval_budget"), dict) else {}
+    if isinstance(budget.get("max_sources"), int) and budget["max_sources"] < MIN_FULL_DOSSIER_DEEP_EXTERNAL_SOURCES:
+        errors.append(
+            f"full_dossier external research requires retrieval_budget.max_sources >= {MIN_FULL_DOSSIER_DEEP_EXTERNAL_SOURCES}"
+        )
+    return errors
 
 
 def _promote_plan_artifacts(
@@ -402,6 +499,42 @@ def _refresh_current_retrieval_view(
     atomic_write_text(root / "retrieval-manifest.jsonl", _jsonl_text(manifests))
 
 
+def _is_user_material_source(source: dict[str, object]) -> bool:
+    source_type = str(source.get("source_type", "")).casefold()
+    if source_type in USER_SOURCE_TYPES:
+        return True
+    text = " ".join(
+        str(source.get(key, ""))
+        for key in ("title", "author_or_org", "canonical_url", "file_ref", "reliability_notes")
+    ).casefold()
+    return any(marker in text for marker in USER_MATERIAL_SOURCE_MARKERS)
+
+
+def _is_deep_external_source(source: dict[str, object]) -> bool:
+    if _is_user_material_source(source):
+        return False
+    if not str(source.get("canonical_url") or "").startswith(("http://", "https://")):
+        return False
+    source_type = str(source.get("source_type", "")).casefold()
+    if source_type in SHALLOW_SOURCE_TYPES:
+        return False
+    return True
+
+
+def validate_retrieval_depth(
+    sources: list[dict[str, object]], brief: dict[str, object]
+) -> list[str]:
+    if not _is_full_external_dossier(brief):
+        return []
+    deep_external = [source for source in sources if _is_deep_external_source(source)]
+    if len(deep_external) < MIN_FULL_DOSSIER_DEEP_EXTERNAL_SOURCES:
+        return [
+            "full_dossier external research requires at least "
+            f"{MIN_FULL_DOSSIER_DEEP_EXTERNAL_SOURCES} non-user, non-encyclopedia external sources"
+        ]
+    return []
+
+
 def command_ingest(args: argparse.Namespace) -> int:
     layout = RunLayout(args.run_dir)
     generation = latest_generation(layout)
@@ -432,6 +565,9 @@ def command_ingest(args: argparse.Namespace) -> int:
         raise RetrievalGateError(
             "retrieval evidence does not cover planned questions: " + ", ".join(missing)
         )
+    depth_errors = validate_retrieval_depth(sources, brief)
+    if depth_errors:
+        raise RetrievalGateError("; ".join(depth_errors))
     source_path, manifest_path = _promote_retrieval_artifacts(
         layout, generation, sources, manifests
     )
@@ -502,6 +638,81 @@ def _validate_uncertainties(payload: dict[str, object]) -> list[str]:
     return errors
 
 
+def _claim_needs_theory_source(claim: dict[str, object]) -> bool:
+    text = str(claim.get("claim_text", "")).casefold()
+    return any(term.casefold() in text for term in THEORY_CLAIM_TERMS)
+
+
+def _is_theory_source(source: dict[str, object]) -> bool:
+    if _is_user_material_source(source):
+        return False
+    source_type = str(source.get("source_type", "")).casefold()
+    return source_type in THEORY_SOURCE_TYPES
+
+
+def validate_theory_claim_sources(
+    claims: list[dict[str, object]],
+    sources: list[dict[str, object]],
+    brief: dict[str, object],
+) -> list[str]:
+    if not _is_full_external_dossier(brief):
+        return []
+    diagnostics = theory_claim_diagnostics(claims, sources, brief)
+    return [
+        f"theory claim {item['claim_id']} requires academic, book, expert, or peer-reviewed support beyond user material"
+        for item in diagnostics["theory_claims"]
+        if not item["ok"]
+    ]
+
+
+def _matched_theory_terms(claim: dict[str, object]) -> list[str]:
+    text = str(claim.get("claim_text", "")).casefold()
+    return sorted(
+        term for term in THEORY_CLAIM_TERMS if term.casefold() in text
+    )
+
+
+def theory_claim_diagnostics(
+    claims: list[dict[str, object]],
+    sources: list[dict[str, object]],
+    brief: dict[str, object],
+) -> dict[str, object]:
+    source_by_id = {str(source.get("source_id")): source for source in sources}
+    records: list[dict[str, object]] = []
+    if not _is_full_external_dossier(brief):
+        return {"ok": True, "skipped": True, "reason": "not a full external dossier", "theory_claims": records}
+    for claim in claims:
+        if not claim.get("material") or not _claim_needs_theory_source(claim):
+            continue
+        supporting = [
+            source_by_id.get(str(source_id))
+            for source_id in claim.get("supporting_source_ids", [])
+        ]
+        source_rows = [
+            {
+                "source_id": str(source.get("source_id", "")),
+                "source_type": str(source.get("source_type", "")),
+                "primary_class": str(source.get("primary_class", "")),
+                "reliability_tier": str(source.get("reliability_tier", "")),
+                "is_theory_source": _is_theory_source(source),
+            }
+            for source in supporting if source
+        ]
+        ok = any(row["is_theory_source"] for row in source_rows)
+        records.append({
+            "claim_id": str(claim.get("claim_id", "")),
+            "matched_terms": _matched_theory_terms(claim),
+            "supporting_sources": source_rows,
+            "required_source_types": sorted(THEORY_SOURCE_TYPES),
+            "ok": ok,
+        })
+    return {
+        "ok": all(item["ok"] for item in records),
+        "skipped": False,
+        "theory_claims": records,
+    }
+
+
 def _promote_evidence_artifacts(
     layout: RunLayout,
     generation: int,
@@ -558,16 +769,34 @@ def command_evidence(args: argparse.Namespace) -> int:
     try:
         incoming_claims = load_jsonl(args.claims)
         claims = merge_claim_records([], incoming_claims)
+    except (ContractError, ValueError) as exc:
+        raise EvidenceGateError(str(exc)) from exc
+    source_path = layout.artifact(generation, "research/source-register.jsonl")
+    sources = load_jsonl(source_path)
+    if getattr(args, "preflight_theory", False):
+        payload = theory_claim_diagnostics(claims, sources, brief)
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return EXIT_OK if payload["ok"] else EXIT_EVIDENCE
+    missing_arguments = [
+        name for name, value in (
+            ("--contradictions", args.contradictions),
+            ("--uncertainties", args.uncertainties),
+            ("--report-outline", args.report_outline),
+        ) if value is None
+    ]
+    if missing_arguments:
+        raise CLIContractError(
+            "evidence requires " + ", ".join(missing_arguments)
+        )
+    try:
         contradictions = load_json(args.contradictions)
         uncertainties = load_json(args.uncertainties)
         outline = load_json(args.report_outline)
-    except (ContractError, ValueError) as exc:
+    except ContractError as exc:
         raise EvidenceGateError(str(exc)) from exc
     research_plan_path = layout.artifact(generation, "research/research-plan.json")
-    source_path = layout.artifact(generation, "research/source-register.jsonl")
     manifest_path = layout.artifact(generation, "research/retrieval-manifest.jsonl")
     research_plan = load_json(research_plan_path)
-    sources = load_jsonl(source_path)
     manifests = load_jsonl(manifest_path)
     question_ids = {
         str(item.get("question_id"))
@@ -577,6 +806,7 @@ def command_evidence(args: argparse.Namespace) -> int:
     claim_ids = {str(item.get("claim_id")) for item in claims}
     errors = validate_report_outline(outline, brief, question_ids, claim_ids)
     errors.extend(validate_claim_closure(claims, sources, outline, manifests))
+    errors.extend(validate_theory_claim_sources(claims, sources, brief))
     errors.extend(_validate_contradictions(contradictions, claims))
     errors.extend(_validate_uncertainties(uncertainties))
     if brief.get("depth_level") == "full_dossier":
@@ -664,6 +894,80 @@ def _refresh_current_draft_view(
     })
 
 
+def _preview_text(value: str, limit: int = 80) -> str:
+    text = re.sub(r"\s+", " ", value).strip()
+    return text if len(text) <= limit else text[:limit].rstrip() + "..."
+
+
+def _paragraph_summary(paragraph: object) -> dict[str, object]:
+    return {
+        "index": getattr(paragraph, "index"),
+        "locator": getattr(paragraph, "locator"),
+        "heading": getattr(paragraph, "heading"),
+        "sha256": getattr(paragraph, "sha256"),
+        "preview": _preview_text(getattr(paragraph, "text")),
+    }
+
+
+def _error_locator(error: str) -> str | None:
+    match = re.search(r"paragraph:\d+", error)
+    return match.group(0) if match else None
+
+
+def draft_preflight_report(
+    brief: dict[str, object],
+    draft_text: str,
+    paragraph_map: list[dict[str, object]],
+    claims: list[dict[str, object]],
+    sources: list[dict[str, object]],
+) -> dict[str, object]:
+    errors: list[str] = []
+    handwritten_references = has_handwritten_references(draft_text)
+    if handwritten_references:
+        errors.append("draft contains a hand-written References body")
+    report = generate_references(draft_text, sources)
+    traceability_errors = validate_report_traceability(report, paragraph_map, claims, sources)
+    errors.extend(traceability_errors)
+    length_contract = brief.get("length_contract") if isinstance(brief.get("length_contract"), dict) else {}
+    unit = str(length_contract.get("unit", "words"))
+    measured = body_length(report, unit)
+    minimum = int(length_contract.get("minimum", 1))
+    maximum = int(length_contract.get("maximum", 0))
+    if measured < minimum or measured > maximum:
+        errors.append(f"draft body length {measured} {unit} is outside {minimum}-{maximum}")
+    paragraphs = extract_paragraphs(report)
+    paragraph_by_locator = {
+        str(getattr(paragraph, "locator")): paragraph for paragraph in paragraphs
+    }
+    error_rows = []
+    for error in dict.fromkeys(errors):
+        locator = _error_locator(error)
+        paragraph = paragraph_by_locator.get(locator or "")
+        error_rows.append({
+            "message": error,
+            "locator": locator,
+            "paragraph": _paragraph_summary(paragraph) if paragraph else None,
+        })
+    return {
+        "ok": not errors,
+        "mode": "draft-preflight",
+        "length": {
+            "measured": measured,
+            "unit": unit,
+            "minimum": minimum,
+            "maximum": maximum,
+            "within_range": minimum <= measured <= maximum,
+            "references_excluded": True,
+        },
+        "handwritten_references": handwritten_references,
+        "paragraph_count": len(paragraphs),
+        "mapped_paragraph_count": len(paragraph_map),
+        "paragraphs": [_paragraph_summary(paragraph) for paragraph in paragraphs],
+        "citation_keys": sorted(citation_index(sources).keys()),
+        "errors": error_rows,
+    }
+
+
 def command_draft(args: argparse.Namespace) -> int:
     layout = RunLayout(args.run_dir)
     generation = latest_generation(layout)
@@ -673,14 +977,18 @@ def command_draft(args: argparse.Namespace) -> int:
     verify_stage_precondition(layout, generation, Stage.DRAFT, package_hash)
     brief = verify_current_brief_view(layout, generation)
     draft_text = args.draft_md.read_text(encoding="utf-8")
-    if has_handwritten_references(draft_text):
-        raise DraftGateError("draft contains a hand-written References body")
     paragraph_map = load_jsonl(args.paragraph_map_jsonl)
     claim_path = layout.artifact(generation, "research/claim-evidence-ledger.jsonl")
     source_path = layout.artifact(generation, "research/source-register.jsonl")
     outline_path = layout.artifact(generation, "research/report-outline.json")
     claims = load_jsonl(claim_path)
     sources = load_jsonl(source_path)
+    if getattr(args, "preflight", False):
+        payload = draft_preflight_report(brief, draft_text, paragraph_map, claims, sources)
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return EXIT_OK if payload["ok"] else EXIT_EVIDENCE
+    if has_handwritten_references(draft_text):
+        raise DraftGateError("draft contains a hand-written References body")
     report = generate_references(draft_text, sources)
     errors = validate_report_traceability(report, paragraph_map, claims, sources)
     length_contract = brief.get("length_contract") if isinstance(brief.get("length_contract"), dict) else {}
@@ -946,6 +1254,62 @@ def command_validate(args: argparse.Namespace) -> int:
     return exit_code
 
 
+def _collect_files(artifacts: Path) -> list[str]:
+    candidates = [
+        "report.md",
+        "exports/report.html",
+        "exports/report.pdf",
+        "validation/validation-report.json",
+        "validation/validation-report.md",
+    ]
+    return [relative for relative in candidates if (artifacts / relative).is_file()]
+
+
+def command_collect(args: argparse.Namespace) -> int:
+    layout = RunLayout(args.run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        raise StagePreconditionError("run has no generation")
+    package_hash = compute_skill_package_hash(ROOT)
+    verify_stage_precondition(layout, generation, Stage.RELEASE, package_hash)
+    artifacts = layout.generation_root(generation) / "artifacts"
+    validation_report_path = layout.artifact(generation, "validation/validation-report.json")
+    validation_report = load_json(validation_report_path)
+    if not validation_report.get("ok"):
+        raise CLIContractError("collect requires a passing validation report")
+    public_checks, public_code = _public_safety_checks(artifacts)
+    if public_code:
+        failures = [
+            f"{check.check_id}: {check.message}"
+            for check in public_checks if check.status == "fail"
+        ]
+        raise CLIContractError("collect blocked by public safety checks: " + "; ".join(failures))
+    target_root = args.to.expanduser()
+    if target_root.exists() or target_root.is_symlink():
+        raise OutputPathError(f"collect target already exists: {target_root}")
+    target_root.mkdir(parents=True, exist_ok=False)
+    copied: dict[str, str] = {}
+    for relative in _collect_files(artifacts):
+        source = artifacts / relative
+        destination = package_child(target_root, relative)
+        atomic_copy_file(source, destination)
+        copied[relative] = sha256_file(destination)
+    manifest = {
+        "schema_version": "1.0",
+        "run_dir": str(layout.root),
+        "generation": generation,
+        "source_validation_report_sha256": sha256_file(validation_report_path),
+        "files": copied,
+    }
+    atomic_write_json(package_child(target_root, "collect-manifest.json"), manifest)
+    print(json.dumps({
+        "ok": True,
+        "collected_to": str(target_root.resolve()),
+        "files": copied,
+    }, ensure_ascii=False, indent=2))
+    return EXIT_OK
+
+
 def command_release(args: argparse.Namespace) -> int:
     try:
         release = release_run(
@@ -1190,6 +1554,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--output", type=Path)
     init.add_argument("--language", choices=("auto", "zh-CN", "en"), default="auto")
     init.add_argument("--depth-level", choices=("briefing", "standard_report", "full_dossier"), default="full_dossier")
+    init.add_argument("--briefing-reason", default="")
     init.add_argument("--min-units", type=int)
     init.add_argument("--max-units", type=int)
     init.add_argument("--user-goal", default="Build an evidence-grounded answer")
@@ -1221,15 +1586,17 @@ def build_parser() -> argparse.ArgumentParser:
     evidence = subparsers.add_parser("evidence", help="Validate and commit Claims and report outline.")
     evidence.add_argument("run_dir", type=Path)
     evidence.add_argument("--claims", type=Path, required=True)
-    evidence.add_argument("--contradictions", type=Path, required=True)
-    evidence.add_argument("--uncertainties", type=Path, required=True)
-    evidence.add_argument("--report-outline", type=Path, required=True)
+    evidence.add_argument("--contradictions", type=Path)
+    evidence.add_argument("--uncertainties", type=Path)
+    evidence.add_argument("--report-outline", type=Path)
+    evidence.add_argument("--preflight-theory", action="store_true")
     evidence.set_defaults(handler=command_evidence)
 
     draft = subparsers.add_parser("draft", help="Validate and commit a traceable report draft.")
     draft.add_argument("run_dir", type=Path)
     draft.add_argument("--draft-md", type=Path, required=True)
     draft.add_argument("--paragraph-map-jsonl", type=Path, required=True)
+    draft.add_argument("--preflight", action="store_true")
     draft.set_defaults(handler=command_draft)
 
     review = subparsers.add_parser("review", help="Apply independent semantic review.")
@@ -1252,6 +1619,11 @@ def build_parser() -> argparse.ArgumentParser:
     validate = subparsers.add_parser("validate", help="Recompute all offline governed gates.")
     validate.add_argument("run_dir", type=Path)
     validate.set_defaults(handler=command_validate)
+
+    collect = subparsers.add_parser("collect", help="Copy validated local deliverables without creating a release.")
+    collect.add_argument("run_dir", type=Path)
+    collect.add_argument("--to", type=Path, required=True)
+    collect.set_defaults(handler=command_collect)
 
     release = subparsers.add_parser("release", help="Build a Trust-approved public release package.")
     release.add_argument("run_dir", type=Path)
