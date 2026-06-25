@@ -33,6 +33,8 @@ class LibraryContractTests(unittest.TestCase):
         self.assertIn("scripts/run_checks.py", body)
         self.assertIn("evals/", body)
         self.assertIn("8000–10000", body)
+        self.assertIn("research_profile", body)
+        self.assertIn("default_full_dossier", body)
         self.assertIn("report_outline", body)
         self.assertIn("output-path-policy.md", body)
         self.assertIn("Never reinitialize", body)
@@ -83,6 +85,8 @@ class LibraryContractTests(unittest.TestCase):
         interface = yaml.safe_load(interface_text)
         self.assertEqual(interface["interface"]["display_name"], "STORM DeepResearch")
         self.assertIn("evidence", interface["interface"]["short_description"].lower())
+        self.assertIn("research_profile", interface["interface"]["default_prompt"])
+        self.assertIn("default_full_dossier", interface["interface"]["default_prompt"])
         compatibility = interface["compatibility"]
         self.assertEqual(compatibility["canonical_format"], "agent-skills")
         self.assertEqual(compatibility["execution"]["context"], "inline")
@@ -92,6 +96,15 @@ class LibraryContractTests(unittest.TestCase):
         self.assertEqual(set(compatibility["adapter_targets"]), expected_targets)
         self.assertEqual(set(compatibility["degradation"]), expected_targets)
         defaults = interface["contract"]["defaults"]
+        self.assertEqual(defaults["research_profile"], "default_full_dossier")
+        self.assertTrue({
+            "default_full_dossier",
+            "strict_storm_lens",
+            "critique_deepresearch",
+            "closed_corpus",
+            "briefing",
+            "repair_existing_run",
+        } <= set(defaults["research_profile_options"]))
         self.assertEqual(defaults["output_collision_policy"], "fail")
         self.assertEqual(defaults["ledger_update_policy"], "monotonic-merge")
         self.assertEqual(defaults["release_policy"], "validation-plus-trust-plus-human-approval")

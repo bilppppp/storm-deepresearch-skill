@@ -6,8 +6,8 @@
 - Maturity: `governed`
 - Owner: `陈旭`
 - License: `MIT-0`
-- Package SHA256: `91a9fb0e091403a8d724a6fbdcf616289679b99f5add56fc7355b86a87092b28`
-- Archive SHA256: `27094bb329bc6c183492bfa660db7fc4a76e21177e28acd99a449e9aa5965f7b`
+- Package SHA256: `5456f416b24cafe8bd0bb3fa9c8e550e68896569419500ad2b656bd55d0e44e3`
+- Archive SHA256: `f12fdc85f061d803a3023f8f2ff1a849d7a84f34d5a073a7e0701cc715c4139a`
 - Install simulated: `True`
 
 ## Compatibility

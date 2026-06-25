@@ -23,7 +23,11 @@ BRIEF_REQUIRED_FIELDS = {
     "freshness_policy", "retrieval_mode", "output_mode", "uncertainty_tolerance",
     "report_language", "length_contract", "high_stakes", "user_materials", "assumptions",
 }
-BRIEF_FIELDS = BRIEF_REQUIRED_FIELDS | {"briefing_reason", "storm_lens_mode"}
+RESEARCH_PROFILES = {
+    "default_full_dossier", "strict_storm_lens", "critique_deepresearch",
+    "closed_corpus", "briefing", "custom",
+}
+BRIEF_FIELDS = BRIEF_REQUIRED_FIELDS | {"briefing_reason", "storm_lens_mode", "research_profile"}
 RESEARCH_PLAN_FIELDS = {
     "schema_version", "status", "perspectives", "questions", "source_priorities",
     "stopping_conditions", "retrieval_budget",
@@ -233,6 +237,31 @@ def validate_brief(data: dict[str, Any]) -> list[str]:
         errors.append("uncertainty_tolerance is invalid")
     if data.get("storm_lens_mode", "advisory") not in {"advisory", "strict"}:
         errors.append("storm_lens_mode is invalid")
+    profile = data.get("research_profile", "custom")
+    if profile not in RESEARCH_PROFILES:
+        errors.append("research_profile is invalid")
+    elif profile == "default_full_dossier":
+        if data.get("depth_level") != "full_dossier" or data.get("output_mode") != "full":
+            errors.append("default_full_dossier profile requires full_dossier and full output")
+        if data.get("source_policy") != "external_allowed" or data.get("retrieval_mode") != "host":
+            errors.append("default_full_dossier profile requires external_allowed host retrieval")
+        if data.get("storm_lens_mode", "advisory") != "advisory":
+            errors.append("default_full_dossier profile requires advisory STORM lens")
+    elif profile == "strict_storm_lens":
+        if data.get("depth_level") != "full_dossier" or data.get("output_mode") != "full":
+            errors.append("strict_storm_lens profile requires full_dossier and full output")
+        if data.get("storm_lens_mode", "advisory") != "strict":
+            errors.append("strict_storm_lens profile requires strict STORM lens")
+    elif profile == "critique_deepresearch":
+        if data.get("depth_level") != "full_dossier" or data.get("output_mode") != "full":
+            errors.append("critique_deepresearch profile requires full_dossier and full output")
+        if data.get("source_policy") != "external_allowed" or data.get("retrieval_mode") != "host":
+            errors.append("critique_deepresearch profile requires external_allowed host retrieval")
+    elif profile == "closed_corpus":
+        if data.get("source_policy") != "closed_corpus" or data.get("retrieval_mode") != "closed_corpus":
+            errors.append("closed_corpus profile requires closed_corpus source policy and retrieval mode")
+    elif profile == "briefing" and data.get("depth_level") != "briefing":
+        errors.append("briefing profile requires briefing depth")
     if not isinstance(data.get("high_stakes"), bool):
         errors.append("high_stakes must be boolean")
     freshness = data.get("freshness_policy")

@@ -16,6 +16,16 @@
     "research_question": {"type": "string", "minLength": 1},
     "user_goal": {"type": "string", "minLength": 1},
     "audience": {"type": "string", "minLength": 1},
+    "research_profile": {
+      "enum": [
+        "default_full_dossier",
+        "strict_storm_lens",
+        "critique_deepresearch",
+        "closed_corpus",
+        "briefing",
+        "custom"
+      ]
+    },
     "depth_level": {"enum": ["briefing", "standard_report", "full_dossier"]},
     "briefing_reason": {"type": "string", "minLength": 1},
     "report_language": {"type": "string", "minLength": 2},

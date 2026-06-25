@@ -110,6 +110,52 @@ STORM_LENS_OUTPUT_FIELDS = {
     "P3": {"section_ids", "claim_ids", "finding_ids", "contradiction_ids", "uncertainty_ids", "length_budget_note"},
     "P4": {"target_kind", "target_sha256", "weakest_claim_ids", "overstated_paragraphs", "missing_perspectives", "citation_support_issues", "repair_actions"},
 }
+INIT_RESEARCH_PROFILES = {
+    "auto",
+    "default_full_dossier",
+    "strict_storm_lens",
+    "critique_deepresearch",
+    "closed_corpus",
+    "briefing",
+    "repair_existing_run",
+}
+PROFILE_DEFAULTS = {
+    "default_full_dossier": {
+        "depth_level": "full_dossier",
+        "source_policy": "external_allowed",
+        "retrieval_mode": "host",
+        "output_mode": "full",
+        "storm_lens_mode": "advisory",
+    },
+    "strict_storm_lens": {
+        "depth_level": "full_dossier",
+        "source_policy": "external_allowed",
+        "retrieval_mode": "host",
+        "output_mode": "full",
+        "storm_lens_mode": "strict",
+    },
+    "critique_deepresearch": {
+        "depth_level": "full_dossier",
+        "source_policy": "external_allowed",
+        "retrieval_mode": "host",
+        "output_mode": "full",
+        "storm_lens_mode": "advisory",
+    },
+    "closed_corpus": {
+        "depth_level": "full_dossier",
+        "source_policy": "closed_corpus",
+        "retrieval_mode": "closed_corpus",
+        "output_mode": "full",
+        "storm_lens_mode": "advisory",
+    },
+    "briefing": {
+        "depth_level": "briefing",
+        "source_policy": "external_allowed",
+        "retrieval_mode": "host",
+        "output_mode": "full",
+        "storm_lens_mode": "advisory",
+    },
+}
 
 
 class CLIContractError(ValueError):
@@ -167,16 +213,57 @@ def default_length_contract(language: str, depth_level: str) -> dict[str, object
     }
 
 
+def _profile_value(args: argparse.Namespace, field: str, profile: str) -> str:
+    explicit = getattr(args, field, None)
+    if profile == "auto":
+        fallback = {
+            "depth_level": "full_dossier",
+            "source_policy": "external_allowed",
+            "retrieval_mode": "host",
+            "output_mode": "full",
+            "storm_lens_mode": "advisory",
+        }[field]
+        return str(explicit or fallback)
+    if profile == "briefing" and field == "output_mode" and explicit in {"full", "reduced"}:
+        return str(explicit)
+    expected = str(PROFILE_DEFAULTS[profile][field])
+    if explicit is not None and explicit != expected:
+        flag = field.replace("_", "-")
+        raise CLIContractError(f"--{flag} conflicts with --research-profile {profile}; expected {expected}")
+    return expected
+
+
+def _derived_research_profile(values: dict[str, str]) -> str:
+    for profile, defaults in PROFILE_DEFAULTS.items():
+        if all(values[key] == expected for key, expected in defaults.items()):
+            return profile
+    return "custom"
+
+
 def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
     topic = args.topic.strip()
     question = args.question.strip()
     language = infer_language(topic, question, args.language)
+    requested_profile = str(getattr(args, "research_profile", "auto") or "auto")
+    if requested_profile not in INIT_RESEARCH_PROFILES:
+        raise CLIContractError("research_profile is invalid")
+    if requested_profile == "repair_existing_run":
+        raise CLIContractError("repair_existing_run uses status/explain/retry on an existing run; do not call init")
+    profile = requested_profile
+    values = {
+        "depth_level": _profile_value(args, "depth_level", profile),
+        "source_policy": _profile_value(args, "source_policy", profile),
+        "retrieval_mode": _profile_value(args, "retrieval_mode", profile),
+        "output_mode": _profile_value(args, "output_mode", profile),
+        "storm_lens_mode": _profile_value(args, "storm_lens_mode", profile),
+    }
+    effective_profile = _derived_research_profile(values) if profile == "auto" else profile
     briefing_reason = str(getattr(args, "briefing_reason", "") or "").strip()
-    if args.depth_level == "briefing" and not briefing_reason:
+    if values["depth_level"] == "briefing" and not briefing_reason:
         raise CLIContractError("briefing depth requires --briefing-reason with explicit user request evidence")
-    if args.depth_level != "briefing" and briefing_reason:
+    if values["depth_level"] != "briefing" and briefing_reason:
         raise CLIContractError("--briefing-reason is only valid with --depth-level briefing")
-    length_contract = default_length_contract(language, args.depth_level)
+    length_contract = default_length_contract(language, values["depth_level"])
     length_overridden = args.min_units is not None or args.max_units is not None
     if args.min_units is not None:
         length_contract["minimum"] = args.min_units
@@ -194,24 +281,31 @@ def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
         "research_question": question,
         "user_goal": args.user_goal,
         "audience": args.audience,
-        "depth_level": args.depth_level,
+        "research_profile": effective_profile,
+        "depth_level": values["depth_level"],
         "report_language": language,
         "length_contract": length_contract,
         "geography": args.geography,
         "timeframe": args.timeframe,
-        "source_policy": args.source_policy,
+        "source_policy": values["source_policy"],
         "freshness_policy": {
             "as_of": args.as_of or date.today().isoformat(),
             "max_age_days": args.max_age_days,
         },
-        "retrieval_mode": args.retrieval_mode,
-        "output_mode": args.output_mode,
-        "storm_lens_mode": args.storm_lens_mode,
+        "retrieval_mode": values["retrieval_mode"],
+        "output_mode": values["output_mode"],
+        "storm_lens_mode": values["storm_lens_mode"],
         "uncertainty_tolerance": args.uncertainty_tolerance,
         "high_stakes": args.high_stakes,
         "user_materials": list(args.user_material),
         "assumptions": list(args.assumption),
     }
+    if effective_profile == "critique_deepresearch" and not any(
+        "critique_deepresearch profile" in item for item in brief["assumptions"]
+    ):
+        brief["assumptions"].append(
+            "critique_deepresearch profile: extract researchable claims from the user's interpretation before background lookup."
+        )
     if briefing_reason:
         brief["briefing_reason"] = briefing_reason
     return brief
@@ -378,8 +472,11 @@ def initialize_at_output(
     depth_level: str = "full_dossier",
     minimum_units: int | None = None,
     maximum_units: int | None = None,
-    output_mode: str = "full",
-    storm_lens_mode: str = "advisory",
+    source_policy: str | None = "external_allowed",
+    retrieval_mode: str | None = "host",
+    output_mode: str | None = "full",
+    storm_lens_mode: str | None = "advisory",
+    research_profile: str = "auto",
     high_stakes: bool = False,
     briefing_reason: str = "",
 ) -> RunLayout:
@@ -394,12 +491,13 @@ def initialize_at_output(
         audience="General reader",
         geography="global",
         timeframe="current",
-        source_policy="external_allowed",
+        source_policy=source_policy,
         as_of=None,
         max_age_days=365,
-        retrieval_mode="host",
+        retrieval_mode=retrieval_mode,
         output_mode=output_mode,
         storm_lens_mode=storm_lens_mode,
+        research_profile=research_profile,
         uncertainty_tolerance="low",
         high_stakes=high_stakes,
         briefing_reason=briefing_reason,
@@ -439,8 +537,11 @@ def command_init(args: argparse.Namespace) -> int:
         depth_level=args.depth_level,
         minimum_units=args.min_units,
         maximum_units=args.max_units,
+        source_policy=args.source_policy,
+        retrieval_mode=args.retrieval_mode,
         output_mode=args.output_mode,
         storm_lens_mode=args.storm_lens_mode,
+        research_profile=args.research_profile,
         high_stakes=args.high_stakes,
         briefing_reason=args.briefing_reason,
     )
@@ -2373,7 +2474,8 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--output-root", type=Path)
     init.add_argument("--output", type=Path)
     init.add_argument("--language", choices=("auto", "zh-CN", "en"), default="auto")
-    init.add_argument("--depth-level", choices=("briefing", "standard_report", "full_dossier"), default="full_dossier")
+    init.add_argument("--research-profile", choices=tuple(sorted(INIT_RESEARCH_PROFILES)), default="auto")
+    init.add_argument("--depth-level", choices=("briefing", "standard_report", "full_dossier"))
     init.add_argument("--briefing-reason", default="")
     init.add_argument("--min-units", type=int)
     init.add_argument("--max-units", type=int)
@@ -2381,12 +2483,12 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--audience", default="General reader")
     init.add_argument("--geography", default="global")
     init.add_argument("--timeframe", default="current")
-    init.add_argument("--source-policy", choices=("external_allowed", "closed_corpus", "primary_only"), default="external_allowed")
+    init.add_argument("--source-policy", choices=("external_allowed", "closed_corpus", "primary_only"))
     init.add_argument("--as-of")
     init.add_argument("--max-age-days", type=int, default=365)
-    init.add_argument("--retrieval-mode", choices=("host", "provider", "closed_corpus"), default="host")
-    init.add_argument("--output-mode", choices=("full", "reduced"), default="full")
-    init.add_argument("--storm-lens-mode", choices=("advisory", "strict"), default="advisory")
+    init.add_argument("--retrieval-mode", choices=("host", "provider", "closed_corpus"))
+    init.add_argument("--output-mode", choices=("full", "reduced"))
+    init.add_argument("--storm-lens-mode", choices=("advisory", "strict"))
     init.add_argument("--uncertainty-tolerance", choices=("low", "medium", "high"), default="low")
     init.add_argument("--high-stakes", action="store_true")
     init.add_argument("--user-material", action="append", default=[])

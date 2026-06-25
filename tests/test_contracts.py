@@ -66,6 +66,20 @@ class ContractTests(unittest.TestCase):
         brief["briefing_reason"] = "host defaulted to short mode"
         self.assertIn("briefing_reason is only valid for briefing depth", validate_brief(brief))
 
+    def test_research_profile_consistency_is_validated(self) -> None:
+        brief = valid_brief_v2()
+        brief["research_profile"] = "strict_storm_lens"
+        self.assertIn("strict_storm_lens profile requires strict STORM lens", validate_brief(brief))
+        brief["storm_lens_mode"] = "strict"
+        self.assertNotIn("strict_storm_lens profile requires strict STORM lens", validate_brief(brief))
+
+        brief = valid_brief_v2()
+        brief["research_profile"] = "closed_corpus"
+        self.assertIn(
+            "closed_corpus profile requires closed_corpus source policy and retrieval mode",
+            validate_brief(brief),
+        )
+
     def test_governed_record_validators_are_strict(self) -> None:
         cases = {
             "receipt": valid_receipt,

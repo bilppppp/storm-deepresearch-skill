@@ -34,6 +34,7 @@ class StormResearchCLITests(unittest.TestCase):
             brief = json.loads(authoritative.read_text(encoding="utf-8"))
             self.assertEqual(brief["schema_version"], "2.0")
             self.assertNotIn("package_state", brief)
+            self.assertEqual(brief["research_profile"], "default_full_dossier")
             self.assertEqual((run / "brief.json").read_bytes(), authoritative.read_bytes())
 
     def test_init_rejects_full_dossier_reduced_output(self) -> None:
@@ -65,7 +66,47 @@ class StormResearchCLITests(unittest.TestCase):
                 (workspace / "output/storm-deepresearch/test-run/brief.json").read_text(encoding="utf-8")
             )
             self.assertEqual(brief["depth_level"], "briefing")
+            self.assertEqual(brief["research_profile"], "briefing")
             self.assertEqual(brief["briefing_reason"], "user explicitly requested a short briefing")
+
+    def test_research_profiles_map_to_governed_init_fields(self) -> None:
+        cases = [
+            ("strict_storm_lens", {"storm_lens_mode": "strict", "depth_level": "full_dossier"}),
+            ("closed_corpus", {"source_policy": "closed_corpus", "retrieval_mode": "closed_corpus"}),
+            ("critique_deepresearch", {"depth_level": "full_dossier", "retrieval_mode": "host"}),
+        ]
+        for profile, expected in cases:
+            with self.subTest(profile=profile):
+                with tempfile.TemporaryDirectory() as tmp:
+                    workspace = Path(tmp)
+                    result = self.invoke_init(workspace, "--research-profile", profile)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    brief = json.loads(
+                        (workspace / "output/storm-deepresearch/test-run/brief.json").read_text(encoding="utf-8")
+                    )
+                    self.assertEqual(brief["research_profile"], profile)
+                    for key, value in expected.items():
+                        self.assertEqual(brief[key], value)
+                    if profile == "critique_deepresearch":
+                        self.assertTrue(any("critique_deepresearch profile" in item for item in brief["assumptions"]))
+
+    def test_research_profile_conflict_fails_at_init(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            result = self.invoke_init(
+                workspace,
+                "--research-profile", "strict_storm_lens",
+                "--storm-lens-mode", "advisory",
+            )
+            self.assertEqual(result.returncode, 4)
+            self.assertIn("conflicts with --research-profile strict_storm_lens", result.stderr)
+
+    def test_repair_existing_run_profile_is_not_init(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            result = self.invoke_init(workspace, "--research-profile", "repair_existing_run")
+            self.assertEqual(result.returncode, 4)
+            self.assertIn("repair_existing_run uses status/explain/retry", result.stderr)
 
     def test_plan_refuses_changed_brief_view(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

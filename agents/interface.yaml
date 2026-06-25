@@ -1,15 +1,10 @@
 interface:
   display_name: "STORM DeepResearch"
-  short_description: "Build governed evidence-grounded research packages with STORM tasklets, findings, and receipt validation"
-  default_prompt: "Use $storm-deepresearch-skill for a governed dossier. Stop on missing findings or evidence; release needs receipt chain and human approval."
+  short_description: "Governed evidence research with STORM tasklets, findings, and receipts"
+  default_prompt: "Use $storm-deepresearch-skill. For vague research, ask research_profile; default default_full_dossier. Stop on missing evidence."
 compatibility:
   canonical_format: "agent-skills"
-  adapter_targets:
-    - "openai"
-    - "claude"
-    - "agent-skills"
-    - "vscode"
-    - "generic"
+  adapter_targets: ["openai", "claude", "agent-skills", "vscode", "generic"]
   activation:
     mode: "manual"
     paths: []
@@ -25,28 +20,16 @@ compatibility:
   degradation:
     openai: "Preserve governed contracts."
     claude: "Preserve governed contracts."
-    agent-skills: "Use SKILL.md and relative resources."
+    agent-skills: "Use SKILL.md."
     vscode: "Preserve governed contracts."
-    generic: "Require adapter or closed corpus."
+    generic: "Require adapter."
 contract:
   inputs:
-    required:
-      - "topic_or_question"
-    optional:
-      - "input_files"
-      - "urls"
-      - "findings_jsonl"
-      - "audience"
-      - "timeframe"
-      - "source_policy"
-      - "freshness_policy"
-      - "retrieval_mode"
-      - "report_language"
-      - "length_contract"
-      - "storm_lens_mode"
-      - "workspace_root"
-      - "output_root"
+    required: ["topic_or_question"]
+    optional: ["input_files", "urls", "findings_jsonl", "audience", "timeframe", "source_policy", "freshness_policy", "retrieval_mode", "research_profile", "report_language", "length_contract", "storm_lens_mode", "workspace_root", "output_root"]
   defaults:
+    research_profile: "default_full_dossier"
+    research_profile_options: ["default_full_dossier", "strict_storm_lens", "critique_deepresearch", "closed_corpus", "briefing", "repair_existing_run"]
     retrieval_mode: "host"
     output_mode: "full"
     depth_level: "full_dossier"
@@ -59,22 +42,6 @@ contract:
     state_model: "generation artifacts plus immutable receipt chain"
     research_pool_policy: "storm-tasklets require usable findings before evidence"
     release_policy: "validation-plus-trust-plus-human-approval"
-  permissions:
-    - "read approved inputs"
-    - "write inside resolved output root"
-    - "use host network only when brief allows"
-    - "run local validation and rendering"
-  stop_conditions:
-    - "scope or permission missing"
-    - "source, Claim, citation, review, trust, or approval is missing evidence"
-    - "full dossier findings do not cover every STORM tasklet"
-    - "retrieval lacks provenance"
-    - "material facts unsupported"
-    - "formats fail validation"
-    - "path exists or escapes output root"
-    - "receipt chain fails"
-    - "release lacks human approval or trust"
-  non_goals:
-    - "quick lookup"
-    - "unsupported role-play"
-    - "personalized professional advice"
+  permissions: ["read approved inputs", "write inside resolved output root", "use host network when brief allows", "run validation/rendering"]
+  stop_conditions: ["scope or permission missing", "source, Claim, citation, review, trust, or approval is missing evidence", "full dossier findings miss STORM tasklets", "retrieval lacks provenance", "material facts unsupported", "formats fail validation", "path exists or escapes output root", "receipt chain fails", "release lacks human approval or trust"]
+  non_goals: ["quick lookup", "unsupported role-play", "personalized professional advice"]

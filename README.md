@@ -83,6 +83,39 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 
 默认 `storm_lens_mode` 是 `advisory`：必须遵循 STORM Lens Prompt Pack，但不额外要求 lens artifacts。需要证明四个 STORM prompt 按阶段发生时，在 init 加 `--storm-lens-mode strict`；strict run 会要求四个 `storm-lens-*.json` helper artifact，并把它们绑定进后续 receipts。
 
+### 可选运行方式
+
+宿主可以把 `research_profile` 作为用户选项展示。若用户只说“运行这个 skill 研究 xxx”，先用一个简短菜单确认研究形态；如果用户不选、说默认、或已经明确“按默认 full_dossier”，使用 `default_full_dossier` 继续执行，不要降级到 `briefing`。
+
+| 选项 | CLI 映射 | 使用场景 |
+| --- | --- | --- |
+| `default_full_dossier` | `--research-profile default_full_dossier` | 默认完整研究，advisory STORM lens，host retrieval。 |
+| `strict_storm_lens` | `--research-profile strict_storm_lens` | 需要审计四条 STORM prompt 是否按阶段发生。 |
+| `critique_deepresearch` | `--research-profile critique_deepresearch` | 电影、书、文章观后感或评论；先抽取用户观点，再检索支持、反驳、理论和争议。 |
+| `closed_corpus` | `--research-profile closed_corpus` | 只使用用户提供的文件或封闭语料，不联网，不用模型记忆补事实。 |
+| `briefing` | `--research-profile briefing --briefing-reason "用户明确要求简报"` | 用户明确只要短简报。 |
+| `repair_existing_run` | 不调用 `init`；先运行 `status` / `explain` | 修复已有 run，禁止重新初始化或覆盖账本。 |
+
+等价提示词示例：
+
+```text
+运行 $SKILL_ROOT，按默认 full_dossier 做研究。
+如果需要选择运行方式，请默认使用 default_full_dossier；不要使用 briefing，除非我明确要求简报。
+我的研究内容是：xxx
+```
+
+```text
+运行 $SKILL_ROOT，使用 strict_storm_lens。
+必须让 Prompt 1/2/3/4 分别产生 lens artifact 并绑定进 receipts，不要把四条 prompt 一次性跑完。
+我的研究内容是：xxx
+```
+
+```text
+运行 $SKILL_ROOT，使用 critique_deepresearch。
+不要只查背景；先从我的观点中抽取可研究问题，再检索支持、反驳、理论、争议和同类比较。
+我的观后感/评论是：xxx
+```
+
 ### 2. Plan
 
 宿主或 agent 先生成 `research-plan.json` 和 `source-plan.json`，再提交：

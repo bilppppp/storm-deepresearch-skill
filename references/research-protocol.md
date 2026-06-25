@@ -7,6 +7,8 @@ In 1.1, this is the `storm_research.py init` stage. The authoritative brief is `
 
 `storm_lens_mode` defaults to `advisory`: the workflow must follow the prompt pack, but the harness does not require separate lens artifacts. Use `--storm-lens-mode strict` when the run must prove that Prompt 1, Prompt 2, Prompt 3, and Prompt 4 ran at their required phase.
 
+`research_profile` is the user-facing run preset. For vague "run this skill to research X" requests, ask one short profile-choice question before init. If the user does not choose or asks for the default, use `default_full_dossier`; never infer `briefing` without explicit user request. Use `strict_storm_lens`, `critique_deepresearch`, `closed_corpus`, or `briefing` only when the user chooses that shape or the input clearly requires it. `repair_existing_run` is not an init profile: inspect the existing run with `status` and `explain`, then repair or retry the failed stage.
+
 ## Phase 1 — Build a source plan
 List expected source classes before searching. For each source class, define what it can and cannot prove.
 

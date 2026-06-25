@@ -7,7 +7,8 @@ description: Use for source-grounded deep research with STORM tasklets, findings
 
 ## Router Rules
 
-- Default Chinese full dossiers to `8000–10000` body characters; `briefing` must be explicit.
+- Vague `run ... research X`: ask one `research_profile` choice; default `default_full_dossier`, not `briefing`.
+- Chinese full dossiers: `8000–10000` body chars; `briefing` must be explicit.
 - Initialize a fresh safe output path; reject existing, escaping, or symlinked targets.
 - Use `closed_corpus` for supplied material; otherwise use approved host search.
 - Run `scripts/storm_research.py`; stop on missing findings/evidence, broken receipts, or approval.
