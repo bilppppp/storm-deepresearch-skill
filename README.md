@@ -30,9 +30,13 @@
 
 ## 安装
 
-在项目根目录执行：
+### 手动安装
+
+先把仓库克隆到本地，然后在项目根目录执行：
 
 ```bash
+git clone https://github.com/bilppppp/storm-deepresearch-skill.git
+cd storm-deepresearch-skill
 uv venv --python 3.11 .venv
 uv pip install --python .venv/bin/python -r requirements-dev.lock
 pandoc --version
@@ -44,6 +48,27 @@ pandoc --version
 把此目录放入或链接到 Agent 的 skills 根目录后，通过 `$storm-deepresearch-skill` 显式调用。不同宿主的技能目录并不统一；以宿主的本地 skill 安装说明为准，不要复制 `.venv`、`dist` 或生成的研究输出。
 
 语义契约覆盖 OpenAI、Claude、Agent Skills、VS Code 和 generic。`agent-skills` 是中立源格式；分发阶段为 OpenAI、Claude、VS Code 和 generic 生成适配器。
+
+### 交给 Agent 安装
+
+也可以把 GitHub 链接直接交给 Codex、Claude Code、OpenCode 或其他支持本地 skills 的 agent，让宿主按自己的规则安装。可直接使用下面这段提示词：
+
+```text
+帮我安装 https://github.com/bilppppp/storm-deepresearch-skill.git 作为本地 agent skill。
+
+要求：
+1. 先 clone 仓库到你当前宿主推荐的 skills 目录；如果宿主没有固定 skills 目录，请先告诉我你准备放到哪里。
+2. 不要复制或提交 .venv、dist、output、work、state、release、__pycache__、.pytest_cache 等生成物。
+3. 在 skill 根目录创建 Python 3.11 虚拟环境，并安装依赖：
+   uv venv --python 3.11 .venv
+   uv pip install --python .venv/bin/python -r requirements-dev.lock
+4. 检查 Pandoc 是否可用：pandoc --version。若缺失，请告诉我需要先安装 Pandoc；full PDF 还需要 WeasyPrint 或 Chrome/Chromium。
+5. 运行验证：.venv/bin/python scripts/run_checks.py --all。
+6. 如果宿主需要平台 adapter 或 zip 包，再运行：.venv/bin/python scripts/run_checks.py --dist。
+7. 安装完成后告诉我 SKILL_ROOT、调用方式、验证结果，以及是否生成了 dist/storm-deepresearch-skill.zip。
+```
+
+这不是仓库内置的一键安装命令，而是一个可审计的安装协议：当前代码真实提供的是 `SKILL.md`、`manifest.json`、`agents/interface.yaml`、分阶段 CLI、Yao 验证和 `--dist` 打包入口；Codex、Claude Code、OpenCode 的 skills 目录、启用方式和权限模型由各自宿主决定。
 
 ## 快速开始
 
