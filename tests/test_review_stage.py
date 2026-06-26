@@ -32,6 +32,7 @@ class ReviewStageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
             run = self.drafted_run(workspace)
+            self.register_lens_review(run, workspace)
             inputs = self.write_review_inputs(run, workspace)
             reviews = [json.loads(line) for line in inputs[0].read_text(encoding="utf-8").splitlines()]
             reviews[0]["verdict"] = "overstated"
@@ -53,6 +54,7 @@ class ReviewStageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
             run = self.drafted_run(workspace)
+            self.register_lens_review(run, workspace)
             inputs = self.write_review_inputs(run, workspace)
             result = self.invoke_review(run, inputs)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -83,8 +85,7 @@ class ReviewStageTests(unittest.TestCase):
 
     def reviewed_run(self, workspace: Path, *, strict_lens: bool = False) -> Path:
         run = self.drafted_run(workspace, strict_lens=strict_lens)
-        if strict_lens:
-            self.register_lens_review(run, workspace)
+        self.register_lens_review(run, workspace)
         inputs = self.write_review_inputs(run, workspace)
         result = self.invoke_review(run, inputs)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

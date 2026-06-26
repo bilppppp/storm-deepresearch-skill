@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- `init` now requires profile-selection evidence via `--profile-selection-mode` and `--profile-selection-evidence`; missing profile intake fails before any run directory is committed.
+- `init` now preserves caller-provided `user_goal`, `audience`, `geography`, `timeframe`, freshness, uncertainty, high-stakes, user material, and assumptions in `brief.json`.
+- Report-depth validation now measures net body length only; generated or hand-written bibliography/source sections such as `References`, `参考文献`, `参考资料`, `资料来源`, and `Sources` cannot satisfy the minimum length gate.
+- Added `capture-source` and `ingest-dir` helpers that copy snapshots into evidence cache, build retrieval input JSONL, and reject common bad captures before `ingest`.
+- Added `build-paragraph-map` to generate paragraph mappings from sidecar JSONL or stripped `storm-map` comments while preserving final draft validation.
+- Markdown blockquotes and fenced code are now excluded from report-depth counts; oversized quote blocks fail the draft and validation gates.
+- Added `doctor` to summarize run health, artifact presence, failed checks, and next actions without writing receipts.
+- `default_full_dossier` and `critique_deepresearch` now default to strict STORM lens artifacts across plan, evidence, and review.
+- `critique_deepresearch` source plans now fail unless they cover user claim extraction, support, counterevidence, theory/framework, reception/criticism, and historical comparison/blind spots.
+- Added `scripts/run_checks.py --dist` as the canonical four-adapter package, archive sanitization, and package-verification command.
+
 ## 1.1.0 - 2026-06-24
 
 ### Added

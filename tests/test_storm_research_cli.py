@@ -35,7 +35,52 @@ class StormResearchCLITests(unittest.TestCase):
             self.assertEqual(brief["schema_version"], "2.0")
             self.assertNotIn("package_state", brief)
             self.assertEqual(brief["research_profile"], "default_full_dossier")
+            self.assertEqual(brief["storm_lens_mode"], "strict")
+            self.assertEqual(brief["profile_selection"]["mode"], "user_requested_default")
+            self.assertEqual(brief["profile_selection"]["selected_profile"], "default_full_dossier")
             self.assertEqual((run / "brief.json").read_bytes(), authoritative.read_bytes())
+
+    def test_init_requires_profile_selection_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            result = self.invoke(
+                "init", "--topic", "Governed research", "--question",
+                "What evidence supports the conclusion?", "--workspace", str(workspace),
+                "--output", "test-run",
+            )
+            self.assertEqual(result.returncode, 4)
+            self.assertIn("profile selection requires --profile-selection-mode", result.stderr)
+            self.assertFalse((workspace / "output/storm-deepresearch/test-run").exists())
+
+    def test_init_preserves_scope_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            result = self.invoke_init(
+                workspace,
+                "--user-goal", "Verify a policy-sensitive claim",
+                "--audience", "Chinese graduate applicants",
+                "--geography", "China and United States",
+                "--timeframe", "2020-2026",
+                "--as-of", "2026-06-25",
+                "--max-age-days", "180",
+                "--uncertainty-tolerance", "medium",
+                "--high-stakes",
+                "--user-material", "quoted user claim",
+                "--assumption", "profile confirmed through menu",
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            brief = json.loads(
+                (workspace / "output/storm-deepresearch/test-run/brief.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(brief["user_goal"], "Verify a policy-sensitive claim")
+            self.assertEqual(brief["audience"], "Chinese graduate applicants")
+            self.assertEqual(brief["geography"], "China and United States")
+            self.assertEqual(brief["timeframe"], "2020-2026")
+            self.assertEqual(brief["freshness_policy"], {"as_of": "2026-06-25", "max_age_days": 180})
+            self.assertEqual(brief["uncertainty_tolerance"], "medium")
+            self.assertTrue(brief["high_stakes"])
+            self.assertEqual(brief["user_materials"], ["quoted user claim"])
+            self.assertEqual(brief["assumptions"], ["profile confirmed through menu"])
 
     def test_init_rejects_full_dossier_reduced_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -71,9 +116,10 @@ class StormResearchCLITests(unittest.TestCase):
 
     def test_research_profiles_map_to_governed_init_fields(self) -> None:
         cases = [
+            ("default_full_dossier", {"storm_lens_mode": "strict", "depth_level": "full_dossier"}),
             ("strict_storm_lens", {"storm_lens_mode": "strict", "depth_level": "full_dossier"}),
             ("closed_corpus", {"source_policy": "closed_corpus", "retrieval_mode": "closed_corpus"}),
-            ("critique_deepresearch", {"depth_level": "full_dossier", "retrieval_mode": "host"}),
+            ("critique_deepresearch", {"depth_level": "full_dossier", "retrieval_mode": "host", "storm_lens_mode": "strict"}),
         ]
         for profile, expected in cases:
             with self.subTest(profile=profile):
@@ -140,6 +186,7 @@ class StormResearchCLITests(unittest.TestCase):
             workspace = Path(tmp)
             run = self.initialized_run(workspace)
             plan_path, source_plan_path = self.write_plans(workspace)
+            self.register_lens_perspectives(run, workspace)
             result = self.invoke(
                 "plan", str(run), "--plan-json", str(plan_path),
                 "--source-plan-json", str(source_plan_path),
@@ -196,6 +243,7 @@ class StormResearchCLITests(unittest.TestCase):
             workspace = Path(tmp)
             run = self.initialized_run(workspace)
             plan_path, source_plan_path = self.write_plans(workspace)
+            self.register_lens_perspectives(run, workspace)
             source_plan = json.loads(source_plan_path.read_text(encoding="utf-8"))
             for question in source_plan["questions"]:
                 question["required_source_classes"] = ["closed-transcript"]
@@ -215,6 +263,38 @@ class StormResearchCLITests(unittest.TestCase):
             self.assertIn("source classes beyond user, transcript, or closed corpus", result.stderr)
             self.assertFalse((run / "state/generations/g0001/receipts/10-plan.json").exists())
 
+    def test_critique_deepresearch_rejects_shallow_source_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            result = self.invoke_init(workspace, "--research-profile", "critique_deepresearch")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            run = workspace / "output" / "storm-deepresearch" / "test-run"
+            plan_path, source_plan_path = self.write_plans(workspace)
+            self.register_lens_perspectives(run, workspace)
+            result = self.invoke(
+                "plan", str(run), "--plan-json", str(plan_path),
+                "--source-plan-json", str(source_plan_path),
+            )
+            self.assertEqual(result.returncode, 4, result.stdout + result.stderr)
+            self.assertIn("critique_deepresearch source plan missing search dimension", result.stderr)
+            self.assertFalse((run / "state/generations/g0001/receipts/10-plan.json").exists())
+
+    def test_critique_deepresearch_accepts_dimensioned_source_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            result = self.invoke_init(workspace, "--research-profile", "critique_deepresearch")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            run = workspace / "output" / "storm-deepresearch" / "test-run"
+            plan_path, _source_plan_path = self.write_plans(workspace)
+            source_plan_path = self.write_critique_source_plan(workspace)
+            self.register_lens_perspectives(run, workspace)
+            result = self.invoke(
+                "plan", str(run), "--plan-json", str(plan_path),
+                "--source-plan-json", str(source_plan_path),
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue((run / "state/generations/g0001/receipts/10-plan.json").is_file())
+
     def test_ingest_commits_only_when_every_question_has_captured_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
@@ -228,6 +308,96 @@ class StormResearchCLITests(unittest.TestCase):
             self.assertTrue((run / "state/generations/g0001/receipts/20-retrieval.json").is_file())
             manifests = [json.loads(line) for line in (research / "retrieval-manifest.jsonl").read_text(encoding="utf-8").splitlines()]
             self.assertEqual({item["query_id"] for item in manifests}, {f"Q{i:03d}" for i in range(1, 11)})
+
+    def test_capture_source_writes_ingest_input_without_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace)
+            snapshot = workspace / "captured-source.txt"
+            snapshot.write_text(
+                "Directly inspectable evidence excerpt 1. Additional captured context for source validation.",
+                encoding="utf-8",
+            )
+            output = workspace / "retrieval-inputs.jsonl"
+            result = self.invoke(
+                "capture-source", str(run),
+                "--query-id", "Q001",
+                "--url", "https://www.nist.gov/test-fixtures/research-report-1",
+                "--snapshot", str(snapshot),
+                "--title", "Official research report 1",
+                "--publisher", "National Institute of Standards and Technology",
+                "--published-at", "2026-05-01",
+                "--publication-date-status", "known",
+                "--content-excerpt", "Directly inspectable evidence excerpt 1.",
+                "--content-locator", "p:1",
+                "--source-type", "official",
+                "--primary-class", "primary",
+                "--reliability-tier", "A",
+                "--freshness-status", "current",
+                "--reliability-notes", "First-party source with inspectable full text.",
+                "--to", str(output),
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["record_count"], 1)
+            rows = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(rows[0]["query_id"], "Q001")
+            self.assertTrue((run / "work/generations/g0001/evidence-cache" / rows[0]["raw_artifact"]).is_file())
+            self.assertFalse((run / "state/generations/g0001/receipts/20-retrieval.json").exists())
+
+    def test_ingest_dir_builds_inputs_that_ingest_can_commit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace)
+            input_dir = workspace / "source-captures"
+            input_dir.mkdir()
+            rows = []
+            for index in range(1, 11):
+                snapshot = input_dir / f"source-{index}.txt"
+                snapshot.write_text(
+                    f"Directly inspectable evidence excerpt {index}. Additional context for ingest-dir with enough normalized text to avoid a bad-capture warning.",
+                    encoding="utf-8",
+                )
+                row = valid_adapter_record(index)
+                row["snapshot"] = snapshot.name
+                rows.append(row)
+            (input_dir / "sources.jsonl").write_text(
+                "".join(json.dumps(row) + "\n" for row in rows),
+                encoding="utf-8",
+            )
+            output = workspace / "retrieval-inputs.jsonl"
+            result = self.invoke(
+                "ingest-dir", str(run), "--input-dir", str(input_dir), "--to", str(output)
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(output))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue((run / "state/generations/g0001/receipts/20-retrieval.json").is_file())
+
+    def test_capture_source_rejects_bad_capture_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace)
+            snapshot = workspace / "blocked.txt"
+            snapshot.write_text(
+                "Checking if the site connection is secure. Please enable cookies and JavaScript.",
+                encoding="utf-8",
+            )
+            result = self.invoke(
+                "capture-source", str(run),
+                "--query-id", "Q001",
+                "--url", "https://www.nist.gov/test-fixtures/research-report-1",
+                "--snapshot", str(snapshot),
+                "--title", "Blocked capture",
+                "--publisher", "NIST",
+                "--content-excerpt", "Checking if the site connection is secure.",
+                "--source-type", "official",
+                "--primary-class", "primary",
+                "--reliability-tier", "A",
+                "--reliability-notes", "Fixture should be rejected before use.",
+            )
+            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+            self.assertIn("bad-capture marker", result.stderr)
 
     def test_ingest_rejects_placeholder_source_without_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -268,7 +438,10 @@ class StormResearchCLITests(unittest.TestCase):
         return self.invoke(
             "init", "--topic", "Governed research", "--question",
             "What evidence supports the conclusion?", "--workspace", str(workspace),
-            "--output", "test-run", *extra,
+            "--output", "test-run",
+            "--profile-selection-mode", "user_requested_default",
+            "--profile-selection-evidence", "test explicitly requested the default full dossier profile",
+            *extra,
         )
 
     def initialized_run(self, workspace: Path) -> Path:
@@ -279,6 +452,7 @@ class StormResearchCLITests(unittest.TestCase):
     def planned_run(self, workspace: Path) -> Path:
         run = self.initialized_run(workspace)
         plan_path, source_plan_path = self.write_plans(workspace)
+        self.register_lens_perspectives(run, workspace)
         result = self.invoke(
             "plan", str(run), "--plan-json", str(plan_path),
             "--source-plan-json", str(source_plan_path),
@@ -292,6 +466,39 @@ class StormResearchCLITests(unittest.TestCase):
         plan.write_text(json.dumps(valid_research_plan_v2()), encoding="utf-8")
         source_plan.write_text(json.dumps(valid_source_plan()), encoding="utf-8")
         return plan, source_plan
+
+    def write_critique_source_plan(self, workspace: Path) -> Path:
+        plan = valid_source_plan()
+        dimensions = [
+            ("Q001", "Extract the user's supplied interpretation and user claim before background lookup.", "User claim from the supplied critique."),
+            ("Q002", "Find supporting evidence for the user's argument.", "Supporting evidence that can confirm or qualify the claim."),
+            ("Q003", "Search counterevidence and contradictions against the interpretation.", "Contradicting evidence and alternative reading."),
+            ("Q004", "Find academic theory framework or criticism relevant to the concept.", "Theory framework from academic or expert criticism."),
+            ("Q005", "Search reception, critic reviews, audience discourse, and debate.", "Reception criticism and review evidence."),
+            ("Q006", "Search historical comparison, similar pattern, precedent, and blind spot.", "Historical comparison and blind spot evidence."),
+        ]
+        for query_id, question, evidence_need in dimensions:
+            index = int(query_id[1:]) - 1
+            plan["questions"][index]["question"] = question
+            plan["questions"][index]["evidence_need"] = evidence_need
+        for index in range(6, 10):
+            plan["questions"][index]["question"] = (
+                f"Deepen critique_deepresearch dimension {index + 1} with source-grounded synthesis."
+            )
+        path = workspace / "critique-source-plan.json"
+        path.write_text(json.dumps(plan), encoding="utf-8")
+        return path
+
+    def register_lens_perspectives(self, run: Path, workspace: Path) -> None:
+        brief = run / "work/generations/g0001/inputs/brief.json"
+        lens = workspace / "storm-lens-perspectives.json"
+        lens.write_text(json.dumps(valid_storm_lens_artifact(
+            "P1",
+            sha256_file(ROOT / "references/storm-lens-prompt-pack.md"),
+            {"inputs/brief.json": sha256_file(brief)},
+        )), encoding="utf-8")
+        result = self.invoke("lens-perspectives", str(run), "--input-json", str(lens))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def write_retrieval_inputs(
         self,

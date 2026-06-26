@@ -42,6 +42,7 @@ from scripts.harness_io import (
 from scripts.output_paths import OutputPathError, package_child
 from scripts.report_traceability import (
     body_length,
+    quote_limit_errors,
     validate_report_traceability,
     validate_review_set,
 )
@@ -671,6 +672,7 @@ def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
             f"report body length {measured} {length_contract['unit']} is outside "
             f"{length_contract['minimum']}-{length_contract['maximum']}"
         )
+    length_errors.extend(quote_limit_errors(report, str(length_contract["unit"])))
     add_check(
         checks, "report-depth", length_errors, "artifacts/report.md",
         f"report body satisfies the evidence-led length contract ({measured} {length_contract['unit']})",

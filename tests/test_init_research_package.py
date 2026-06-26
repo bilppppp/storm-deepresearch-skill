@@ -32,6 +32,10 @@ class InitResearchPackageTests(unittest.TestCase):
                     str(workspace),
                     "--output",
                     "test-run",
+                    "--profile-selection-mode",
+                    "user_requested_default",
+                    "--profile-selection-evidence",
+                    "test explicitly requested the default full dossier profile",
                 ],
                 capture_output=True,
                 text=True,
@@ -44,6 +48,7 @@ class InitResearchPackageTests(unittest.TestCase):
             self.assertEqual(validate_brief(brief), [])
             self.assertNotIn("package_state", brief)
             self.assertEqual(brief["depth_level"], "full_dossier")
+            self.assertEqual(brief["profile_selection"]["mode"], "user_requested_default")
             self.assertEqual(brief["report_language"], "en")
             self.assertEqual(brief["length_contract"]["minimum"], 3500)
             self.assertFalse((output / "current/research/research-plan.json").exists())
@@ -67,6 +72,10 @@ class InitResearchPackageTests(unittest.TestCase):
                     str(workspace),
                     "--output",
                     "chinese-run",
+                    "--profile-selection-mode",
+                    "user_requested_default",
+                    "--profile-selection-evidence",
+                    "test explicitly requested the default full dossier profile",
                 ],
                 capture_output=True,
                 text=True,
@@ -99,6 +108,10 @@ class InitResearchPackageTests(unittest.TestCase):
                     str(workspace),
                     "--output",
                     "existing-run",
+                    "--profile-selection-mode",
+                    "user_requested_default",
+                    "--profile-selection-evidence",
+                    "test explicitly requested the default full dossier profile",
                 ],
                 capture_output=True,
                 text=True,
@@ -121,6 +134,10 @@ class InitResearchPackageTests(unittest.TestCase):
                     "Where is the package written?",
                     "--workspace",
                     str(workspace),
+                    "--profile-selection-mode",
+                    "user_requested_default",
+                    "--profile-selection-evidence",
+                    "test explicitly requested the default full dossier profile",
                 ],
                 capture_output=True,
                 text=True,
@@ -131,6 +148,30 @@ class InitResearchPackageTests(unittest.TestCase):
             self.assertEqual(output.parent, (workspace / "output" / "storm-deepresearch").resolve())
             self.assertTrue((output / "work/generations/g0001/inputs/brief.json").is_file())
             self.assertTrue((output / "state/generations/g0001/receipts/00-init.json").is_file())
+
+    def test_deprecated_initializer_does_not_bypass_profile_selection_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "init_research_package.py"),
+                    "--topic",
+                    "Test topic",
+                    "--question",
+                    "What should be verified?",
+                    "--workspace",
+                    str(workspace),
+                    "--output",
+                    "test-run",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 4, result.stdout + result.stderr)
+            self.assertIn("profile selection requires --profile-selection-mode", result.stderr)
+            self.assertFalse((workspace / "output/storm-deepresearch/test-run").exists())
 
 
 if __name__ == "__main__":

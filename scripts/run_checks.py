@@ -10,12 +10,18 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PACKAGE_TARGETS = ("openai", "claude", "generic", "vscode")
 
 
 def run(command: list[str]) -> int:
     print("+ " + " ".join(command), flush=True)
     result = subprocess.run(command, cwd=ROOT, check=False)
     return result.returncode
+
+
+def project_python() -> str:
+    candidate = ROOT / ".venv" / "bin" / "python"
+    return str(candidate) if candidate.is_file() else sys.executable
 
 
 def validate_schema_files() -> int:
@@ -41,9 +47,10 @@ def validate_schema_files() -> int:
 
 
 def run_all() -> int:
+    python = project_python()
     commands = [
-        [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"],
-        [sys.executable, "-m", "compileall", "-q", "scripts", "tests"],
+        [python, "-m", "unittest", "discover", "-s", "tests", "-v"],
+        [python, "-m", "compileall", "-q", "scripts", "tests"],
     ]
     for command in commands:
         code = run(command)
@@ -56,7 +63,55 @@ def run_all() -> int:
     if not yao.is_file():
         print("Yao Meta Skill CLI is unavailable.", file=sys.stderr)
         return 3
-    return run([sys.executable, str(yao), "validate", str(ROOT)])
+    return run([python, str(yao), "validate", str(ROOT)])
+
+
+def run_dist() -> int:
+    python = project_python()
+    dist = ROOT / "dist"
+    expectations = ROOT / "evals" / "packaging_expectations.json"
+    yao = Path.home() / ".agents" / "skills" / "yao-meta-skill" / "scripts" / "yao.py"
+    if not yao.is_file():
+        print("Yao Meta Skill CLI is unavailable.", file=sys.stderr)
+        return 3
+    package_command = [
+        python,
+        str(yao),
+        "package",
+        str(ROOT),
+    ]
+    for target in PACKAGE_TARGETS:
+        package_command.extend(["--platform", target])
+    package_command.extend([
+        "--expectations", str(expectations),
+        "--output-dir", str(dist),
+        "--zip",
+    ])
+    for command in (
+        package_command,
+        [
+            python,
+            str(ROOT / "scripts" / "sanitize_release_archive.py"),
+            str(dist / "storm-deepresearch-skill.zip"),
+            "--redact-root",
+            str(ROOT),
+        ],
+        [
+            python,
+            str(yao),
+            "package-verify",
+            str(ROOT),
+            "--package-dir", str(dist),
+            "--expectations", str(expectations),
+            "--output-json", str(dist / "package_verification.json"),
+            "--output-md", str(dist / "package_verification.md"),
+            "--require-zip",
+        ],
+    ):
+        code = run(command)
+        if code:
+            return code
+    return 0
 
 
 def main() -> int:
@@ -64,9 +119,12 @@ def main() -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--all", action="store_true")
     mode.add_argument("--package", type=Path)
+    mode.add_argument("--dist", action="store_true")
     args = parser.parse_args()
     if args.package:
-        return run([sys.executable, str(ROOT / "scripts" / "validate_package.py"), str(args.package)])
+        return run([project_python(), str(ROOT / "scripts" / "validate_package.py"), str(args.package)])
+    if args.dist:
+        return run_dist()
     return run_all()
 
 

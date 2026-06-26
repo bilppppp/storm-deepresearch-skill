@@ -10,6 +10,20 @@ def valid_brief_v2() -> dict[str, object]:
         "research_question": "What evidence supports the conclusion?",
         "user_goal": "Produce an auditable dossier",
         "audience": "General reader",
+        "research_profile": "default_full_dossier",
+        "profile_selection": {
+            "mode": "user_requested_default",
+            "selected_profile": "default_full_dossier",
+            "evidence": "fixture explicitly selects the default full dossier profile",
+            "available_profiles": [
+                "briefing",
+                "closed_corpus",
+                "critique_deepresearch",
+                "custom",
+                "default_full_dossier",
+                "strict_storm_lens",
+            ],
+        },
         "depth_level": "full_dossier",
         "report_language": "en",
         "length_contract": {
@@ -25,6 +39,7 @@ def valid_brief_v2() -> dict[str, object]:
         "freshness_policy": {"as_of": "2026-06-23", "max_age_days": 365},
         "retrieval_mode": "host",
         "output_mode": "full",
+        "storm_lens_mode": "strict",
         "uncertainty_tolerance": "low",
         "high_stakes": False,
         "user_materials": [],

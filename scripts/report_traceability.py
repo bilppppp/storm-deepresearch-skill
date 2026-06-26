@@ -15,6 +15,33 @@ SCRIPT_INTERFACE = "internal-module"
 SCRIPT_INTERFACE_REASON = "Binds report paragraphs and public citations to governed Claims and sources."
 CITATION_RE = re.compile(r"\[\^([a-z0-9][a-z0-9-]{1,80})\]")
 REFERENCE_DEF_RE = re.compile(r"^\[\^([a-z0-9][a-z0-9-]{1,80})\]:\s*(.+)$")
+HEADING_RE = re.compile(r"(?m)^#{2,6}\s+(.+?)\s*#*\s*$")
+MAPPING_COMMENT_RE = re.compile(r"<!--\s*storm-map:(.*?)-->", re.IGNORECASE | re.DOTALL)
+FENCE_RE = re.compile(r"(?ms)^```.*?^```\s*")
+REFERENCE_SECTION_TITLES = {
+    "references",
+    "reference",
+    "bibliography",
+    "works cited",
+    "sources",
+    "source list",
+    "source register",
+    "reference list",
+    "参考文献",
+    "参考资料",
+    "参考来源",
+    "资料来源",
+    "来源",
+    "来源列表",
+    "引用来源",
+    "文献",
+}
+MAX_QUOTED_SHARE = 0.25
+MAX_QUOTED_UNITS = {"characters": 1200, "words": 500}
+REFERENCE_SECTION_COMPACT_TITLES = {
+    re.sub(r"[\s:：/|_-]+", "", title.casefold())
+    for title in REFERENCE_SECTION_TITLES
+}
 
 
 @dataclass(frozen=True)
@@ -85,20 +112,66 @@ def reference_definition(key: str, source: dict[str, Any]) -> str:
     return f"[^{key}]: {author}. {title}. {published}. {location}. Retrieved {retrieved}."
 
 
+def _heading_title(raw_title: str) -> str:
+    title = re.sub(r"\s*\{#[^}]+\}\s*$", "", raw_title).strip()
+    title = re.sub(r"^[\d.、)）]+\s*", "", title).strip()
+    return title.strip(" :：")
+
+
+def _is_reference_section_title(raw_title: str) -> bool:
+    title = _heading_title(raw_title)
+    normalized = re.sub(r"\s+", " ", title.casefold()).strip(" :：")
+    compact = re.sub(r"[\s:：/|_-]+", "", normalized)
+    return normalized in REFERENCE_SECTION_TITLES or compact in REFERENCE_SECTION_COMPACT_TITLES
+
+
+def _reference_section_match(markdown: str) -> re.Match[str] | None:
+    for match in HEADING_RE.finditer(markdown):
+        if _is_reference_section_title(match.group(1)):
+            return match
+    return None
+
+
 def _split_references(markdown: str) -> tuple[str, str]:
-    match = re.search(r"(?m)^## References\s*$", markdown)
+    match = _reference_section_match(markdown)
     if not match:
         return markdown.rstrip(), ""
     return markdown[: match.start()].rstrip(), markdown[match.end() :].strip()
 
 
+def strip_mapping_comments(markdown: str) -> str:
+    return MAPPING_COMMENT_RE.sub("", markdown)
+
+
+def mapping_directives(markdown: str) -> list[dict[str, object]]:
+    directives: list[dict[str, object]] = []
+    for match in MAPPING_COMMENT_RE.finditer(markdown):
+        fields: dict[str, object] = {}
+        for part in re.split(r";|\n", match.group(1)):
+            if not part.strip() or "=" not in part:
+                continue
+            key, value = part.split("=", 1)
+            key = key.strip().casefold().replace("-", "_")
+            values = [item.strip() for item in re.split(r",|\s+", value.strip()) if item.strip()]
+            if key in {"claim", "claims", "claim_ids"}:
+                fields["claim_ids"] = values
+            elif key in {"source", "sources", "source_ids"}:
+                fields["source_ids"] = values
+            elif key in {"citation", "citations", "citation_keys"}:
+                fields["citation_keys"] = values
+            elif key in {"type", "paragraph_type"}:
+                fields["paragraph_type"] = values[0] if values else ""
+        directives.append(fields)
+    return directives
+
+
 def citation_keys_in_body(markdown: str) -> list[str]:
-    body, _ = _split_references(markdown)
+    body, _ = _split_references(strip_mapping_comments(markdown))
     return list(dict.fromkeys(CITATION_RE.findall(body)))
 
 
 def generate_references(draft: str, sources: list[dict[str, Any]]) -> str:
-    body, _ = _split_references(draft)
+    body, _ = _split_references(strip_mapping_comments(draft))
     index = citation_index(sources)
     definitions = [reference_definition(key, index[key]) for key in citation_keys_in_body(body) if key in index]
     reference_body = "\n".join(definitions)
@@ -106,12 +179,12 @@ def generate_references(draft: str, sources: list[dict[str, Any]]) -> str:
 
 
 def has_handwritten_references(markdown: str) -> bool:
-    _, reference_body = _split_references(markdown)
+    _, reference_body = _split_references(strip_mapping_comments(markdown))
     return bool(reference_body)
 
 
 def extract_paragraphs(markdown: str) -> list[Paragraph]:
-    body, _ = _split_references(markdown)
+    body, _ = _split_references(strip_mapping_comments(markdown))
     paragraphs: list[Paragraph] = []
     heading = ""
     block: list[str] = []
@@ -259,10 +332,48 @@ def validate_report_traceability(
 
 
 def body_length(report: str, unit: str) -> int:
-    body, _ = _split_references(report)
+    return _unit_length(countable_body_text(report), unit)
+
+
+def _strip_fences(markdown: str) -> str:
+    return FENCE_RE.sub("", markdown)
+
+
+def _blockquote_lines(markdown: str) -> list[str]:
+    body, _ = _split_references(strip_mapping_comments(markdown))
+    return [
+        line.lstrip()[1:].strip()
+        for line in _strip_fences(body).splitlines()
+        if line.lstrip().startswith(">")
+    ]
+
+
+def countable_body_text(markdown: str) -> str:
+    body, _ = _split_references(strip_mapping_comments(markdown))
+    body = _strip_fences(body)
+    lines = [line for line in body.splitlines() if not line.lstrip().startswith(">")]
+    return "\n".join(lines)
+
+
+def _unit_length(text: str, unit: str) -> int:
     if unit == "characters":
-        return len(re.sub(r"\s+", "", body))
-    return len(re.findall(r"\b[\w'-]+\b", body, flags=re.UNICODE))
+        return len(re.sub(r"\s+", "", text))
+    return len(re.findall(r"\b[\w'-]+\b", text, flags=re.UNICODE))
+
+
+def quoted_length(report: str, unit: str) -> int:
+    return _unit_length("\n".join(_blockquote_lines(report)), unit)
+
+
+def quote_limit_errors(report: str, unit: str) -> list[str]:
+    quoted = quoted_length(report, unit)
+    countable = body_length(report, unit)
+    absolute = MAX_QUOTED_UNITS.get(unit, MAX_QUOTED_UNITS["words"])
+    if quoted > absolute and quoted > max(1, int(countable * MAX_QUOTED_SHARE)):
+        return [
+            f"quoted block length {quoted} {unit} exceeds {MAX_QUOTED_SHARE:.0%} of countable body and absolute limit {absolute}"
+        ]
+    return []
 
 
 def validate_semantic_review(record: dict[str, Any]) -> list[str]:

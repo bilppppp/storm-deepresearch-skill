@@ -69,16 +69,36 @@ class ContractTests(unittest.TestCase):
     def test_research_profile_consistency_is_validated(self) -> None:
         brief = valid_brief_v2()
         brief["research_profile"] = "strict_storm_lens"
+        brief["profile_selection"]["selected_profile"] = "strict_storm_lens"
+        brief["storm_lens_mode"] = "advisory"
         self.assertIn("strict_storm_lens profile requires strict STORM lens", validate_brief(brief))
         brief["storm_lens_mode"] = "strict"
         self.assertNotIn("strict_storm_lens profile requires strict STORM lens", validate_brief(brief))
 
         brief = valid_brief_v2()
+        brief["storm_lens_mode"] = "advisory"
+        self.assertIn("default_full_dossier profile requires strict STORM lens", validate_brief(brief))
+
+        brief = valid_brief_v2()
         brief["research_profile"] = "closed_corpus"
+        brief["profile_selection"]["selected_profile"] = "closed_corpus"
         self.assertIn(
             "closed_corpus profile requires closed_corpus source policy and retrieval mode",
             validate_brief(brief),
         )
+
+    def test_profile_selection_is_required_and_matches_profile(self) -> None:
+        brief = valid_brief_v2()
+        del brief["profile_selection"]
+        self.assertIn("missing fields: profile_selection", validate_brief(brief))
+
+        brief = valid_brief_v2()
+        brief["profile_selection"]["selected_profile"] = "briefing"
+        self.assertIn("profile_selection.selected_profile must match research_profile", validate_brief(brief))
+
+        brief = valid_brief_v2()
+        brief["profile_selection"]["evidence"] = ""
+        self.assertIn("profile_selection.evidence must be a non-empty string", validate_brief(brief))
 
     def test_governed_record_validators_are_strict(self) -> None:
         cases = {

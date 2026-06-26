@@ -19,15 +19,17 @@ class ContractError(ValueError):
 
 BRIEF_REQUIRED_FIELDS = {
     "schema_version", "topic", "research_question", "user_goal", "audience",
-    "depth_level", "geography", "timeframe", "source_policy",
+    "research_profile", "profile_selection", "depth_level", "geography", "timeframe", "source_policy",
     "freshness_policy", "retrieval_mode", "output_mode", "uncertainty_tolerance",
-    "report_language", "length_contract", "high_stakes", "user_materials", "assumptions",
+    "report_language", "length_contract", "storm_lens_mode", "high_stakes", "user_materials", "assumptions",
 }
 RESEARCH_PROFILES = {
     "default_full_dossier", "strict_storm_lens", "critique_deepresearch",
     "closed_corpus", "briefing", "custom",
 }
-BRIEF_FIELDS = BRIEF_REQUIRED_FIELDS | {"briefing_reason", "storm_lens_mode", "research_profile"}
+PROFILE_SELECTION_MODES = {"user_selected", "user_requested_default", "defaulted_after_prompt"}
+PROFILE_SELECTION_FIELDS = {"mode", "selected_profile", "evidence", "available_profiles"}
+BRIEF_FIELDS = BRIEF_REQUIRED_FIELDS | {"briefing_reason"}
 RESEARCH_PLAN_FIELDS = {
     "schema_version", "status", "perspectives", "questions", "source_priorities",
     "stopping_conditions", "retrieval_budget",
@@ -235,7 +237,7 @@ def validate_brief(data: dict[str, Any]) -> list[str]:
         errors.append("full_dossier requires full output")
     if data.get("uncertainty_tolerance") not in {"low", "medium", "high"}:
         errors.append("uncertainty_tolerance is invalid")
-    if data.get("storm_lens_mode", "advisory") not in {"advisory", "strict"}:
+    if data.get("storm_lens_mode") not in {"advisory", "strict"}:
         errors.append("storm_lens_mode is invalid")
     profile = data.get("research_profile", "custom")
     if profile not in RESEARCH_PROFILES:
@@ -245,23 +247,44 @@ def validate_brief(data: dict[str, Any]) -> list[str]:
             errors.append("default_full_dossier profile requires full_dossier and full output")
         if data.get("source_policy") != "external_allowed" or data.get("retrieval_mode") != "host":
             errors.append("default_full_dossier profile requires external_allowed host retrieval")
-        if data.get("storm_lens_mode", "advisory") != "advisory":
-            errors.append("default_full_dossier profile requires advisory STORM lens")
+        if data.get("storm_lens_mode") != "strict":
+            errors.append("default_full_dossier profile requires strict STORM lens")
     elif profile == "strict_storm_lens":
         if data.get("depth_level") != "full_dossier" or data.get("output_mode") != "full":
             errors.append("strict_storm_lens profile requires full_dossier and full output")
-        if data.get("storm_lens_mode", "advisory") != "strict":
+        if data.get("storm_lens_mode") != "strict":
             errors.append("strict_storm_lens profile requires strict STORM lens")
     elif profile == "critique_deepresearch":
         if data.get("depth_level") != "full_dossier" or data.get("output_mode") != "full":
             errors.append("critique_deepresearch profile requires full_dossier and full output")
         if data.get("source_policy") != "external_allowed" or data.get("retrieval_mode") != "host":
             errors.append("critique_deepresearch profile requires external_allowed host retrieval")
+        if data.get("storm_lens_mode") != "strict":
+            errors.append("critique_deepresearch profile requires strict STORM lens")
     elif profile == "closed_corpus":
         if data.get("source_policy") != "closed_corpus" or data.get("retrieval_mode") != "closed_corpus":
             errors.append("closed_corpus profile requires closed_corpus source policy and retrieval mode")
     elif profile == "briefing" and data.get("depth_level") != "briefing":
         errors.append("briefing profile requires briefing depth")
+    selection = data.get("profile_selection")
+    if not isinstance(selection, dict):
+        errors.append("profile_selection must be an object")
+    else:
+        errors.extend(_unknown_fields(selection, PROFILE_SELECTION_FIELDS))
+        errors.extend(_missing_fields(selection, PROFILE_SELECTION_FIELDS))
+        if selection.get("mode") not in PROFILE_SELECTION_MODES:
+            errors.append("profile_selection.mode is invalid")
+        if selection.get("selected_profile") != profile:
+            errors.append("profile_selection.selected_profile must match research_profile")
+        if not isinstance(selection.get("evidence"), str) or not str(selection.get("evidence", "")).strip():
+            errors.append("profile_selection.evidence must be a non-empty string")
+        available = selection.get("available_profiles")
+        if not isinstance(available, list) or not available:
+            errors.append("profile_selection.available_profiles must be a non-empty array")
+        elif not all(isinstance(item, str) and item in RESEARCH_PROFILES for item in available):
+            errors.append("profile_selection.available_profiles contains invalid profiles")
+        elif profile not in available:
+            errors.append("profile_selection.available_profiles must include selected_profile")
     if not isinstance(data.get("high_stakes"), bool):
         errors.append("high_stakes must be boolean")
     freshness = data.get("freshness_policy")

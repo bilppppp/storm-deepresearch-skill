@@ -1,7 +1,7 @@
 interface:
   display_name: "STORM DeepResearch"
   short_description: "Governed evidence research with STORM tasklets, findings, and receipts"
-  default_prompt: "Use $storm-deepresearch-skill. For vague research, ask research_profile; default default_full_dossier. Stop on missing evidence."
+  default_prompt: "Use $storm-deepresearch-skill. Ask research_profile when vague; default default_full_dossier. Record profile_selection; stop on missing evidence."
 compatibility:
   canonical_format: "agent-skills"
   adapter_targets: ["openai", "claude", "agent-skills", "vscode", "generic"]
@@ -15,7 +15,7 @@ compatibility:
     source_tier: "local"
     remote_inline_execution: "forbid"
     remote_metadata_policy: "allow-metadata-only"
-    release_policy: "validation-plus-trust-plus-human-approval"
+    release_policy: "validation-trust-human-approval"
     trust_report_required: true
   degradation:
     openai: "Preserve governed contracts."
@@ -25,23 +25,25 @@ compatibility:
     generic: "Require adapter."
 contract:
   inputs:
-    required: ["topic_or_question"]
+    required: ["topic_or_question", "profile_selection"]
     optional: ["input_files", "urls", "findings_jsonl", "audience", "timeframe", "source_policy", "freshness_policy", "retrieval_mode", "research_profile", "report_language", "length_contract", "storm_lens_mode", "workspace_root", "output_root"]
   defaults:
     research_profile: "default_full_dossier"
     research_profile_options: ["default_full_dossier", "strict_storm_lens", "critique_deepresearch", "closed_corpus", "briefing", "repair_existing_run"]
+    profile_selection_modes: ["user_selected", "user_requested_default", "defaulted_after_prompt"]
+    profile_selection_policy: "init fails without profile_selection mode and evidence"
     retrieval_mode: "host"
     output_mode: "full"
     depth_level: "full_dossier"
-    zh_length_contract: "8000-10000 characters"
-    en_length_contract: "3500-7000 words"
+    zh_length_contract: "8000-10000 net body characters excluding bibliography/source sections"
+    en_length_contract: "3500-7000 net body words excluding bibliography/source sections"
     output_root: "output/storm-deepresearch"
     output_collision_policy: "fail"
-    storm_lens_mode: "advisory"
+    storm_lens_mode: "strict"
     ledger_update_policy: "monotonic-merge"
     state_model: "generation artifacts plus immutable receipt chain"
     research_pool_policy: "storm-tasklets require usable findings before evidence"
     release_policy: "validation-plus-trust-plus-human-approval"
   permissions: ["read approved inputs", "write inside resolved output root", "use host network when brief allows", "run validation/rendering"]
-  stop_conditions: ["scope or permission missing", "source, Claim, citation, review, trust, or approval is missing evidence", "full dossier findings miss STORM tasklets", "retrieval lacks provenance", "material facts unsupported", "formats fail validation", "path exists or escapes output root", "receipt chain fails", "release lacks human approval or trust"]
+  stop_conditions: ["scope or permission missing", "source, Claim, citation, review, trust, approval, or receipt chain missing evidence", "full dossier lacks tasklets/findings or critique dimensions", "retrieval lacks provenance or has bad captures", "material facts unsupported", "quote padding exceeds report-depth gate", "formats fail validation", "path exists or escapes output root", "release lacks human approval or trust"]
   non_goals: ["quick lookup", "unsupported role-play", "personalized professional advice"]

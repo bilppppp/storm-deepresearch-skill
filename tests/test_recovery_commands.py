@@ -85,6 +85,20 @@ class RecoveryCommandTests(unittest.TestCase):
             self.assertIn("artifacts/research/research-plan.json", payload["invalidated_artifacts"])
             self.assertEqual(self.receipt_path(run, "plan").read_bytes(), receipt_before)
 
+    def test_doctor_reports_artifacts_and_next_actions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace)
+            result = self.invoke("doctor", str(run))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["mode"], "doctor")
+            self.assertEqual(payload["status"]["next_stage"], "retrieval")
+            self.assertTrue(any("capture-source" in item for item in payload["suggested_next_actions"]))
+            artifacts = {item["path"]: item for item in payload["artifact_status"]}
+            self.assertTrue(artifacts["artifacts/research/research-plan.json"]["exists"])
+            self.assertFalse(artifacts["artifacts/research/source-register.jsonl"]["exists"])
+
     def test_repair_plan_writes_structured_actions_without_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)

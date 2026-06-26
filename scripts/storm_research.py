@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import mimetypes
 import re
+import shutil
 import sys
 import uuid
 from datetime import date, datetime, timezone
@@ -59,10 +61,20 @@ from scripts.report_traceability import (
     extract_paragraphs,
     generate_references,
     has_handwritten_references,
+    mapping_directives,
+    quote_limit_errors,
+    quoted_length,
+    strip_mapping_comments,
+    validate_paragraph_record,
     validate_report_traceability,
     validate_review_set,
 )
-from scripts.source_evidence import SourceEvidenceError, resolve_snapshot
+from scripts.source_evidence import (
+    SourceEvidenceError,
+    capture_retrieval_evidence,
+    normalized_snapshot_text,
+    resolve_snapshot,
+)
 from scripts.validate_evidence import validate_claim_closure
 from scripts.validate_package import _public_safety_checks, validate_and_commit, validate_governed_run
 
@@ -119,13 +131,65 @@ INIT_RESEARCH_PROFILES = {
     "briefing",
     "repair_existing_run",
 }
+BRIEF_RESEARCH_PROFILES = {
+    "default_full_dossier",
+    "strict_storm_lens",
+    "critique_deepresearch",
+    "closed_corpus",
+    "briefing",
+    "custom",
+}
+PROFILE_SELECTION_MODES = {
+    "user_selected",
+    "user_requested_default",
+    "defaulted_after_prompt",
+}
+BAD_CAPTURE_MARKERS = {
+    "checking if the site connection is secure",
+    "access denied",
+    "enable javascript",
+    "just a moment",
+    "please enable cookies",
+    "403 forbidden",
+    "载入中",
+    "正在加载",
+    "请稍候",
+    "访问被拒绝",
+}
+CAPTURE_MIN_NORMALIZED_CHARS = 80
+CRITIQUE_SEARCH_DIMENSIONS = {
+    "user_claim": (
+        "user claim", "user argument", "supplied interpretation", "viewer claim",
+        "观后感", "用户观点", "原始观点", "评论观点", "论点抽取",
+    ),
+    "support": (
+        "support", "supporting evidence", "evidence for", "confirm", "supports",
+        "支持证据", "正方证据", "印证", "佐证",
+    ),
+    "counterevidence": (
+        "counter", "contradict", "against", "weakest evidence", "alternative reading",
+        "反证", "反驳", "矛盾", "相反证据", "不同解读",
+    ),
+    "theory_framework": (
+        "theory", "framework", "academic", "scholar", "concept", "criticism",
+        "理论", "框架", "学术", "概念", "批评理论",
+    ),
+    "reception_criticism": (
+        "reception", "review", "critic", "audience", "discourse", "debate",
+        "评论", "影评", "接受史", "观众", "争议", "讨论",
+    ),
+    "historical_comparison": (
+        "historical", "history", "precedent", "comparison", "similar pattern", "blind spot",
+        "历史", "先例", "比较", "同类", "类似模式", "盲点",
+    ),
+}
 PROFILE_DEFAULTS = {
     "default_full_dossier": {
         "depth_level": "full_dossier",
         "source_policy": "external_allowed",
         "retrieval_mode": "host",
         "output_mode": "full",
-        "storm_lens_mode": "advisory",
+        "storm_lens_mode": "strict",
     },
     "strict_storm_lens": {
         "depth_level": "full_dossier",
@@ -139,7 +203,7 @@ PROFILE_DEFAULTS = {
         "source_policy": "external_allowed",
         "retrieval_mode": "host",
         "output_mode": "full",
-        "storm_lens_mode": "advisory",
+        "storm_lens_mode": "strict",
     },
     "closed_corpus": {
         "depth_level": "full_dossier",
@@ -221,7 +285,7 @@ def _profile_value(args: argparse.Namespace, field: str, profile: str) -> str:
             "source_policy": "external_allowed",
             "retrieval_mode": "host",
             "output_mode": "full",
-            "storm_lens_mode": "advisory",
+            "storm_lens_mode": "strict",
         }[field]
         return str(explicit or fallback)
     if profile == "briefing" and field == "output_mode" and explicit in {"full", "reduced"}:
@@ -250,6 +314,8 @@ def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
     if requested_profile == "repair_existing_run":
         raise CLIContractError("repair_existing_run uses status/explain/retry on an existing run; do not call init")
     profile = requested_profile
+    if profile == "auto" and getattr(args, "depth_level", None) == "briefing":
+        profile = "briefing"
     values = {
         "depth_level": _profile_value(args, "depth_level", profile),
         "source_policy": _profile_value(args, "source_policy", profile),
@@ -263,6 +329,15 @@ def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
         raise CLIContractError("briefing depth requires --briefing-reason with explicit user request evidence")
     if values["depth_level"] != "briefing" and briefing_reason:
         raise CLIContractError("--briefing-reason is only valid with --depth-level briefing")
+    profile_selection_mode = str(getattr(args, "profile_selection_mode", "") or "").strip()
+    profile_selection_evidence = str(getattr(args, "profile_selection_evidence", "") or "").strip()
+    if profile_selection_mode not in PROFILE_SELECTION_MODES:
+        raise CLIContractError(
+            "profile selection requires --profile-selection-mode "
+            "(user_selected, user_requested_default, or defaulted_after_prompt)"
+        )
+    if not profile_selection_evidence:
+        raise CLIContractError("profile selection requires --profile-selection-evidence")
     length_contract = default_length_contract(language, values["depth_level"])
     length_overridden = args.min_units is not None or args.max_units is not None
     if args.min_units is not None:
@@ -282,6 +357,12 @@ def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
         "user_goal": args.user_goal,
         "audience": args.audience,
         "research_profile": effective_profile,
+        "profile_selection": {
+            "mode": profile_selection_mode,
+            "selected_profile": effective_profile,
+            "evidence": profile_selection_evidence,
+            "available_profiles": sorted(BRIEF_RESEARCH_PROFILES),
+        },
         "depth_level": values["depth_level"],
         "report_language": language,
         "length_contract": length_contract,
@@ -475,10 +556,21 @@ def initialize_at_output(
     source_policy: str | None = "external_allowed",
     retrieval_mode: str | None = "host",
     output_mode: str | None = "full",
-    storm_lens_mode: str | None = "advisory",
+    storm_lens_mode: str | None = None,
     research_profile: str = "auto",
+    user_goal: str = "Build an evidence-grounded answer",
+    audience: str = "General reader",
+    geography: str = "global",
+    timeframe: str = "current",
+    as_of: str | None = None,
+    max_age_days: int = 365,
+    uncertainty_tolerance: str = "low",
     high_stakes: bool = False,
     briefing_reason: str = "",
+    user_material: Sequence[str] = (),
+    assumption: Sequence[str] = (),
+    profile_selection_mode: str | None = None,
+    profile_selection_evidence: str = "",
 ) -> RunLayout:
     args = argparse.Namespace(
         topic=topic,
@@ -487,22 +579,24 @@ def initialize_at_output(
         depth_level=depth_level,
         min_units=minimum_units,
         max_units=maximum_units,
-        user_goal="Build an evidence-grounded answer",
-        audience="General reader",
-        geography="global",
-        timeframe="current",
+        user_goal=user_goal,
+        audience=audience,
+        geography=geography,
+        timeframe=timeframe,
         source_policy=source_policy,
-        as_of=None,
-        max_age_days=365,
+        as_of=as_of,
+        max_age_days=max_age_days,
         retrieval_mode=retrieval_mode,
         output_mode=output_mode,
         storm_lens_mode=storm_lens_mode,
         research_profile=research_profile,
-        uncertainty_tolerance="low",
+        uncertainty_tolerance=uncertainty_tolerance,
         high_stakes=high_stakes,
         briefing_reason=briefing_reason,
-        user_material=[],
-        assumption=[],
+        user_material=list(user_material),
+        assumption=list(assumption),
+        profile_selection_mode=profile_selection_mode,
+        profile_selection_evidence=profile_selection_evidence,
     )
     brief = build_brief_v2(args)
     validate_or_raise(validate_brief(brief))
@@ -542,8 +636,19 @@ def command_init(args: argparse.Namespace) -> int:
         output_mode=args.output_mode,
         storm_lens_mode=args.storm_lens_mode,
         research_profile=args.research_profile,
+        user_goal=args.user_goal,
+        audience=args.audience,
+        geography=args.geography,
+        timeframe=args.timeframe,
+        as_of=args.as_of,
+        max_age_days=args.max_age_days,
+        uncertainty_tolerance=args.uncertainty_tolerance,
         high_stakes=args.high_stakes,
         briefing_reason=args.briefing_reason,
+        user_material=args.user_material,
+        assumption=args.assumption,
+        profile_selection_mode=args.profile_selection_mode,
+        profile_selection_evidence=args.profile_selection_evidence,
     )
     print(f"Initialized {output}")
     return EXIT_OK
@@ -555,6 +660,7 @@ def validate_plan_bundle(
     errors = validate_research_plan(plan, brief, set())
     errors.extend(validate_source_plan(source_plan))
     errors.extend(validate_source_depth_plan(source_plan, brief, plan))
+    errors.extend(validate_critique_source_plan(source_plan, brief))
     questions = plan.get("questions") if isinstance(plan.get("questions"), list) else []
     source_questions = source_plan.get("questions") if isinstance(source_plan.get("questions"), list) else []
     plan_ids = {str(item.get("question_id")) for item in questions if isinstance(item, dict)}
@@ -825,9 +931,48 @@ def _source_class_text(source_class: dict[str, object]) -> str:
     return " ".join(parts).casefold()
 
 
+def _source_question_text(question: dict[str, object]) -> str:
+    parts: list[str] = []
+    for key in ("query_id", "question", "evidence_need"):
+        parts.append(str(question.get(key, "")))
+    value = question.get("required_source_classes")
+    if isinstance(value, list):
+        parts.extend(str(item) for item in value)
+    return " ".join(parts).casefold()
+
+
 def _is_user_material_source_class(source_class: dict[str, object]) -> bool:
     text = _source_class_text(source_class)
     return any(marker in text for marker in USER_MATERIAL_SOURCE_CLASS_MARKERS)
+
+
+def validate_critique_source_plan(
+    source_plan: dict[str, object],
+    brief: dict[str, object],
+) -> list[str]:
+    if brief.get("research_profile") != "critique_deepresearch":
+        return []
+    questions = [
+        item for item in source_plan.get("questions", [])
+        if isinstance(item, dict)
+    ]
+    source_classes = [
+        item for item in source_plan.get("source_classes", [])
+        if isinstance(item, dict)
+    ]
+    combined = [
+        *(_source_question_text(item) for item in questions),
+        *(_source_class_text(item) for item in source_classes),
+    ]
+    errors: list[str] = []
+    for dimension, markers in CRITIQUE_SEARCH_DIMENSIONS.items():
+        if not any(marker.casefold() in text for text in combined for marker in markers):
+            errors.append(f"critique_deepresearch source plan missing search dimension: {dimension}")
+    if len(questions) < len(CRITIQUE_SEARCH_DIMENSIONS):
+        errors.append(
+            "critique_deepresearch source plan requires at least one planned question per required search dimension"
+        )
+    return errors
 
 
 def validate_source_depth_plan(
@@ -1093,6 +1238,223 @@ def validate_retrieval_depth(
             f"{MIN_FULL_DOSSIER_DEEP_EXTERNAL_SOURCES} non-user, non-encyclopedia external sources"
         ]
     return []
+
+
+def _infer_content_type(path: Path, explicit: str | None = None) -> str:
+    if explicit:
+        return explicit
+    guessed, _encoding = mimetypes.guess_type(path.name)
+    if guessed:
+        return guessed
+    if path.suffix.casefold() in {".md", ".markdown", ".txt"}:
+        return "text/plain"
+    return "application/octet-stream"
+
+
+def _capture_warnings(normalized_text: str) -> list[str]:
+    lowered = normalized_text.casefold()
+    warnings = [
+        f"captured content contains bad-capture marker: {marker}"
+        for marker in sorted(BAD_CAPTURE_MARKERS)
+        if marker in lowered
+    ]
+    if len(normalized_text) < CAPTURE_MIN_NORMALIZED_CHARS:
+        warnings.append(
+            f"captured content is short after normalization: {len(normalized_text)} characters"
+        )
+    return warnings
+
+
+def _default_excerpt(normalized_text: str) -> str:
+    return normalized_text[:280].strip()
+
+
+def _planned_query_ids(layout: RunLayout, generation: int) -> set[str]:
+    source_plan = load_json(layout.artifact(generation, "research/source-plan.json"))
+    return {
+        str(item.get("query_id"))
+        for item in source_plan.get("questions", [])
+        if isinstance(item, dict)
+    }
+
+
+def _copy_capture_snapshot(
+    layout: RunLayout, generation: int, source_path: Path
+) -> tuple[str, Path]:
+    source = source_path.expanduser().resolve()
+    if source.is_symlink() or not source.is_file():
+        raise CLIContractError(f"snapshot is missing or unsafe: {source_path}")
+    suffix = source.suffix if source.suffix else ".txt"
+    relative = f"captured/{uuid.uuid4().hex}-{source.name}"
+    destination = layout.evidence_cache(generation, relative)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.exists() or destination.is_symlink():
+        raise CLIContractError(f"capture destination already exists: {relative}")
+    shutil.copy2(source, destination)
+    return relative, destination
+
+
+def _capture_record_payload(
+    layout: RunLayout,
+    generation: int,
+    raw: dict[str, object],
+    *,
+    snapshot_base: Path | None,
+    allow_warning: bool,
+) -> tuple[dict[str, object], list[str]]:
+    snapshot_value = raw.get("snapshot") or raw.get("snapshot_path") or raw.get("raw_artifact")
+    if not isinstance(snapshot_value, str) or not snapshot_value.strip():
+        raise CLIContractError("capture source requires snapshot or snapshot_path")
+    snapshot_path = Path(snapshot_value)
+    if not snapshot_path.is_absolute() and snapshot_base is not None:
+        snapshot_path = snapshot_base / snapshot_path
+    snapshot_ref, copied_snapshot = _copy_capture_snapshot(layout, generation, snapshot_path)
+    content_type = _infer_content_type(copied_snapshot, str(raw.get("content_type") or "") or None)
+    normalized_text = normalized_snapshot_text(copied_snapshot, content_type)
+    warnings = _capture_warnings(normalized_text)
+    if warnings and not allow_warning:
+        raise RetrievalGateError("; ".join(warnings))
+    retrieved_at = str(raw.get("retrieved_at") or _utc_now())
+    url = str(raw.get("url") or "").strip()
+    file_ref_value = raw.get("file_ref")
+    file_ref = str(file_ref_value).strip() if file_ref_value is not None else ""
+    adapter = str(raw.get("adapter") or load_json(layout.generation_input(generation, "brief.json")).get("retrieval_mode"))
+    publication_date_status = str(
+        raw.get("publication_date_status")
+        or ("known" if raw.get("published_at") else "unknown")
+    )
+    record: dict[str, object] = {
+        "query_id": str(raw.get("query_id", "")),
+        "final_url": str(raw.get("final_url") or url) if url else None,
+        "file_ref": None if url else file_ref,
+        "title": str(raw.get("title", "")).strip(),
+        "publisher": str(raw.get("publisher") or raw.get("author_or_org") or "").strip(),
+        "published_at": raw.get("published_at") if publication_date_status == "known" else None,
+        "publication_date_status": publication_date_status,
+        "retrieved_at": retrieved_at,
+        "content_excerpt": str(raw.get("content_excerpt") or _default_excerpt(normalized_text)).strip(),
+        "content_locator": str(raw.get("content_locator") or raw.get("locator") or "text:1").strip(),
+        "locator_type": str(raw.get("locator_type") or "text").strip(),
+        "adapter": adapter,
+        "adapter_run_id": str(raw.get("adapter_run_id") or "manual-capture").strip(),
+        "capture_level": str(raw.get("capture_level") or ("full_text" if url else "user_file")).strip(),
+        "evidence_strength_ceiling": str(raw.get("evidence_strength_ceiling") or "medium").strip(),
+        "raw_artifact": snapshot_ref,
+        "observed_status": int(raw.get("observed_status") or 200) if url else None,
+        "content_type": content_type,
+        "source_type": str(raw.get("source_type") or "secondary_synthesis").strip(),
+        "primary_class": str(raw.get("primary_class") or "secondary").strip(),
+        "reliability_tier": str(raw.get("reliability_tier") or "B").strip(),
+        "freshness_status": str(raw.get("freshness_status") or "unknown").strip(),
+        "reliability_notes": str(raw.get("reliability_notes") or "Captured source; reliability not independently upgraded.").strip(),
+    }
+    if url:
+        record["url"] = url
+    try:
+        capture_retrieval_evidence(record, layout.evidence_cache(generation, "."))
+    except SourceEvidenceError as exc:
+        raise RetrievalGateError(str(exc)) from exc
+    return record, warnings
+
+
+def _write_capture_records(path: Path, records: list[dict[str, object]], *, append: bool) -> None:
+    if path.exists() and not append:
+        raise CLIContractError(f"capture output already exists: {path}")
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_text(path, existing + _jsonl_text(records))
+
+
+def command_capture_source(args: argparse.Namespace) -> int:
+    layout = RunLayout(args.run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        raise StagePreconditionError("run has no generation")
+    package_hash = compute_skill_package_hash(ROOT)
+    verify_stage_precondition(layout, generation, Stage.RETRIEVAL, package_hash)
+    if layout.receipt(generation, Stage.RETRIEVAL).exists():
+        raise StagePreconditionError("cannot capture retrieval inputs after retrieval receipt exists")
+    if args.query_id not in _planned_query_ids(layout, generation):
+        raise CLIContractError(f"query_id is not in source plan: {args.query_id}")
+    raw = {
+        "query_id": args.query_id,
+        "url": args.url,
+        "file_ref": args.file_ref,
+        "snapshot": str(args.snapshot),
+        "title": args.title,
+        "publisher": args.publisher,
+        "published_at": args.published_at,
+        "publication_date_status": args.publication_date_status,
+        "retrieved_at": args.retrieved_at,
+        "content_excerpt": args.content_excerpt,
+        "content_locator": args.content_locator,
+        "locator_type": args.locator_type,
+        "adapter": args.adapter,
+        "adapter_run_id": args.adapter_run_id,
+        "capture_level": args.capture_level,
+        "evidence_strength_ceiling": args.evidence_strength_ceiling,
+        "observed_status": args.observed_status,
+        "content_type": args.content_type,
+        "source_type": args.source_type,
+        "primary_class": args.primary_class,
+        "reliability_tier": args.reliability_tier,
+        "freshness_status": args.freshness_status,
+        "reliability_notes": args.reliability_notes,
+    }
+    if bool(args.url) == bool(args.file_ref):
+        raise CLIContractError("capture-source requires exactly one of --url or --file-ref")
+    record, warnings = _capture_record_payload(
+        layout, generation, raw, snapshot_base=None, allow_warning=args.allow_warning
+    )
+    target = args.to or package_child(layout.root, "current/research/retrieval-inputs.jsonl")
+    _write_capture_records(target, [record], append=args.append or target.exists())
+    _print_json({
+        "schema_version": "2.0",
+        "mode": "capture-source",
+        "record_count": 1,
+        "output_jsonl": str(target),
+        "warnings": warnings,
+    })
+    return EXIT_OK
+
+
+def command_ingest_dir(args: argparse.Namespace) -> int:
+    layout = RunLayout(args.run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        raise StagePreconditionError("run has no generation")
+    package_hash = compute_skill_package_hash(ROOT)
+    verify_stage_precondition(layout, generation, Stage.RETRIEVAL, package_hash)
+    if layout.receipt(generation, Stage.RETRIEVAL).exists():
+        raise StagePreconditionError("cannot build retrieval inputs after retrieval receipt exists")
+    input_dir = args.input_dir.expanduser().resolve()
+    if input_dir.is_symlink() or not input_dir.is_dir():
+        raise CLIContractError(f"input directory is missing or unsafe: {args.input_dir}")
+    manifest = args.manifest_jsonl or input_dir / "sources.jsonl"
+    records = load_jsonl(manifest)
+    planned_ids = _planned_query_ids(layout, generation)
+    captured: list[dict[str, object]] = []
+    warnings: list[dict[str, object]] = []
+    for index, raw in enumerate(records, start=1):
+        query_id = str(raw.get("query_id", ""))
+        if query_id not in planned_ids:
+            raise CLIContractError(f"source manifest row {index} query_id is not in source plan: {query_id}")
+        record, row_warnings = _capture_record_payload(
+            layout, generation, raw, snapshot_base=input_dir, allow_warning=args.allow_warning
+        )
+        captured.append(record)
+        if row_warnings:
+            warnings.append({"row": index, "query_id": query_id, "warnings": row_warnings})
+    target = args.to or package_child(layout.root, "current/research/retrieval-inputs.jsonl")
+    _write_capture_records(target, captured, append=args.append or target.exists())
+    _print_json({
+        "schema_version": "2.0",
+        "mode": "ingest-dir",
+        "record_count": len(captured),
+        "output_jsonl": str(target),
+        "warnings": warnings,
+    })
+    return EXIT_OK
 
 
 def command_ingest(args: argparse.Namespace) -> int:
@@ -1687,6 +2049,137 @@ def _error_locator(error: str) -> str | None:
     return match.group(0) if match else None
 
 
+def _source_key_by_id(sources: list[dict[str, object]]) -> dict[str, str]:
+    return {
+        str(source.get("source_id")): key
+        for key, source in citation_index(sources).items()
+    }
+
+
+def _sidecar_directives(path: Path) -> dict[str, dict[str, object]]:
+    records = load_jsonl(path)
+    result: dict[str, dict[str, object]] = {}
+    for index, record in enumerate(records, start=1):
+        locator = str(record.get("text_locator") or "")
+        if not locator and record.get("paragraph_index") is not None:
+            locator = f"paragraph:{record['paragraph_index']}"
+        if not locator:
+            raise CLIContractError(f"paragraph map sidecar row {index} lacks text_locator")
+        result[locator] = record
+    return result
+
+
+def _paragraph_type_for_claim(claim: dict[str, object] | None) -> str:
+    claim_type = str((claim or {}).get("claim_type", "factual"))
+    return "factual" if claim_type == "fact" else claim_type
+
+
+def _build_paragraph_record(
+    paragraph: object,
+    directive: dict[str, object],
+    claims_by_id: dict[str, dict[str, object]],
+    source_key_by_id: dict[str, str],
+) -> dict[str, object]:
+    claim_ids = [str(item) for item in directive.get("claim_ids", [])]
+    unknown_claims = sorted(set(claim_ids) - set(claims_by_id))
+    if unknown_claims:
+        raise CLIContractError("paragraph directive references unknown claims: " + ", ".join(unknown_claims))
+    source_ids = [str(item) for item in directive.get("source_ids", [])]
+    if not source_ids:
+        collected: list[str] = []
+        for claim_id in claim_ids:
+            claim = claims_by_id[claim_id]
+            collected.extend(str(item) for item in claim.get("supporting_source_ids", []))
+            collected.extend(str(item) for item in claim.get("contradicting_source_ids", []))
+        source_ids = list(dict.fromkeys(collected))
+    unknown_sources = sorted(set(source_ids) - set(source_key_by_id))
+    if unknown_sources:
+        raise CLIContractError("paragraph directive references unknown sources: " + ", ".join(unknown_sources))
+    citation_keys = [str(item) for item in directive.get("citation_keys", [])]
+    if not citation_keys:
+        citation_keys = [source_key_by_id[source_id] for source_id in source_ids if source_id in source_key_by_id]
+    first_claim = claims_by_id.get(claim_ids[0]) if claim_ids else None
+    paragraph_type = str(directive.get("paragraph_type") or _paragraph_type_for_claim(first_claim))
+    return {
+        "schema_version": "2.0",
+        "paragraph_sha256": getattr(paragraph, "sha256"),
+        "paragraph_type": paragraph_type,
+        "claim_ids": claim_ids,
+        "source_ids": source_ids,
+        "citation_keys": citation_keys,
+        "text_locator": getattr(paragraph, "locator"),
+    }
+
+
+def _inline_directives_by_locator(draft_text: str) -> dict[str, dict[str, object]]:
+    directives = mapping_directives(draft_text)
+    paragraphs = extract_paragraphs(strip_mapping_comments(draft_text))
+    if len(directives) != len(paragraphs):
+        raise CLIContractError(
+            f"inline storm-map directives must match paragraph count: {len(directives)} directives for {len(paragraphs)} paragraphs"
+        )
+    return {
+        getattr(paragraph, "locator"): directive
+        for paragraph, directive in zip(paragraphs, directives, strict=True)
+    }
+
+
+def build_paragraph_map_records(
+    draft_text: str,
+    directives_by_locator: dict[str, dict[str, object]],
+    claims: list[dict[str, object]],
+    sources: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    claims_by_id = {str(claim.get("claim_id")): claim for claim in claims}
+    source_key_by_id = _source_key_by_id(sources)
+    records: list[dict[str, object]] = []
+    for paragraph in extract_paragraphs(strip_mapping_comments(draft_text)):
+        directive = directives_by_locator.get(getattr(paragraph, "locator"))
+        if directive is None:
+            raise CLIContractError(f"paragraph lacks mapping directive: {getattr(paragraph, 'locator')}")
+        record = _build_paragraph_record(paragraph, directive, claims_by_id, source_key_by_id)
+        errors = validate_paragraph_record(record)
+        if errors:
+            raise CLIContractError(f"{getattr(paragraph, 'locator')}: {'; '.join(errors)}")
+        records.append(record)
+    return records
+
+
+def command_build_paragraph_map(args: argparse.Namespace) -> int:
+    layout = RunLayout(args.run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        raise StagePreconditionError("run has no generation")
+    package_hash = compute_skill_package_hash(ROOT)
+    verify_stage_precondition(layout, generation, Stage.DRAFT, package_hash)
+    if layout.receipt(generation, Stage.DRAFT).exists():
+        raise StagePreconditionError("cannot build paragraph map after draft receipt exists")
+    draft_text = args.draft_md.read_text(encoding="utf-8")
+    directives = (
+        _sidecar_directives(args.sidecar_jsonl)
+        if args.sidecar_jsonl
+        else _inline_directives_by_locator(draft_text)
+    )
+    claims = load_jsonl(layout.artifact(generation, "research/claim-evidence-ledger.jsonl"))
+    sources = load_jsonl(layout.artifact(generation, "research/source-register.jsonl"))
+    records = build_paragraph_map_records(draft_text, directives, claims, sources)
+    report = generate_references(draft_text, sources)
+    errors = validate_report_traceability(report, records, claims, sources)
+    if errors:
+        raise DraftGateError("; ".join(dict.fromkeys(errors)))
+    target = args.to or args.draft_md.with_name("paragraph-map.jsonl")
+    if target.exists() or target.is_symlink():
+        raise CLIContractError(f"paragraph map output already exists: {target}")
+    atomic_write_text(target, _jsonl_text(records))
+    _print_json({
+        "schema_version": "2.0",
+        "mode": "build-paragraph-map",
+        "paragraph_count": len(records),
+        "output_jsonl": str(target),
+    })
+    return EXIT_OK
+
+
 def draft_preflight_report(
     brief: dict[str, object],
     draft_text: str,
@@ -1708,6 +2201,7 @@ def draft_preflight_report(
     maximum = int(length_contract.get("maximum", 0))
     if measured < minimum or measured > maximum:
         errors.append(f"draft body length {measured} {unit} is outside {minimum}-{maximum}")
+    errors.extend(quote_limit_errors(report, unit))
     paragraphs = extract_paragraphs(report)
     paragraph_by_locator = {
         str(getattr(paragraph, "locator")): paragraph for paragraph in paragraphs
@@ -1731,6 +2225,8 @@ def draft_preflight_report(
             "maximum": maximum,
             "within_range": minimum <= measured <= maximum,
             "references_excluded": True,
+            "quoted_blocks_excluded": True,
+            "quoted": quoted_length(report, unit),
         },
         "handwritten_references": handwritten_references,
         "paragraph_count": len(paragraphs),
@@ -1773,6 +2269,7 @@ def command_draft(args: argparse.Namespace) -> int:
         errors.append(
             f"draft body length {measured} {unit} is outside {minimum}-{maximum}"
         )
+    errors.extend(quote_limit_errors(report, unit))
     if errors:
         raise DraftGateError("; ".join(dict.fromkeys(errors)))
     citations = citation_index(sources)
@@ -2246,6 +2743,102 @@ def command_explain(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _doctor_suggestions(next_stage: object) -> list[str]:
+    stage = str(next_stage or "")
+    suggestions = {
+        "retrieval": [
+            "use capture-source or ingest-dir to build retrieval-inputs.jsonl",
+            "run storm_research.py ingest RUN_DIR --input-jsonl retrieval-inputs.jsonl",
+        ],
+        "evidence": [
+            "run findings before evidence for full dossiers",
+            "use evidence --preflight-theory before committing Claims",
+        ],
+        "draft": [
+            "use build-paragraph-map to generate paragraph-map.jsonl",
+            "run draft --preflight before committing the draft receipt",
+        ],
+        "review": [
+            "provide independent claim reviews, paragraph audit, fact checks, conflict reviews, and draft audit for full dossiers",
+        ],
+        "render": [
+            "render only after review passes; full dossiers cannot downgrade to reduced output",
+        ],
+        "validation": [
+            "run validate and repair failed checks with repair-plan",
+        ],
+    }
+    return suggestions.get(stage, ["run status or explain to inspect the receipt chain"])
+
+
+def _artifact_status(layout: RunLayout, generation: int) -> list[dict[str, object]]:
+    required = [
+        "inputs/brief.json",
+        "artifacts/research/research-plan.json",
+        "artifacts/research/source-plan.json",
+        "artifacts/research/storm-tasklets.jsonl",
+        "artifacts/research/source-register.jsonl",
+        "artifacts/research/retrieval-manifest.jsonl",
+        "artifacts/research/storm-findings-pool.jsonl",
+        "artifacts/research/claim-evidence-ledger.jsonl",
+        "artifacts/drafts/report-v1.md",
+        "artifacts/report.md",
+        "artifacts/exports/report.html",
+        "artifacts/exports/report.pdf",
+        "artifacts/validation/validation-report.json",
+    ]
+    root = layout.generation_root(generation)
+    rows: list[dict[str, object]] = []
+    for logical in required:
+        path = package_child(root, logical)
+        rows.append({
+            "path": logical,
+            "exists": path.is_file() and not path.is_symlink(),
+            "unsafe_symlink": path.is_symlink(),
+        })
+    return rows
+
+
+def command_doctor(args: argparse.Namespace) -> int:
+    layout = RunLayout(args.run_dir)
+    status = _status_payload(layout.root)
+    generation = latest_generation(layout)
+    checks: list[dict[str, object]] = []
+    validation_exit_code = None
+    validation_error = None
+    if generation is not None:
+        package_hash = compute_skill_package_hash(ROOT)
+        try:
+            raw_checks, validation_exit_code = validate_governed_run(layout, generation, package_hash)
+            checks = [
+                {
+                    "check_id": getattr(check, "check_id", ""),
+                    "status": getattr(check, "status", ""),
+                    "message": getattr(check, "message", ""),
+                    "path": getattr(check, "path", ""),
+                    "repair_command": getattr(check, "repair_command", ""),
+                }
+                for check in raw_checks if getattr(check, "status", "") != "pass"
+            ]
+        except (ReceiptError, ContractError, OutputPathError, OSError, ValueError) as exc:
+            validation_exit_code = EXIT_STAGE
+            validation_error = str(exc)
+    next_stage = status.get("invalid_stage") or status.get("next_stage")
+    _print_json({
+        "schema_version": "2.0",
+        "mode": "doctor",
+        "run_dir": str(layout.root),
+        "generation": generation,
+        "status": status,
+        "artifact_status": _artifact_status(layout, generation) if generation else [],
+        "validation_exit_code": validation_exit_code,
+        "validation_error": validation_error,
+        "failed_checks": checks,
+        "suggested_next_actions": _doctor_suggestions(next_stage),
+    })
+    return EXIT_OK
+
+
 def _repair_actions_from_checks(checks: list[object], fallback_stage: object) -> list[dict[str, object]]:
     actions: list[dict[str, object]] = []
     for index, check in enumerate(checks, start=1):
@@ -2475,6 +3068,8 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--output", type=Path)
     init.add_argument("--language", choices=("auto", "zh-CN", "en"), default="auto")
     init.add_argument("--research-profile", choices=tuple(sorted(INIT_RESEARCH_PROFILES)), default="auto")
+    init.add_argument("--profile-selection-mode", choices=tuple(sorted(PROFILE_SELECTION_MODES)))
+    init.add_argument("--profile-selection-evidence", default="")
     init.add_argument("--depth-level", choices=("briefing", "standard_report", "full_dossier"))
     init.add_argument("--briefing-reason", default="")
     init.add_argument("--min-units", type=int)
@@ -2506,6 +3101,45 @@ def build_parser() -> argparse.ArgumentParser:
     lens_perspectives.add_argument("--input-json", type=Path, required=True)
     lens_perspectives.set_defaults(handler=command_lens_perspectives)
 
+    capture = subparsers.add_parser("capture-source", help="Copy and preflight one source snapshot into retrieval input JSONL.")
+    capture.add_argument("run_dir", type=Path)
+    capture.add_argument("--query-id", required=True)
+    capture.add_argument("--url")
+    capture.add_argument("--file-ref")
+    capture.add_argument("--snapshot", type=Path, required=True)
+    capture.add_argument("--title", required=True)
+    capture.add_argument("--publisher", required=True)
+    capture.add_argument("--published-at")
+    capture.add_argument("--publication-date-status", choices=("known", "unknown"))
+    capture.add_argument("--retrieved-at")
+    capture.add_argument("--content-excerpt")
+    capture.add_argument("--content-locator")
+    capture.add_argument("--locator-type")
+    capture.add_argument("--adapter", choices=("host", "provider", "closed_corpus"))
+    capture.add_argument("--adapter-run-id")
+    capture.add_argument("--capture-level", choices=("full_text", "official_data", "user_file", "search_snippet"))
+    capture.add_argument("--evidence-strength-ceiling", choices=("strong", "medium", "weak", "background"))
+    capture.add_argument("--observed-status", type=int)
+    capture.add_argument("--content-type")
+    capture.add_argument("--source-type")
+    capture.add_argument("--primary-class", choices=("primary", "secondary"))
+    capture.add_argument("--reliability-tier", choices=("A", "B", "C", "D"))
+    capture.add_argument("--freshness-status", choices=("current", "stale", "historical", "unknown"))
+    capture.add_argument("--reliability-notes")
+    capture.add_argument("--to", type=Path)
+    capture.add_argument("--append", action="store_true")
+    capture.add_argument("--allow-warning", action="store_true")
+    capture.set_defaults(handler=command_capture_source)
+
+    ingest_dir = subparsers.add_parser("ingest-dir", help="Build retrieval input JSONL from a directory manifest.")
+    ingest_dir.add_argument("run_dir", type=Path)
+    ingest_dir.add_argument("--input-dir", type=Path, required=True)
+    ingest_dir.add_argument("--manifest-jsonl", type=Path)
+    ingest_dir.add_argument("--to", type=Path)
+    ingest_dir.add_argument("--append", action="store_true")
+    ingest_dir.add_argument("--allow-warning", action="store_true")
+    ingest_dir.set_defaults(handler=command_ingest_dir)
+
     ingest = subparsers.add_parser("ingest", help="Validate and commit captured retrieval evidence.")
     ingest.add_argument("run_dir", type=Path)
     ingest.add_argument("--input-jsonl", type=Path, required=True)
@@ -2534,6 +3168,13 @@ def build_parser() -> argparse.ArgumentParser:
     evidence.add_argument("--report-outline", type=Path)
     evidence.add_argument("--preflight-theory", action="store_true")
     evidence.set_defaults(handler=command_evidence)
+
+    paragraph_map = subparsers.add_parser("build-paragraph-map", help="Generate paragraph-map.jsonl from storm-map directives or sidecar JSONL.")
+    paragraph_map.add_argument("run_dir", type=Path)
+    paragraph_map.add_argument("--draft-md", type=Path, required=True)
+    paragraph_map.add_argument("--sidecar-jsonl", type=Path)
+    paragraph_map.add_argument("--to", type=Path)
+    paragraph_map.set_defaults(handler=command_build_paragraph_map)
 
     draft = subparsers.add_parser("draft", help="Validate and commit a traceable report draft.")
     draft.add_argument("run_dir", type=Path)
@@ -2604,6 +3245,10 @@ def build_parser() -> argparse.ArgumentParser:
     explain = subparsers.add_parser("explain", help="Explain the first failed or pending governed stage.")
     explain.add_argument("run_dir", type=Path)
     explain.set_defaults(handler=command_explain)
+
+    doctor = subparsers.add_parser("doctor", help="Summarize run health, failed checks, artifacts, and next actions.")
+    doctor.add_argument("run_dir", type=Path)
+    doctor.set_defaults(handler=command_doctor)
 
     repair_plan = subparsers.add_parser("repair-plan", help="Write structured repair actions for the current failing gate.")
     repair_plan.add_argument("run_dir", type=Path)

@@ -5,7 +5,7 @@ Create `brief.json`. Classify the user packet as thin, moderate, or rich. User m
 
 In 1.1, this is the `storm_research.py init` stage. The authoritative brief is `work/generations/g0001/inputs/brief.json`; root `brief.json` is a view. A changed view cannot advance the receipt chain.
 
-`storm_lens_mode` defaults to `advisory`: the workflow must follow the prompt pack, but the harness does not require separate lens artifacts. Use `--storm-lens-mode strict` when the run must prove that Prompt 1, Prompt 2, Prompt 3, and Prompt 4 ran at their required phase.
+`storm_lens_mode` defaults to `strict` for `default_full_dossier` and `critique_deepresearch`: Prompt 1, Prompt 2, Prompt 3, and Prompt 4 must produce phase-bound `storm-lens-*.json` artifacts before the dependent stage can advance. Use `advisory` only for explicit compatibility work or short briefing runs.
 
 `research_profile` is the user-facing run preset. For vague "run this skill to research X" requests, ask one short profile-choice question before init. If the user does not choose or asks for the default, use `default_full_dossier`; never infer `briefing` without explicit user request. Use `strict_storm_lens`, `critique_deepresearch`, `closed_corpus`, or `briefing` only when the user chooses that shape or the input clearly requires it. `repair_existing_run` is not an init profile: inspect the existing run with `status` and `explain`, then repair or retry the failed stage.
 
@@ -19,6 +19,8 @@ Example:
 - Community posts can reveal pain points but are anecdotal.
 
 For full dossiers with external research allowed, source classes cannot be only user transcript, closed corpus, local files, or supplied materials. At least half of planned questions must require external source classes, and the retrieval budget must allow at least six external sources.
+
+For `critique_deepresearch`, the source plan must cover six search dimensions before tasklets can be generated: user claim extraction, supporting evidence, counterevidence or contradiction, theory/framework, reception or criticism, and historical comparison or blind spot. A plan that only searches background pages is invalid.
 
 ## Phase 2 — Generate perspectives
 Use the STORM lens prompts in [storm-lens-prompt-pack.md](storm-lens-prompt-pack.md) as the seed, then adapt to the topic.

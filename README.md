@@ -12,7 +12,7 @@
 - 生成来源登记、STORM tasklets、findings pool、证据账本、报告映射和验证报告。
 - 通过 `storm_research.py` 的 init、plan、ingest、findings、evidence、draft、review、render、validate、release 阶段推进，关键阶段由 receipt chain 约束，findings 作为 evidence 的必要前提被绑定进 evidence receipt。
 - 以 `report.md` 为唯一内容真源，导出一致的 HTML/PDF。
-- 默认中文完整研究为 `8000–10000` 正文字符；输入长度只改变检索量，不会自动把成品压缩成摘要。
+- 默认中文完整研究为 `8000–10000` 净正文字符；参考文献、资料来源和来源列表不计入字数；输入长度只改变检索量，不会自动把成品压缩成摘要。
 - 强制将已回答的 STORM 问题和材料性 Claim 映射到 `research-plan.report_outline`，避免研究停留在中间产物。
 - 对空证据、假引用、过期证据、占位符、本地路径泄漏、缺失 PDF 和格式漂移返回非零退出码。
 - 默认在用户工作区的 `output/storm-deepresearch/` 下创建独立运行目录；已存在目标、路径逃逸和符号链接逃逸都会失败。
@@ -70,30 +70,39 @@ WORKSPACE=/path/to/user-workspace
   --topic "AI Agent Skill 的工程化评估" \
   --question "怎样证明一个 Skill 的输出可靠、可复现且可发布？" \
   --workspace "$WORKSPACE" \
-  --output research-run
+  --output research-run \
+  --research-profile default_full_dossier \
+  --profile-selection-mode user_requested_default \
+  --profile-selection-evidence "用户明确要求按默认 full_dossier 运行"
 ```
 
-该命令创建 `$WORKSPACE/output/storm-deepresearch/research-run/`、`work/generations/g0001/inputs/brief.json` 和 `state/generations/g0001/receipts/00-init.json`。目标一旦存在会以退出码 `4` 停止。
+该命令创建 `$WORKSPACE/output/storm-deepresearch/research-run/`、`work/generations/g0001/inputs/brief.json` 和 `state/generations/g0001/receipts/00-init.json`。目标一旦存在会以退出码 `4` 停止。`init` 现在要求 profile intake 证据；缺少 `--profile-selection-mode` 或 `--profile-selection-evidence` 会以退出码 `4` 停止，避免宿主跳过用户确认。
 
 ```bash
 RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 ```
 
-中文 full dossier 默认为 `8000–10000` characters，英文为 `3500–7000` words。只有用户明确要求简报时才使用 `--depth-level briefing`，并且必须同时提供 `--briefing-reason "用户明确要求简报的证据"`；宿主默认降级到 briefing 会在 init 阶段失败。
+中文 full dossier 默认为 `8000–10000` net body characters，英文为 `3500–7000` net body words。`report-depth` 只统计正文，排除 `References`、`参考文献`、`参考资料`、`资料来源`、`Sources` 等参考文献区；引用清单仍必须保留并通过 traceability 校验。只有用户明确要求简报时才使用 `--depth-level briefing`，并且必须同时提供 `--briefing-reason "用户明确要求简报的证据"`；宿主默认降级到 briefing 会在 init 阶段失败。
 
-默认 `storm_lens_mode` 是 `advisory`：必须遵循 STORM Lens Prompt Pack，但不额外要求 lens artifacts。需要证明四个 STORM prompt 按阶段发生时，在 init 加 `--storm-lens-mode strict`；strict run 会要求四个 `storm-lens-*.json` helper artifact，并把它们绑定进后续 receipts。
+默认 `storm_lens_mode` 是 `strict`：`default_full_dossier` 和 `critique_deepresearch` 都必须让四个 STORM prompt 产生 `storm-lens-*.json` helper artifact，并把它们绑定进后续 receipts。`advisory` 只用于显式兼容或短 briefing，不再是完整研究默认值。
 
 ### 可选运行方式
 
-宿主可以把 `research_profile` 作为用户选项展示。若用户只说“运行这个 skill 研究 xxx”，先用一个简短菜单确认研究形态；如果用户不选、说默认、或已经明确“按默认 full_dossier”，使用 `default_full_dossier` 继续执行，不要降级到 `briefing`。
+宿主必须把 `research_profile` 作为用户选项展示，或从用户原话中提取明确选择。若用户只说“运行这个 skill 研究 xxx”，先用一个简短菜单确认研究形态；如果用户不选、说默认、或已经明确“按默认 full_dossier”，使用 `default_full_dossier` 继续执行，不要降级到 `briefing`。无论哪种情况，都必须在 `init` 写入 `profile_selection`：
+
+| mode | 使用条件 |
+| --- | --- |
+| `user_selected` | 用户从菜单或文字中选择了具体 profile，例如 `strict_storm_lens`。 |
+| `user_requested_default` | 用户明确说“默认”“full_dossier”或等价表达。 |
+| `defaulted_after_prompt` | 宿主已经展示选择菜单，用户没有选择或要求按默认继续。 |
 
 | 选项 | CLI 映射 | 使用场景 |
 | --- | --- | --- |
-| `default_full_dossier` | `--research-profile default_full_dossier` | 默认完整研究，advisory STORM lens，host retrieval。 |
-| `strict_storm_lens` | `--research-profile strict_storm_lens` | 需要审计四条 STORM prompt 是否按阶段发生。 |
-| `critique_deepresearch` | `--research-profile critique_deepresearch` | 电影、书、文章观后感或评论；先抽取用户观点，再检索支持、反驳、理论和争议。 |
-| `closed_corpus` | `--research-profile closed_corpus` | 只使用用户提供的文件或封闭语料，不联网，不用模型记忆补事实。 |
-| `briefing` | `--research-profile briefing --briefing-reason "用户明确要求简报"` | 用户明确只要短简报。 |
+| `default_full_dossier` | `--research-profile default_full_dossier --profile-selection-mode user_requested_default --profile-selection-evidence "用户明确要求默认完整研究"` | 默认完整研究，strict STORM lens，host retrieval。 |
+| `strict_storm_lens` | `--research-profile strict_storm_lens --profile-selection-mode user_selected --profile-selection-evidence "用户选择 strict_storm_lens"` | 需要审计四条 STORM prompt 是否按阶段发生。 |
+| `critique_deepresearch` | `--research-profile critique_deepresearch --profile-selection-mode user_selected --profile-selection-evidence "用户选择 critique_deepresearch"` | 电影、书、文章观后感或评论；先抽取用户观点，再检索支持、反驳、理论、评论接受史和历史比较。source plan 缺任一维度会在 plan 阶段失败。 |
+| `closed_corpus` | `--research-profile closed_corpus --profile-selection-mode user_selected --profile-selection-evidence "用户选择 closed_corpus"` | 只使用用户提供的文件或封闭语料，不联网，不用模型记忆补事实。 |
+| `briefing` | `--research-profile briefing --profile-selection-mode user_selected --profile-selection-evidence "用户明确选择 briefing" --briefing-reason "用户明确要求简报"` | 用户明确只要短简报。 |
 | `repair_existing_run` | 不调用 `init`；先运行 `status` / `explain` | 修复已有 run，禁止重新初始化或覆盖账本。 |
 
 等价提示词示例：
@@ -139,6 +148,28 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 ### 3. Ingest
 
 内置脚本不会主动联网。宿主检索结果必须符合 `schemas/retrieval-record.schema.json`，包含真实 URL 或闭合语料文件引用、快照 hash、locator 和 excerpt：
+
+```bash
+# single source helper; copies the snapshot into evidence-cache and writes retrieval-inputs.jsonl
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" capture-source "$RUN_DIR" \
+  --query-id Q001 \
+  --url "https://www.nist.gov/replace-with-real-source" \
+  --snapshot captured-page.html \
+  --title "Source title" \
+  --publisher "Publisher or author" \
+  --content-excerpt "Exact excerpt present in the captured file" \
+  --source-type secondary_synthesis \
+  --primary-class secondary \
+  --reliability-tier B \
+  --reliability-notes "Why this source is usable for the specific claim"
+
+# batch helper; reads sources.jsonl from the directory and produces retrieval-inputs.jsonl
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" ingest-dir "$RUN_DIR" \
+  --input-dir captured-sources \
+  --to retrieval-inputs.jsonl
+```
+
+`capture-source` 和 `ingest-dir` 不写 receipt；它们只生成并预检后续 `ingest` 要吃的 JSONL。常见坏抓取页，例如 `Checking if the site connection is secure`、`Access denied`、`载入中`、过短正文，会默认失败；确实要保留时必须显式加 `--allow-warning`。
 
 ```bash
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" ingest "$RUN_DIR" \
@@ -198,7 +229,18 @@ strict mode 下，findings 后必须先注册 Prompt 2 和 Prompt 3 artifacts，
   --paragraph-map-jsonl paragraph-map.jsonl
 ```
 
-`draft.md` 不能手写 References。每个 factual paragraph 必须映射到 Claim、source 和 citation key；脚本会从 source register 生成 References。
+`draft.md` 不能手写 References、参考文献、参考资料、资料来源或 Sources。每个 factual paragraph 必须映射到 Claim、source 和 citation key；脚本会从 source register 生成 References。字数门禁只统计这些参考文献区之前的净正文，不能用来源清单撑过最低字数。
+
+可以先用 sidecar 或内联 `storm-map` 注释生成 `paragraph-map.jsonl`，减少手工同步 paragraph hash、Claim、source 和 citation key 的错误：
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" build-paragraph-map "$RUN_DIR" \
+  --draft-md draft.md \
+  --sidecar-jsonl paragraph-sidecar.jsonl \
+  --to paragraph-map.jsonl
+```
+
+sidecar 最小格式是一行一个段落映射，例如 `{"text_locator":"paragraph:1","claim_ids":["C001"]}`；脚本会从 Claim ledger 和 source register 推导 source IDs 和 citation keys。内联格式为 `<!-- storm-map: claims=C001; type=factual -->`，命令会在生成最终报告前剥离这些注释。
 
 反复调正文长度和 paragraph-map 时先跑 preflight；它会输出正文计数、段落预览、citation keys 和可定位错误，不写 `40-draft.json`：
 
@@ -251,6 +293,8 @@ strict mode 下，findings 后必须先注册 Prompt 2 和 Prompt 3 artifacts，
 验证或 receipt 失败后，可以生成结构化修复计划；它只写 `current/repair-plan.json`，不写 receipt：
 
 ```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" doctor "$RUN_DIR"
+
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" repair-plan "$RUN_DIR"
 ```
 
@@ -320,11 +364,12 @@ strict mode 下，findings 后必须先注册 Prompt 2 和 Prompt 3 artifacts，
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
 .venv/bin/python scripts/run_checks.py --all
+.venv/bin/python scripts/run_checks.py --dist
 ```
 
-`--all` 运行单元测试、编译检查、schema 检查和 Yao Meta Skill 验证。Yao 的 Output Lab、Trust、Conformance、Packaging 和安装模拟证据保存在 `reports/`；最终 release 还必须运行 `storm_research.py release` 并绑定外部 trust、registry、re-verification 和 human approval。发布步骤见 [发布检查表](docs/release-checklist.md)。
+`--all` 运行单元测试、编译检查、schema 检查和 Yao Meta Skill 验证。`--dist` 是正式技能包构建入口：它调用 Yao package 生成 openai/claude/generic/vscode 四个平台 adapter，创建 `dist/storm-deepresearch-skill.zip`，净化归档中的本机路径，然后执行 package verification 并把报告写入 `dist/package_verification.json` 和 `dist/package_verification.md`。Yao 的 Output Lab、Trust、Conformance 和安装模拟证据保存在 `reports/`；最终 release 还必须运行 `storm_research.py release` 并绑定外部 trust、registry、re-verification 和 human approval。发布步骤见 [发布检查表](docs/release-checklist.md)。
 
-Yao 生成 ZIP 后、执行 package verification 前，先净化归档中的本机路径：
+如果手动调用 Yao package，执行 package verification 前仍需净化归档中的本机路径：
 
 ```bash
 .venv/bin/python scripts/sanitize_release_archive.py \

@@ -14,11 +14,13 @@ Run `python3 scripts/storm_research.py validate "$RUN_DIR"` or `python3 scripts/
 - Material factual closure is 100%.
 - Source and claim references close.
 - Evidence locators exist.
+- Source helpers reject bad captures by default, including common anti-bot, access-denied, loading-only, and too-short snapshots.
 - Current claims pass freshness policy.
 - Contested claims retain contradicting evidence.
 - No unsupported material claim reaches the report.
 - Every perspective question has a disposition; every answered question is used by `report_outline`.
 - Full external dossiers require `storm-tasklets`, `storm-findings-pool`, and `finding-coverage` before evidence; every material Claim must link to a usable finding that shares its supporting source.
+- `critique_deepresearch` source plans must cover user claim extraction, supporting evidence, counterevidence or contradiction, theory/framework, reception or criticism, and historical comparison or blind spot before `plan` can commit.
 - Full dossiers use at least five researched perspectives, ten questions, six evidence-planned sections, and twelve material claims unless the run is explicitly bounded and unreleased.
 
 `storm_research.py evidence --preflight-theory --claims claims.jsonl` can be run after retrieval to list theory claims, matched terms, supporting source types, and missing theory-grade support. It does not write an evidence receipt or weaken the evidence gate.
@@ -30,7 +32,8 @@ Run `python3 scripts/storm_research.py validate "$RUN_DIR"` or `python3 scripts/
 - Render fingerprints match current files.
 - Full-mode PDF exists, has pages, and contains title/reference text.
 - No unresolved template marker remains.
-- The public report body satisfies `brief.length_contract`; references do not count toward the total.
+- The public report net body satisfies `brief.length_contract`; bibliography/source sections such as `References`, `参考文献`, `参考资料`, `资料来源`, and `Sources` do not count toward the total.
+- Markdown blockquotes and fenced code are excluded from `report-depth`; oversized quoted blocks fail when they exceed both the absolute quote limit and 25% of countable body length.
 - Section budgets reach the promised length through claims, mechanisms, evidence, counterevidence, implications, and limits rather than repetition.
 
 ## Safety gate: exit 7

@@ -4,16 +4,17 @@
 
 Input size does not determine output depth. A one-sentence topic triggers more discovery; a rich packet supplies more of the spine. Unless the user explicitly requests a briefing, use the full-dossier contract in `brief.json`:
 
-- Chinese body: `8000-10000` non-whitespace characters.
-- English body: `3500-7000` words.
-- Exclude the reference section from the count.
+- Chinese net body: `8000-10000` non-whitespace characters.
+- English net body: `3500-7000` words.
+- Exclude bibliography/source sections from the count, including `References`, `参考文献`, `参考资料`, `资料来源`, and `Sources`.
+- Exclude Markdown blockquotes and fenced code from the count; long quoted blocks are supporting evidence, not original analysis.
 - Never satisfy the contract with repeated conclusions, generic background, oversized quotations, source lists, or fabricated examples.
 
 If credible evidence cannot support the minimum, stop as `bounded_partial`, name the missing evidence, and do not mark the package releasable.
 
 Before drafting, complete `research-plan.report_outline` and `storm-findings-pool.jsonl`. Give each section a distinct purpose, a length budget, the STORM question IDs it resolves, the finding IDs it uses, the Claim-Evidence IDs it uses, and at least three expansion elements.
 
-Use `storm_research.py draft --preflight` before committing the draft when length, paragraph hashes, or citation bindings are still changing. Preflight reports the body count, paragraph previews, citation keys, and traceability errors without writing a draft receipt.
+Use `storm_research.py build-paragraph-map` to generate paragraph mappings from sidecar JSONL or `storm-map` comments, then run `storm_research.py draft --preflight` before committing the draft when length, paragraph hashes, or citation bindings are still changing. Preflight reports the net body count, excluded quote count, paragraph previews, citation keys, and traceability errors without writing a draft receipt.
 
 ## Evidence-led expansion
 

@@ -63,7 +63,7 @@ class EvidenceStageTests(unittest.TestCase):
     def test_strict_lens_mode_requires_p2_and_p3_before_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
-            run = self.retrieved_run(workspace, strict_lens=True)
+            run = self.retrieved_run(workspace, register_lens_for_evidence=False)
             inputs = self.write_evidence_inputs(run, workspace)
             result = self.invoke_evidence(run, inputs)
             self.assertEqual(result.returncode, 8, result.stdout + result.stderr)
@@ -83,8 +83,8 @@ class EvidenceStageTests(unittest.TestCase):
             run = self.retrieved_run(workspace, register_findings=False)
             inputs = self.write_evidence_inputs(run, workspace)
             result = self.invoke_evidence(run, inputs)
-            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
-            self.assertIn("storm findings pool", result.stderr)
+            self.assertEqual(result.returncode, 8, result.stdout + result.stderr)
+            self.assertIn("storm-findings-pool.jsonl", result.stderr)
             self.assertFalse((run / "state/generations/g0001/receipts/30-evidence.json").exists())
 
     def test_theory_claim_requires_theory_grade_source(self) -> None:
@@ -188,6 +188,37 @@ class EvidenceStageTests(unittest.TestCase):
             self.assertTrue(any(item["paragraph"] for item in payload["errors"]))
             self.assertFalse((run / "state/generations/g0001/receipts/40-draft.json").exists())
 
+    def test_build_paragraph_map_infers_sources_and_citations(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.evidenced_run(workspace)
+            draft, mapping = self.write_draft_inputs(run, workspace)
+            sidecar = workspace / "paragraph-sidecar.jsonl"
+            rows = []
+            for line in mapping.read_text(encoding="utf-8").splitlines():
+                record = json.loads(line)
+                rows.append({
+                    "text_locator": record["text_locator"],
+                    "claim_ids": record["claim_ids"],
+                })
+            sidecar.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+            generated = workspace / "generated-paragraph-map.jsonl"
+            result = self.invoke(
+                "build-paragraph-map", str(run),
+                "--draft-md", str(draft),
+                "--sidecar-jsonl", str(sidecar),
+                "--to", str(generated),
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            generated_rows = [json.loads(line) for line in generated.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(len(generated_rows), len(rows))
+            self.assertTrue(all(row["source_ids"] and row["citation_keys"] for row in generated_rows))
+            result = self.invoke(
+                "draft", str(run), "--draft-md", str(draft),
+                "--paragraph-map-jsonl", str(generated),
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def invoke_evidence(
         self, run: Path, inputs: tuple[Path, Path, Path, Path]
     ) -> subprocess.CompletedProcess[str]:
@@ -285,9 +316,9 @@ class EvidenceStageTests(unittest.TestCase):
         workspace: Path,
         *,
         register_findings: bool = True,
-        strict_lens: bool = False,
+        register_lens_for_evidence: bool = True,
     ) -> Path:
-        run = self.planned_run(workspace, strict_lens=strict_lens)
+        run = self.planned_run(workspace)
         cache = run / "work/generations/g0001/evidence-cache"
         records = []
         for index in range(1, 11):
@@ -304,13 +335,13 @@ class EvidenceStageTests(unittest.TestCase):
             findings = self.write_findings_inputs(run, workspace)
             result = self.invoke("findings", str(run), "--findings-jsonl", str(findings))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            if register_lens_for_evidence:
+                self.register_lens_conflicts(run, workspace)
+                self.register_lens_outline(run, workspace)
         return run
 
     def evidenced_run(self, workspace: Path, *, strict_lens: bool = False) -> Path:
-        run = self.retrieved_run(workspace, strict_lens=strict_lens)
-        if strict_lens:
-            self.register_lens_conflicts(run, workspace)
-            self.register_lens_outline(run, workspace)
+        run = self.retrieved_run(workspace)
         inputs = self.write_evidence_inputs(run, workspace)
         result = self.invoke_evidence(run, inputs)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -362,14 +393,14 @@ class EvidenceStageTests(unittest.TestCase):
         mapping.write_text("".join(json.dumps(item) + "\n" for item in records), encoding="utf-8")
         return draft, mapping
 
-    def planned_run(self, workspace: Path, *, strict_lens: bool = False) -> Path:
+    def planned_run(self, workspace: Path) -> Path:
         init_args = [
             "init", "--topic", "Governed research", "--question",
             "What evidence supports the conclusion?", "--workspace", str(workspace),
             "--output", "test-run",
+            "--profile-selection-mode", "user_requested_default",
+            "--profile-selection-evidence", "test explicitly requested the default full dossier profile",
         ]
-        if strict_lens:
-            init_args.extend(["--storm-lens-mode", "strict"])
         result = self.invoke(*init_args)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         run = workspace / "output/storm-deepresearch/test-run"
@@ -377,8 +408,7 @@ class EvidenceStageTests(unittest.TestCase):
         source_plan = workspace / "source-plan.json"
         plan.write_text(json.dumps(valid_research_plan_v2()), encoding="utf-8")
         source_plan.write_text(json.dumps(valid_source_plan()), encoding="utf-8")
-        if strict_lens:
-            self.register_lens_perspectives(run, workspace)
+        self.register_lens_perspectives(run, workspace)
         result = self.invoke(
             "plan", str(run), "--plan-json", str(plan),
             "--source-plan-json", str(source_plan),
