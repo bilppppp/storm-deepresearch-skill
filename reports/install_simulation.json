@@ -1,14 +1,14 @@
 {
   "ok": true,
   "schema_version": "2.0",
-  "generated_at": "2026-06-25",
+  "generated_at": "2026-06-30",
   "skill_dir": "$SKILL_ROOT",
   "package_dir": "$SKILL_ROOT/dist",
-  "install_root": "$SKILL_ROOT/dist/install-simulation/simulate-storm-deepresearch-skill",
-  "installed_skill_dir": "$SKILL_ROOT/dist/install-simulation/simulate-storm-deepresearch-skill/storm-deepresearch-skill",
+  "install_root": "$TMPDIR/storm-install-sync-20260630/simulate-storm-deepresearch-skill",
+  "installed_skill_dir": "$TMPDIR/storm-install-sync-20260630/simulate-storm-deepresearch-skill/storm-deepresearch-skill",
   "summary": {
     "archive_present": true,
-    "archive_entry_count": 291,
+    "archive_entry_count": 309,
     "archive_extracted": true,
     "entrypoint_loaded": true,
     "manifest_loaded": true,

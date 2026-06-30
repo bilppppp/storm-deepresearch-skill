@@ -1,15 +1,15 @@
 {
   "ok": true,
   "schema_version": "2.0",
-  "generated_at": "2026-06-25",
+  "generated_at": "2026-06-30",
   "skill_dir": "$SKILL_ROOT",
   "package_dir": "$SKILL_ROOT/dist",
   "summary": {
     "target_count": 4,
     "adapter_count": 4,
     "archive_present": true,
-    "archive_sha256": "f12fdc85f061d803a3023f8f2ff1a849d7a84f34d5a073a7e0701cc715c4139a",
-    "archive_entry_count": 291,
+    "archive_sha256": "f6cf12d8f573da0235d5c1b64d5aa076f0aa91dacaa01542c4dec435fb89278f",
+    "archive_entry_count": 309,
     "failure_count": 0,
     "warning_count": 0
   },
