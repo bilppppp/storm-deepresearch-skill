@@ -97,14 +97,23 @@ class LibraryContractTests(unittest.TestCase):
         self.assertEqual(set(compatibility["degradation"]), expected_targets)
         defaults = interface["contract"]["defaults"]
         self.assertEqual(defaults["research_profile"], "default_full_dossier")
+        visible_profiles = set(defaults["research_profile_options"])
         self.assertTrue({
             "default_full_dossier",
-            "strict_storm_lens",
             "critique_deepresearch",
             "closed_corpus",
             "briefing",
             "repair_existing_run",
-        } <= set(defaults["research_profile_options"]))
+        } <= visible_profiles)
+        self.assertNotIn("strict_storm_lens", visible_profiles)
+        self.assertEqual(
+            defaults["legacy_research_profile_aliases"],
+            {"strict_storm_lens": "default_full_dossier"},
+        )
+        self.assertEqual(
+            defaults["primary_research_profile_options"],
+            ["default_full_dossier", "briefing"],
+        )
         self.assertEqual(defaults["output_collision_policy"], "fail")
         self.assertEqual(defaults["ledger_update_policy"], "monotonic-merge")
         self.assertEqual(defaults["release_policy"], "validation-plus-trust-plus-human-approval")

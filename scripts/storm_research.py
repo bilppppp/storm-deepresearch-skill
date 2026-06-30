@@ -133,11 +133,13 @@ INIT_RESEARCH_PROFILES = {
 }
 BRIEF_RESEARCH_PROFILES = {
     "default_full_dossier",
-    "strict_storm_lens",
     "critique_deepresearch",
     "closed_corpus",
     "briefing",
     "custom",
+}
+LEGACY_RESEARCH_PROFILE_ALIASES = {
+    "strict_storm_lens": "default_full_dossier",
 }
 PROFILE_SELECTION_MODES = {
     "user_selected",
@@ -185,13 +187,6 @@ CRITIQUE_SEARCH_DIMENSIONS = {
 }
 PROFILE_DEFAULTS = {
     "default_full_dossier": {
-        "depth_level": "full_dossier",
-        "source_policy": "external_allowed",
-        "retrieval_mode": "host",
-        "output_mode": "full",
-        "storm_lens_mode": "strict",
-    },
-    "strict_storm_lens": {
         "depth_level": "full_dossier",
         "source_policy": "external_allowed",
         "retrieval_mode": "host",
@@ -313,7 +308,7 @@ def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
         raise CLIContractError("research_profile is invalid")
     if requested_profile == "repair_existing_run":
         raise CLIContractError("repair_existing_run uses status/explain/retry on an existing run; do not call init")
-    profile = requested_profile
+    profile = LEGACY_RESEARCH_PROFILE_ALIASES.get(requested_profile, requested_profile)
     if profile == "auto" and getattr(args, "depth_level", None) == "briefing":
         profile = "briefing"
     values = {

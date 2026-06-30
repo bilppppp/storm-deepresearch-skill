@@ -7,7 +7,7 @@ description: Use for source-grounded deep research with STORM findings, ledgers,
 
 ## Router Rules
 
-- Vague `run ... research X`: ask `research_profile`; default `default_full_dossier`, not `briefing`.
+- Vague `run ... research X`: ask `research_profile`; recommend `default_full_dossier` (strict P1-P4), not briefing.
 - Full dossiers: strict P1-P4, external/human review provenance, no self-review.
 - Chinese full dossiers: `8000–10000` visible chars; citations/Markdown excluded.
 - Absence claims need search ledgers; Claims cannot exceed capture ceilings.

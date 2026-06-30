@@ -1,7 +1,7 @@
 interface:
   display_name: "STORM DeepResearch"
   short_description: "Governed STORM research with evidence ceilings and external review provenance"
-  default_prompt: "Use $storm-deepresearch-skill. Ask research_profile when vague; default default_full_dossier. Record profile_selection; stop on missing evidence."
+  default_prompt: "Use $storm-deepresearch-skill. Ask research_profile when vague; recommend default_full_dossier and offer briefing only when explicit. Record profile_selection; stop on missing evidence."
 compatibility:
   canonical_format: "agent-skills"
   adapter_targets: ["openai", "claude", "agent-skills", "vscode", "generic"]
@@ -29,7 +29,9 @@ contract:
     optional: ["input_files", "urls", "findings_jsonl", "audience", "timeframe", "source_policy", "freshness_policy", "retrieval_mode", "research_profile", "report_language", "length_contract", "storm_lens_mode", "workspace_root", "output_root"]
   defaults:
     research_profile: "default_full_dossier"
-    research_profile_options: ["default_full_dossier", "strict_storm_lens", "critique_deepresearch", "closed_corpus", "briefing", "repair_existing_run"]
+    research_profile_options: ["default_full_dossier", "critique_deepresearch", "closed_corpus", "briefing", "repair_existing_run"]
+    primary_research_profile_options: ["default_full_dossier", "briefing"]
+    legacy_research_profile_aliases: {strict_storm_lens: "default_full_dossier"}
     profile_selection_modes: ["user_selected", "user_requested_default", "defaulted_after_prompt"]
     profile_selection_policy: "init fails without profile_selection mode and evidence"
     retrieval_mode: "host"

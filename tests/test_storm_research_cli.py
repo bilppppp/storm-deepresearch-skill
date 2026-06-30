@@ -128,7 +128,6 @@ class StormResearchCLITests(unittest.TestCase):
     def test_research_profiles_map_to_governed_init_fields(self) -> None:
         cases = [
             ("default_full_dossier", {"storm_lens_mode": "strict", "depth_level": "full_dossier"}),
-            ("strict_storm_lens", {"storm_lens_mode": "strict", "depth_level": "full_dossier"}),
             ("closed_corpus", {"source_policy": "closed_corpus", "retrieval_mode": "closed_corpus"}),
             ("critique_deepresearch", {"depth_level": "full_dossier", "retrieval_mode": "host", "storm_lens_mode": "strict"}),
         ]
@@ -147,6 +146,24 @@ class StormResearchCLITests(unittest.TestCase):
                     if profile == "critique_deepresearch":
                         self.assertTrue(any("critique_deepresearch profile" in item for item in brief["assumptions"]))
 
+    def test_legacy_strict_profile_normalizes_to_recommended_full_dossier(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            result = self.invoke_init(
+                workspace,
+                "--research-profile", "strict_storm_lens",
+                "--profile-selection-mode", "user_selected",
+                "--profile-selection-evidence", "user selected the former strict option",
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            brief = json.loads(
+                (workspace / "output/storm-deepresearch/test-run/brief.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(brief["research_profile"], "default_full_dossier")
+            self.assertEqual(brief["profile_selection"]["selected_profile"], "default_full_dossier")
+            self.assertNotIn("strict_storm_lens", brief["profile_selection"]["available_profiles"])
+            self.assertEqual(brief["storm_lens_mode"], "strict")
+
     def test_research_profile_conflict_fails_at_init(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
@@ -156,7 +173,7 @@ class StormResearchCLITests(unittest.TestCase):
                 "--storm-lens-mode", "advisory",
             )
             self.assertEqual(result.returncode, 4)
-            self.assertIn("conflicts with --research-profile strict_storm_lens", result.stderr)
+            self.assertIn("conflicts with --research-profile default_full_dossier", result.stderr)
 
     def test_repair_existing_run_profile_is_not_init(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

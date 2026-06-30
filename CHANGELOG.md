@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Merged the duplicate `strict_storm_lens` user option into the recommended `default_full_dossier`; the old CLI name remains a compatibility alias and normalizes to the canonical profile.
+
 ## 2.0.0 - 2026-06-29
 
 ### Added

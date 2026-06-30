@@ -10,4 +10,6 @@ For a new 2.0 run:
 4. Run `review-prepare` after P4 repairs, then obtain an isolated external-model or human review with provenance and transcript hashes.
 5. Re-run render and validation. The report-depth minimum now uses visible net prose, not citation keys or Markdown syntax.
 
+For new runs, `default_full_dossier` is the single recommended complete-research profile and already requires strict STORM P1-P4. The former `strict_storm_lens` CLI name remains accepted as a compatibility alias but normalizes to `default_full_dossier`; do not present both as separate user choices.
+
 There is no legacy flag that makes a 1.1 run releasable under 2.0. Re-run or create an amended generation with fresh evidence and review.
