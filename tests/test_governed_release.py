@@ -174,7 +174,7 @@ class GovernedReleaseTests(unittest.TestCase):
         registry.write_text(json.dumps({
             "schema_version": "2.0",
             "name": "storm-deepresearch-skill",
-            "version": "1.1.0",
+            "version": "2.0.0",
             "checksums": {"package_sha256": registry_hash},
         }) + "\n", encoding="utf-8")
         yao_report = workspace / "yao-security-trust-report.json"

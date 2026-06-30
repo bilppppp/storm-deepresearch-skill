@@ -102,6 +102,11 @@ Using only the findings, sources, and candidate Claims already registered:
 
 5. What topic did none of the perspectives address?
    Treat this as a blind spot. If the blind spot could change the conclusion, create a new perspective or tasklet.
+
+For every blind spot and resolver question, emit one `resolution_action` with the original text, a reason, and exactly one disposition:
+- `new_retrieval`: the report cannot proceed; create a new generation and retrieve.
+- `uncertainty`: bind an uncertainty-ledger ID.
+- `out_of_scope`: explain why it is outside the approved question.
 ```
 
 Output target:
@@ -110,6 +115,7 @@ Output target:
 contradiction-ledger.json
 uncertainty-ledger.json
 additional storm-tasklets when needed
+storm-lens-conflicts.output.resolution_actions[]
 ```
 
 ## Prompt 3 — Synthesis Outline
@@ -160,6 +166,8 @@ Route each problem to one repair path:
 - outline
 - draft
 - render/validation
+
+Each repair action must include `action_id`, target kind/ID, the target's before SHA-256, action, `required` or `waived` disposition, and reason. Do not mark an action applied inside Prompt 4; application is proven later by `revision-map.json` before `review-prepare` freezes the candidate.
 ```
 
 Output target:
@@ -168,6 +176,7 @@ Output target:
 peer-review.json
 peer-review.md
 repair-plan.json when validation fails
+review-request.json after repairs close
 ```
 
 ## Guardrail

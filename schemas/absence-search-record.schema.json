@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "absence-search-record.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "search_id", "claim_id", "scope", "aliases", "queries", "conclusion", "limitations"],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "search_id": {"type": "string", "pattern": "^AS[0-9]{3}$"},
+    "claim_id": {"type": "string", "pattern": "^C[0-9]{3}$"},
+    "scope": {"enum": ["external", "closed_corpus"]},
+    "aliases": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "queries": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["query_id", "alias", "surface", "surface_class", "source_id", "result_count", "searched_at"],
+        "properties": {
+          "query_id": {"type": "string", "pattern": "^Q[0-9]{3}$"},
+          "alias": {"type": "string", "minLength": 1},
+          "surface": {"type": "string", "minLength": 1},
+          "surface_class": {"enum": ["trial_registry", "bibliographic_database", "official_database", "closed_corpus"]},
+          "source_id": {"type": "string", "pattern": "^S[0-9]{3}$"},
+          "result_count": {"type": "integer", "minimum": 0},
+          "searched_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    },
+    "conclusion": {"type": "string", "minLength": 1},
+    "limitations": {"type": "string", "minLength": 1}
+  }
+}

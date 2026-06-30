@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "review-request.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "request_id", "run_id", "generation", "author_context_id",
+    "created_at", "input_artifacts", "candidate_artifacts", "request_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "request_id": {"type": "string", "pattern": "^RREQ-[0-9a-f]{32}$"},
+    "run_id": {"type": "string", "minLength": 1},
+    "generation": {"type": "integer", "minimum": 1},
+    "author_context_id": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "input_artifacts": {"$ref": "#/$defs/hashMap"},
+    "candidate_artifacts": {"$ref": "#/$defs/hashMap"},
+    "request_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "hashMap": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    }
+  }
+}

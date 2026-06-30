@@ -87,6 +87,43 @@ class SanitizeReleaseArchiveTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("unsafe member", result.stdout)
 
+    def test_removes_exact_output_prefix_and_ds_store_only(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_temp:
+            temp = Path(raw_temp)
+            archive = temp / "release.zip"
+            with zipfile.ZipFile(archive, "w") as target:
+                target.writestr("skill/output/private-run/report.md", "local")
+                target.writestr("skill/evals/output/schema.json", "{}")
+                target.writestr("skill/.DS_Store", "metadata")
+                target.writestr("skill/SKILL.md", "# Skill")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    str(archive),
+                    "--redact-root",
+                    str(temp),
+                    "--exclude-prefix",
+                    "skill/output/",
+                    "--exclude-name",
+                    ".DS_Store",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            report = json.loads(result.stdout)
+            self.assertEqual(report["removed_entry_count"], 2)
+            with zipfile.ZipFile(archive, "r") as source:
+                names = set(source.namelist())
+            self.assertNotIn("skill/output/private-run/report.md", names)
+            self.assertNotIn("skill/.DS_Store", names)
+            self.assertIn("skill/evals/output/schema.json", names)
+            self.assertIn("skill/SKILL.md", names)
+
 
 if __name__ == "__main__":
     unittest.main()

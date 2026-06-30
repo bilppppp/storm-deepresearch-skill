@@ -1,10 +1,10 @@
 {
   "name": "storm-deepresearch-skill",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "Governed STORM research harness with tasklets, findings pool, receipt chains, evidence ledgers, validated Markdown/HTML/PDF, and trust-approved release.",
   "owner": "陈旭",
   "author": "陈旭",
-  "updated_at": "2026-06-24",
+  "updated_at": "2026-06-29",
   "review_due": "per-release",
   "review_cadence": "per-release",
   "status": "active",
@@ -33,9 +33,9 @@
     "examples",
     "reports"
   ],
-  "input_files": "User files or URLs, retrieval records, STORM findings, semantic reviews, trust evidence, and human approval records.",
-  "output_contract": "Workspace run with generation artifacts, tasklets, findings pool, receipt chain, evidence ledgers, Markdown/HTML/full PDF, validation, and allowlisted release.",
-  "rollback_boundary": "Restore v0.4.0-baseline or archived 0.4.0 package; generated runs and approvals are external.",
+  "input_files": "User files or URLs, retrieval records, STORM findings, absence-search records, external review provenance, trust evidence, and human approval records.",
+  "output_contract": "Workspace run with generation artifacts, tasklets, findings pool, receipt chain, evidence ledgers, captured external review, Markdown/HTML/full PDF, validation, and allowlisted release.",
+  "rollback_boundary": "Restore the archived 1.1.0 package for 1.1 runs; 2.0 runs and approvals remain external and are not downgraded.",
   "trust_requirement": "Release requires Yao Trust, registry hash match, validation receipt binding, and human approval.",
   "release_policy": "validation-plus-trust-plus-human-approval",
   "tags": [

@@ -14,6 +14,9 @@
 - [ ] `tests/test_incident_regressions.py` blocks placeholder sources, secondary-as-primary, full-to-reduced downgrade, unmapped facts, fake JSON, forged receipts, and modified package release.
 - [ ] Representative research package passes strict validation.
 - [ ] Full dossiers pass `storm-research-utilization` and `report-depth`; Chinese defaults contain 8000-10000 body characters excluding references.
+- [ ] Report-depth measurements show raw, citation-marker, and net body counts; only visible net prose satisfies the minimum.
+- [ ] Full dossiers contain a frozen review request, captured external reviewer provenance, transcript hash, and closed P4 revision map.
+- [ ] Absence claims and evidence-strength ceilings pass their governed gates.
 - [ ] A real governed full dossier has been reviewed for factual density, repetition, section balance, receipt-chain behavior, and release boundary behavior before any superiority claim.
 - [ ] HTML contains navigation, title, all report sections, and no unresolved template values.
 - [ ] PDF is structurally valid and visually inspected on every page.

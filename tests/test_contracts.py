@@ -41,6 +41,7 @@ class ContractTests(unittest.TestCase):
             "paragraph-map-record", "semantic-review-record", "human-approval",
             "reverification-record", "release-manifest",
             "governed-trust-evidence",
+            "review-request", "review-provenance", "absence-search-record",
         }
         for name in names:
             path = ROOT / "schemas" / f"{name}.schema.json"
@@ -276,6 +277,8 @@ def valid_claim() -> dict[str, object]:
         "contradicting_source_ids": [],
         "evidence_locators": [{"source_id": "S001", "locator": "section 1", "excerpt": "reported result"}],
         "evidence_strength": "strong",
+        "evidence_mode": "direct",
+        "absence_search_id": None,
         "confidence": "high",
         "freshness_required": True,
         "reasoning_note": "",

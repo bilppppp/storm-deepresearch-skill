@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "review-provenance.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "provenance_id", "review_session_id", "execution_kind",
+    "author_context_id", "reviewer_context_id", "reviewer_identity", "provider",
+    "model", "runner", "execution_id", "request_sha256", "review_output_sha256",
+    "transcript_ref", "transcript_sha256", "started_at", "completed_at",
+    "isolation_attestation"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "provenance_id": {"type": "string", "pattern": "^RPROV-[A-Za-z0-9._-]+$"},
+    "review_session_id": {"type": "string", "minLength": 1},
+    "execution_kind": {"enum": ["external_model", "human"]},
+    "author_context_id": {"type": "string", "minLength": 1},
+    "reviewer_context_id": {"type": "string", "minLength": 1},
+    "reviewer_identity": {"type": "string", "minLength": 1},
+    "provider": {"type": ["string", "null"]},
+    "model": {"type": ["string", "null"]},
+    "runner": {"type": ["string", "null"]},
+    "execution_id": {"type": "string", "minLength": 1},
+    "request_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "review_output_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "transcript_ref": {"const": "artifacts/research/reviewer-transcript.txt"},
+    "transcript_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "started_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "isolation_attestation": {"const": true}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"execution_kind": {"const": "external_model"}}},
+      "then": {"properties": {
+        "provider": {"type": "string", "minLength": 1},
+        "model": {"type": "string", "minLength": 1},
+        "runner": {"type": "string", "minLength": 1}
+      }}
+    }
+  ]
+}

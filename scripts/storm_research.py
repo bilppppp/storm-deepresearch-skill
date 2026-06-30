@@ -9,7 +9,7 @@ import re
 import shutil
 import sys
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -75,7 +75,7 @@ from scripts.source_evidence import (
     normalized_snapshot_text,
     resolve_snapshot,
 )
-from scripts.validate_evidence import validate_claim_closure
+from scripts.validate_evidence import validate_absence_searches, validate_claim_closure
 from scripts.validate_package import _public_safety_checks, validate_and_commit, validate_governed_run
 
 
@@ -118,7 +118,7 @@ STORM_LENS_FILES = {
 }
 STORM_LENS_OUTPUT_FIELDS = {
     "P1": {"perspectives", "question_ids", "source_class_ids", "notes"},
-    "P2": {"finding_ids", "conflict_claim_ids", "consensus_candidates", "blind_spots", "resolver_questions"},
+    "P2": {"finding_ids", "conflict_claim_ids", "consensus_candidates", "blind_spots", "resolver_questions", "resolution_actions"},
     "P3": {"section_ids", "claim_ids", "finding_ids", "contradiction_ids", "uncertainty_ids", "length_budget_note"},
     "P4": {"target_kind", "target_sha256", "weakest_claim_ids", "overstated_paragraphs", "missing_perspectives", "citation_support_issues", "repair_actions"},
 }
@@ -480,6 +480,34 @@ def validate_storm_lens_artifact(
         errors.extend(_string_list(output.get("conflict_claim_ids"), "conflict_claim_ids", pattern=r"C\d{3}"))
         for field in ("consensus_candidates", "blind_spots", "resolver_questions"):
             errors.extend(_string_list(output.get(field), field))
+        actions = output.get("resolution_actions")
+        if not isinstance(actions, list):
+            errors.append("resolution_actions must be an array")
+        else:
+            expected_texts = {
+                *(str(item) for item in output.get("blind_spots", [])),
+                *(str(item) for item in output.get("resolver_questions", [])),
+            }
+            observed_texts: set[str] = set()
+            for index, action in enumerate(actions, start=1):
+                fields = {"action_id", "item_kind", "text", "disposition", "uncertainty_id", "reason"}
+                if not isinstance(action, dict) or set(action) != fields:
+                    errors.append(f"resolution_action {index} has invalid fields")
+                    continue
+                observed_texts.add(str(action.get("text", "")))
+                if action.get("item_kind") not in {"blind_spot", "resolver_question"}:
+                    errors.append(f"resolution_action {index} item_kind is invalid")
+                if action.get("disposition") not in {"new_retrieval", "uncertainty", "out_of_scope"}:
+                    errors.append(f"resolution_action {index} disposition is invalid")
+                if action.get("disposition") == "uncertainty":
+                    if not re.fullmatch(r"U\d{3}", str(action.get("uncertainty_id", ""))):
+                        errors.append(f"resolution_action {index} requires uncertainty_id")
+                elif action.get("uncertainty_id") is not None:
+                    errors.append(f"resolution_action {index} uncertainty_id must be null")
+                if not str(action.get("reason", "")).strip():
+                    errors.append(f"resolution_action {index} requires reason")
+            if observed_texts != expected_texts:
+                errors.append("every blind spot and resolver question requires exactly one resolution action")
     elif prompt_id == "P3":
         errors.extend(_string_list(output.get("section_ids"), "section_ids", pattern=r"SEC\d{2}"))
         errors.extend(_string_list(output.get("claim_ids"), "claim_ids", pattern=r"C\d{3}"))
@@ -501,14 +529,21 @@ def validate_storm_lens_artifact(
             errors.append("repair_actions must be an array")
         else:
             for index, repair in enumerate(repairs, start=1):
-                fields = {"action_id", "path", "status", "reason"}
+                fields = {
+                    "action_id", "target_kind", "target_id", "before_sha256",
+                    "action", "disposition", "reason",
+                }
                 if not isinstance(repair, dict) or set(repair) != fields:
                     errors.append(f"repair_action {index} has invalid fields")
                     continue
                 if not all(isinstance(repair.get(field), str) and repair.get(field) for field in fields):
                     errors.append(f"repair_action {index} fields must be non-empty strings")
-                if repair.get("status") not in {"applied", "not_applied"}:
-                    errors.append(f"repair_action {index} status must be applied or not_applied")
+                if repair.get("target_kind") not in {"draft", "paragraph", "claim"}:
+                    errors.append(f"repair_action {index} target_kind is invalid")
+                if not _is_sha256(repair.get("before_sha256")):
+                    errors.append(f"repair_action {index} before_sha256 is invalid")
+                if repair.get("disposition") not in {"required", "waived"}:
+                    errors.append(f"repair_action {index} disposition must be required or waived")
     return errors
 
 
@@ -753,6 +788,7 @@ def _validate_p2_against_research_state(
     lens: dict[str, Any],
     findings: list[dict[str, object]],
     contradictions: dict[str, object],
+    uncertainties: dict[str, object],
 ) -> list[str]:
     output = lens.get("output") if isinstance(lens.get("output"), dict) else {}
     finding_ids = {
@@ -771,6 +807,20 @@ def _validate_p2_against_research_state(
             claim_id = str(conflict.get("claim_id", ""))
             if claim_id and claim_id not in conflict_claim_ids:
                 errors.append(f"contradiction {claim_id} is not represented in storm lens P2")
+    uncertainty_ids = {
+        str(item.get("uncertainty_id"))
+        for item in uncertainties.get("uncertainties", [])
+        if isinstance(item, dict)
+    }
+    for action in output.get("resolution_actions", []):
+        if not isinstance(action, dict):
+            continue
+        if action.get("disposition") == "new_retrieval":
+            errors.append(
+                f"P2 action {action.get('action_id')} requires new retrieval; amend the run before P3/evidence"
+            )
+        if action.get("disposition") == "uncertainty" and str(action.get("uncertainty_id")) not in uncertainty_ids:
+            errors.append(f"P2 action {action.get('action_id')} references unknown uncertainty")
     return errors
 
 
@@ -886,6 +936,17 @@ def _command_lens(args: argparse.Namespace, prompt_id: str) -> int:
     payload = _load_valid_lens_artifact(
         args.input_json, prompt_id=prompt_id, expected_inputs=expected_inputs
     )
+    if prompt_id == "P3":
+        p2 = load_json(_storm_lens_artifact_path(layout, generation, "P2"))
+        pending = [
+            str(item.get("action_id")) for item in p2.get("output", {}).get("resolution_actions", [])
+            if isinstance(item, dict) and item.get("disposition") == "new_retrieval"
+        ]
+        if pending:
+            raise StagePreconditionError(
+                "P2 requires a new retrieval generation before P3: " + ", ".join(pending)
+            )
+    payload["created_at"] = _utc_now()
     if prompt_id == "P4":
         draft_path = layout.artifact(generation, "drafts/report-v1.md")
         errors = _validate_p4_against_draft(payload, draft_path)
@@ -1487,6 +1548,19 @@ def command_ingest(args: argparse.Namespace) -> int:
         raise RetrievalGateError(
             "retrieval evidence does not cover planned questions: " + ", ".join(missing)
         )
+    plan_receipt = load_json(layout.receipt(generation, Stage.PLAN))
+    plan_completed = _parse_datetime(plan_receipt.get("completed_at"))
+    now = datetime.now(timezone.utc)
+    skew = timedelta(minutes=5)
+    timestamp_errors = []
+    for manifest in manifests:
+        retrieved = _parse_datetime(manifest.get("retrieved_at"))
+        if not retrieved or not plan_completed or retrieved < plan_completed - skew or retrieved > now + skew:
+            timestamp_errors.append(
+                f"retrieval {manifest.get('query_id')} timestamp is outside the plan-ingest window"
+            )
+    if timestamp_errors:
+        raise RetrievalGateError("; ".join(timestamp_errors))
     depth_errors = validate_retrieval_depth(sources, brief)
     if depth_errors:
         raise RetrievalGateError("; ".join(depth_errors))
@@ -1655,6 +1729,9 @@ def command_findings(args: argparse.Namespace) -> int:
         findings = load_jsonl(args.findings_jsonl)
     except ContractError as exc:
         raise EvidenceGateError(str(exc)) from exc
+    recorded_at = _utc_now()
+    for finding in findings:
+        finding["created_at"] = recorded_at
     plan = load_json(layout.artifact(generation, "research/research-plan.json"))
     source_plan = load_json(layout.artifact(generation, "research/source-plan.json"))
     tasklets = load_jsonl(layout.artifact(generation, "research/storm-tasklets.jsonl"))
@@ -1798,6 +1875,7 @@ def _promote_evidence_artifacts(
     contradictions: dict[str, object],
     uncertainties: dict[str, object],
     outline: dict[str, object],
+    absence_searches: list[dict[str, object]],
 ) -> list[Path]:
     staging = package_child(
         layout.root, f"work/.staging/g{generation:04d}/evidence-{uuid.uuid4().hex}"
@@ -1818,6 +1896,10 @@ def _promote_evidence_artifacts(
         destination = layout.artifact(generation, f"research/{name}")
         atomic_promote(staging / name, destination)
         outputs.append(destination)
+    if absence_searches:
+        absence_path = layout.artifact(generation, "research/absence-search-ledger.jsonl")
+        atomic_write_text(absence_path, _jsonl_text(absence_searches))
+        outputs.append(absence_path)
     staging.rmdir()
     return outputs
 
@@ -1828,12 +1910,15 @@ def _refresh_current_evidence_view(
     contradictions: dict[str, object],
     uncertainties: dict[str, object],
     outline: dict[str, object],
+    absence_searches: list[dict[str, object]],
 ) -> None:
     root = package_child(layout.root, "current/research")
     atomic_write_text(root / "claim-evidence-ledger.jsonl", _jsonl_text(claims))
     atomic_write_json(root / "contradiction-ledger.json", contradictions)
     atomic_write_json(root / "uncertainty-ledger.json", uncertainties)
     atomic_write_json(root / "report-outline.json", outline)
+    if absence_searches:
+        atomic_write_text(root / "absence-search-ledger.jsonl", _jsonl_text(absence_searches))
 
 
 def command_evidence(args: argparse.Namespace) -> int:
@@ -1870,6 +1955,7 @@ def command_evidence(args: argparse.Namespace) -> int:
         contradictions = load_json(args.contradictions)
         uncertainties = load_json(args.uncertainties)
         outline = load_json(args.report_outline)
+        absence_searches = load_jsonl(args.absence_searches) if args.absence_searches else []
     except ContractError as exc:
         raise EvidenceGateError(str(exc)) from exc
     research_plan_path = layout.artifact(generation, "research/research-plan.json")
@@ -1889,6 +1975,7 @@ def command_evidence(args: argparse.Namespace) -> int:
     claim_ids = {str(item.get("claim_id")) for item in claims}
     errors = validate_report_outline(outline, brief, question_ids, claim_ids)
     errors.extend(validate_claim_closure(claims, sources, outline, manifests))
+    errors.extend(validate_absence_searches(claims, absence_searches, sources, manifests, brief))
     errors.extend(validate_theory_claim_sources(claims, sources, brief))
     errors.extend(_validate_contradictions(contradictions, claims))
     errors.extend(_validate_uncertainties(uncertainties))
@@ -1925,7 +2012,7 @@ def command_evidence(args: argparse.Namespace) -> int:
         if p2:
             if not findings:
                 findings = load_jsonl(findings_path)
-            errors.extend(_validate_p2_against_research_state(p2, findings, contradictions))
+            errors.extend(_validate_p2_against_research_state(p2, findings, contradictions, uncertainties))
     if strict_lens or p3_path.is_file():
         p3_expected_inputs = _storm_lens_expected_inputs(layout, generation, "P3")
         p3, p3_receipt_inputs = _optional_lens_inputs(
@@ -1945,7 +2032,7 @@ def command_evidence(args: argparse.Namespace) -> int:
     if errors:
         raise EvidenceGateError("; ".join(dict.fromkeys(errors)))
     outputs = _promote_evidence_artifacts(
-        layout, generation, claims, contradictions, uncertainties, outline
+        layout, generation, claims, contradictions, uncertainties, outline, absence_searches
     )
     evidence_inputs = {
         "artifacts/research/research-plan.json": sha256_file(research_plan_path),
@@ -1969,7 +2056,7 @@ def command_evidence(args: argparse.Namespace) -> int:
         input_artifacts=evidence_inputs,
         output_paths=outputs,
     )
-    _refresh_current_evidence_view(layout, claims, contradictions, uncertainties, outline)
+    _refresh_current_evidence_view(layout, claims, contradictions, uncertainties, outline, absence_searches)
     print(f"Closed {len(claims)} Claims in {layout.root}")
     return EXIT_OK
 
@@ -2295,7 +2382,11 @@ def command_draft(args: argparse.Namespace) -> int:
 
 
 def _validate_revision_map(
-    payload: dict[str, object], reviews: list[dict[str, object]]
+    payload: dict[str, object],
+    repair_actions: list[dict[str, object]],
+    *,
+    draft_sha256: str,
+    candidate_sha256: str,
 ) -> list[str]:
     if set(payload) != {"schema_version", "revisions"} or payload.get("schema_version") != "2.0":
         return ["revision map has invalid top-level contract"]
@@ -2304,27 +2395,186 @@ def _validate_revision_map(
         return ["revision map revisions must be an array"]
     errors: list[str] = []
     target_actions = {
-        str(review.get("target_sha256")): str(review.get("required_action"))
-        for review in reviews if review.get("required_action") != "none"
+        str(action.get("action_id")): action for action in repair_actions
+        if isinstance(action, dict)
     }
     applied: set[str] = set()
-    fields = {"before_sha256", "after_sha256", "action", "status", "reason"}
+    fields = {"action_id", "before_sha256", "after_sha256", "action", "status", "reason"}
     for index, revision in enumerate(revisions, start=1):
         if not isinstance(revision, dict) or set(revision) != fields:
             errors.append(f"revision {index} has invalid fields")
             continue
-        before = str(revision.get("before_sha256", ""))
-        if before not in target_actions:
+        action_id = str(revision.get("action_id", ""))
+        action = target_actions.get(action_id)
+        if action is None:
             errors.append(f"revision {index} does not resolve a review action")
-        elif revision.get("action") != target_actions[before]:
-            errors.append(f"revision {index} action does not match review")
-        if revision.get("status") != "applied":
-            errors.append(f"revision {index} is not applied")
-        applied.add(before)
+            continue
+        if revision.get("before_sha256") != action.get("before_sha256"):
+            errors.append(f"revision {index} before_sha256 does not match P4 action")
+        if revision.get("action") != action.get("action"):
+            errors.append(f"revision {index} action does not match P4 action")
+        required_status = "applied" if action.get("disposition") == "required" else "waived"
+        if revision.get("status") != required_status:
+            errors.append(f"revision {index} must be {required_status}")
+        if required_status == "waived" and not str(revision.get("reason", "")).strip():
+            errors.append(f"revision {index} waiver requires a reason")
+        if action.get("target_kind") == "draft":
+            if revision.get("before_sha256") != draft_sha256:
+                errors.append(f"revision {index} draft before_sha256 mismatch")
+            if required_status == "applied" and revision.get("after_sha256") != candidate_sha256:
+                errors.append(f"revision {index} draft after_sha256 mismatch")
+        if not _is_sha256(revision.get("after_sha256")):
+            errors.append(f"revision {index} after_sha256 is invalid")
+        applied.add(action_id)
     missing = sorted(set(target_actions) - applied)
     if missing:
-        errors.append("required review revisions are not applied")
+        errors.append("P4 repair actions are not closed in revision map")
     return errors
+
+
+def _review_request_digest(payload: dict[str, object]) -> str:
+    return canonical_json_sha256({key: value for key, value in payload.items() if key != "request_sha256"})
+
+
+def command_review_prepare(args: argparse.Namespace) -> int:
+    layout = RunLayout(args.run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        raise StagePreconditionError("run has no generation")
+    package_hash = compute_skill_package_hash(ROOT)
+    verify_stage_precondition(layout, generation, Stage.REVIEW, package_hash)
+    brief = verify_current_brief_view(layout, generation)
+    p4_path = _storm_lens_artifact_path(layout, generation, "P4")
+    p4, _ = _optional_lens_inputs(
+        layout, generation, "P4", _storm_lens_expected_inputs(layout, generation, "P4"),
+        required=_storm_lens_mode(brief) == "strict",
+    )
+    report = args.candidate_md.read_text(encoding="utf-8")
+    paragraph_map = load_jsonl(args.candidate_map)
+    revision_map = load_json(args.revision_map)
+    claims = load_jsonl(layout.artifact(generation, "research/claim-evidence-ledger.jsonl"))
+    sources = load_jsonl(layout.artifact(generation, "research/source-register.jsonl"))
+    errors = validate_report_traceability(report, paragraph_map, claims, sources)
+    repairs = list((p4 or {}).get("output", {}).get("repair_actions", []))
+    draft_path = layout.artifact(generation, "drafts/report-v1.md")
+    errors.extend(_validate_revision_map(
+        revision_map, repairs,
+        draft_sha256=sha256_file(draft_path),
+        candidate_sha256=sha256_file(args.candidate_md),
+    ))
+    if errors:
+        raise ReviewGateError("; ".join(dict.fromkeys(errors)))
+    candidate_root = layout.artifact(generation, "review-candidate")
+    request_path = layout.artifact(generation, "research/review-request.json")
+    if request_path.exists() or request_path.is_symlink() or candidate_root.exists() or candidate_root.is_symlink():
+        raise StagePreconditionError(
+            "external review request is immutable; amend the run before preparing another candidate"
+        )
+    destinations = {
+        "artifacts/review-candidate/report.md": candidate_root / "report.md",
+        "artifacts/review-candidate/paragraph-map.jsonl": candidate_root / "paragraph-map.jsonl",
+        "artifacts/review-candidate/revision-map.json": candidate_root / "revision-map.json",
+    }
+    for source, destination in (
+        (args.candidate_md, destinations["artifacts/review-candidate/report.md"]),
+        (args.candidate_map, destinations["artifacts/review-candidate/paragraph-map.jsonl"]),
+        (args.revision_map, destinations["artifacts/review-candidate/revision-map.json"]),
+    ):
+        atomic_copy_file(source, destination)
+    input_paths = {
+        "artifacts/drafts/report-v1.md": draft_path,
+        "artifacts/research/storm-lens-red-team.json": p4_path,
+        "artifacts/research/claim-evidence-ledger.jsonl": layout.artifact(generation, "research/claim-evidence-ledger.jsonl"),
+        "artifacts/research/source-register.jsonl": layout.artifact(generation, "research/source-register.jsonl"),
+        "artifacts/research/contradiction-ledger.json": layout.artifact(generation, "research/contradiction-ledger.json"),
+    }
+    request: dict[str, object] = {
+        "schema_version": "2.0",
+        "request_id": f"RREQ-{uuid.uuid4().hex}",
+        "run_id": layout.root.name,
+        "generation": generation,
+        "author_context_id": args.author_context_id,
+        "created_at": _utc_now(),
+        "input_artifacts": {key: sha256_file(path) for key, path in sorted(input_paths.items())},
+        "candidate_artifacts": {key: sha256_file(path) for key, path in sorted(destinations.items())},
+    }
+    request["request_sha256"] = _review_request_digest(request)
+    atomic_write_json(request_path, request)
+    atomic_write_json(package_child(layout.root, "current/research/review-request.json"), request)
+    print(f"Prepared external review request: {request_path}")
+    return EXIT_OK
+
+
+def _review_output_digest(payload: dict[str, list[dict[str, object]]]) -> str:
+    return canonical_json_sha256(payload)
+
+
+def _parse_datetime(value: object) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parsed if parsed.tzinfo is not None else None
+    except ValueError:
+        return None
+
+
+def _validate_review_provenance(
+    provenance: dict[str, object],
+    request: dict[str, object],
+    review_output_sha256: str,
+    transcript_path: Path,
+    reviews: list[dict[str, object]],
+) -> list[str]:
+    fields = {
+        "schema_version", "provenance_id", "review_session_id", "execution_kind",
+        "author_context_id", "reviewer_context_id", "reviewer_identity", "provider",
+        "model", "runner", "execution_id", "request_sha256", "review_output_sha256",
+        "transcript_ref", "transcript_sha256", "started_at", "completed_at",
+        "isolation_attestation",
+    }
+    if set(provenance) != fields:
+        return ["review provenance has invalid fields"]
+    errors: list[str] = []
+    if provenance.get("schema_version") != "2.0":
+        errors.append("review provenance schema_version must be 2.0")
+    if provenance.get("execution_kind") not in {"external_model", "human"}:
+        errors.append("review provenance requires external_model or human execution")
+    if provenance.get("author_context_id") != request.get("author_context_id"):
+        errors.append("review provenance author context mismatch")
+    if provenance.get("author_context_id") == provenance.get("reviewer_context_id"):
+        errors.append("reviewer context must differ from author context")
+    if provenance.get("request_sha256") != request.get("request_sha256"):
+        errors.append("review provenance request hash mismatch")
+    if provenance.get("review_output_sha256") != review_output_sha256:
+        errors.append("review provenance output hash mismatch")
+    if provenance.get("transcript_ref") != "artifacts/research/reviewer-transcript.txt":
+        errors.append("review provenance transcript_ref is invalid")
+    if provenance.get("transcript_sha256") != sha256_file(transcript_path):
+        errors.append("review provenance transcript hash mismatch")
+    if provenance.get("isolation_attestation") is not True:
+        errors.append("review provenance lacks isolation attestation")
+    for field in ("provenance_id", "review_session_id", "reviewer_context_id", "reviewer_identity", "execution_id"):
+        if not isinstance(provenance.get(field), str) or not provenance.get(field):
+            errors.append(f"review provenance {field} is required")
+    if provenance.get("execution_kind") == "external_model":
+        for field in ("provider", "model", "runner"):
+            if not isinstance(provenance.get(field), str) or not provenance.get(field):
+                errors.append(f"external model review requires {field}")
+    started = _parse_datetime(provenance.get("started_at"))
+    completed = _parse_datetime(provenance.get("completed_at"))
+    created = _parse_datetime(request.get("created_at"))
+    if not started or not completed or not created or not (created <= started <= completed):
+        errors.append("review provenance timestamps are not causal")
+    session_id = str(provenance.get("review_session_id", ""))
+    author_id = str(provenance.get("author_context_id", ""))
+    for review in reviews:
+        if review.get("reviewer_run_id") != session_id:
+            errors.append(f"review {review.get('review_id')} is not bound to review session")
+        if review.get("author_run_id") != author_id:
+            errors.append(f"review {review.get('review_id')} author context mismatch")
+        reviewed = _parse_datetime(review.get("reviewed_at"))
+        if started and completed and (not reviewed or not (started <= reviewed <= completed)):
+            errors.append(f"review {review.get('review_id')} timestamp is outside review session")
+    return list(dict.fromkeys(errors))
 
 
 def _validate_review_set(
@@ -2376,6 +2626,8 @@ def _require_full_review_inputs(args: argparse.Namespace, brief: dict[str, objec
             ("--fact-checks", args.fact_checks),
             ("--conflict-reviews", args.conflict_reviews),
             ("--draft-audit", args.draft_audit),
+            ("--review-provenance", args.review_provenance),
+            ("--review-transcript", args.review_transcript),
         ) if value is None
     ]
     if missing:
@@ -2402,6 +2654,8 @@ def _promote_review_artifacts(
     paragraph_map: list[dict[str, object]],
     revision_map: dict[str, object],
     peer_review: dict[str, object],
+    provenance: dict[str, object],
+    transcript_path: Path,
 ) -> list[Path]:
     staging = package_child(
         layout.root, f"work/.staging/g{generation:04d}/review-{uuid.uuid4().hex}"
@@ -2413,12 +2667,15 @@ def _promote_review_artifacts(
     )
     atomic_write_json(staging / "research/revision-map.json", revision_map)
     atomic_write_json(staging / "research/peer-review.json", peer_review)
+    atomic_write_json(staging / "research/reviewer-provenance.json", provenance)
+    shutil.copyfile(transcript_path, staging / "research/reviewer-transcript.txt")
     atomic_write_text(
         staging / "research/peer-review.md", _peer_review_markdown(peer_review["summary"])
     )
     relative_paths = [
         "report.md", "research/reviewed-paragraph-map.jsonl", "research/revision-map.json",
         "research/peer-review.json", "research/peer-review.md",
+        "research/reviewer-provenance.json", "research/reviewer-transcript.txt",
     ]
     outputs = []
     for relative in relative_paths:
@@ -2447,6 +2704,9 @@ def command_review(args: argparse.Namespace) -> int:
     conflict_reviews = _load_optional_jsonl(args.conflict_reviews)
     draft_audits = _load_optional_jsonl(args.draft_audit)
     revision_map = load_json(args.revision_map)
+    if args.review_provenance is None or args.review_transcript is None:
+        raise CLIContractError("full_dossier review requires --review-provenance and --review-transcript")
+    provenance = load_json(args.review_provenance)
     claim_path = layout.artifact(generation, "research/claim-evidence-ledger.jsonl")
     source_path = layout.artifact(generation, "research/source-register.jsonl")
     contradiction_path = layout.artifact(generation, "research/contradiction-ledger.json")
@@ -2455,17 +2715,31 @@ def command_review(args: argparse.Namespace) -> int:
     claims = load_jsonl(claim_path)
     sources = load_jsonl(source_path)
     contradictions = load_json(contradiction_path)
+    request_path = layout.artifact(generation, "research/review-request.json")
+    if not request_path.is_file() or request_path.is_symlink():
+        raise StagePreconditionError("review requires review-prepare and research/review-request.json")
+    request = load_json(request_path)
+    if request.get("request_sha256") != _review_request_digest(request):
+        raise ReviewGateError("review request hash mismatch")
+    candidate_paths = {
+        "artifacts/review-candidate/report.md": args.revised_md,
+        "artifacts/review-candidate/paragraph-map.jsonl": args.revised_paragraph_map_jsonl,
+        "artifacts/review-candidate/revision-map.json": args.revision_map,
+    }
+    expected_candidates = request.get("candidate_artifacts")
+    if not isinstance(expected_candidates, dict) or any(
+        expected_candidates.get(key) != sha256_file(path)
+        for key, path in candidate_paths.items()
+    ):
+        raise ReviewGateError("review inputs do not match prepared candidate hashes")
     errors = validate_report_traceability(report, paragraph_map, claims, sources)
     errors.extend(_validate_review_set(report, claims, claim_reviews, paragraph_reviews))
     if fact_checks or draft_audits:
         errors.extend(_validate_review_set(report, claims, fact_checks, draft_audits))
     if conflict_reviews:
         errors.extend(_validate_conflict_review_set(contradictions, conflict_reviews))
-    errors.extend(_validate_revision_map(
-        revision_map,
-        [*claim_reviews, *paragraph_reviews, *fact_checks, *draft_audits],
-    ))
     p4_path = _storm_lens_artifact_path(layout, generation, "P4")
+    p4: dict[str, Any] | None = None
     p4_receipt_inputs: dict[str, str] = {}
     if _storm_lens_mode(brief) == "strict" or p4_path.is_file():
         p4_expected_inputs = _storm_lens_expected_inputs(layout, generation, "P4")
@@ -2475,6 +2749,24 @@ def command_review(args: argparse.Namespace) -> int:
         )
         if p4:
             errors.extend(_validate_p4_against_draft(p4, draft_path))
+    repairs = list((p4 or {}).get("output", {}).get("repair_actions", []))
+    errors.extend(_validate_revision_map(
+        revision_map, repairs,
+        draft_sha256=sha256_file(draft_path),
+        candidate_sha256=sha256_file(args.revised_md),
+    ))
+    review_output_payload = {
+        "claim_reviews": claim_reviews,
+        "paragraph_reviews": paragraph_reviews,
+        "fact_checks": fact_checks,
+        "conflict_reviews": conflict_reviews,
+        "draft_audits": draft_audits,
+    }
+    all_reviews = [*claim_reviews, *paragraph_reviews, *fact_checks, *draft_audits, *conflict_reviews]
+    errors.extend(_validate_review_provenance(
+        provenance, request, _review_output_digest(review_output_payload),
+        args.review_transcript, all_reviews,
+    ))
     if errors:
         raise ReviewGateError("; ".join(dict.fromkeys(errors)))
     reviewer_ids = sorted({
@@ -2489,6 +2781,8 @@ def command_review(args: argparse.Namespace) -> int:
         "conflict_reviews": len(conflict_reviews),
         "draft_audits": len(draft_audits),
         "decision": "passed",
+        "assurance": "captured external review",
+        "provenance_id": provenance.get("provenance_id"),
     }
     peer_review = {
         "schema_version": "2.0",
@@ -2498,15 +2792,21 @@ def command_review(args: argparse.Namespace) -> int:
         "fact_checks": fact_checks,
         "conflict_reviews": conflict_reviews,
         "draft_audits": draft_audits,
+        "reviewer_provenance": provenance,
     }
     outputs = _promote_review_artifacts(
-        layout, generation, report, paragraph_map, revision_map, peer_review
+        layout, generation, report, paragraph_map, revision_map, peer_review,
+        provenance, args.review_transcript,
     )
     review_inputs = {
         "artifacts/drafts/report-v1.md": sha256_file(draft_path),
         "artifacts/research/paragraph-map.jsonl": sha256_file(draft_map_path),
         "artifacts/research/claim-evidence-ledger.jsonl": sha256_file(claim_path),
         "artifacts/research/source-register.jsonl": sha256_file(source_path),
+        "artifacts/research/review-request.json": sha256_file(request_path),
+        "artifacts/review-candidate/report.md": sha256_file(args.revised_md),
+        "artifacts/review-candidate/paragraph-map.jsonl": sha256_file(args.revised_paragraph_map_jsonl),
+        "artifacts/review-candidate/revision-map.json": sha256_file(args.revision_map),
     }
     review_inputs.update(p4_receipt_inputs)
     commit_stage_receipt(
@@ -3166,6 +3466,7 @@ def build_parser() -> argparse.ArgumentParser:
     evidence.add_argument("--contradictions", type=Path)
     evidence.add_argument("--uncertainties", type=Path)
     evidence.add_argument("--report-outline", type=Path)
+    evidence.add_argument("--absence-searches", type=Path)
     evidence.add_argument("--preflight-theory", action="store_true")
     evidence.set_defaults(handler=command_evidence)
 
@@ -3183,6 +3484,14 @@ def build_parser() -> argparse.ArgumentParser:
     draft.add_argument("--preflight", action="store_true")
     draft.set_defaults(handler=command_draft)
 
+    review_prepare = subparsers.add_parser("review-prepare", help="Freeze a candidate and create an external review handoff.")
+    review_prepare.add_argument("run_dir", type=Path)
+    review_prepare.add_argument("--candidate-md", type=Path, required=True)
+    review_prepare.add_argument("--candidate-map", type=Path, required=True)
+    review_prepare.add_argument("--revision-map", type=Path, required=True)
+    review_prepare.add_argument("--author-context-id", required=True)
+    review_prepare.set_defaults(handler=command_review_prepare)
+
     review = subparsers.add_parser("review", help="Apply independent semantic review.")
     review.add_argument("run_dir", type=Path)
     review.add_argument("--claim-reviews", type=Path, required=True)
@@ -3193,6 +3502,8 @@ def build_parser() -> argparse.ArgumentParser:
     review.add_argument("--revised-md", type=Path, required=True)
     review.add_argument("--revised-paragraph-map-jsonl", type=Path, required=True)
     review.add_argument("--revision-map", type=Path, required=True)
+    review.add_argument("--review-provenance", type=Path)
+    review.add_argument("--review-transcript", type=Path)
     review.set_defaults(handler=command_review)
 
     lens_review = subparsers.add_parser("lens-review", help="Register Prompt 4 red-team artifact after draft.")

@@ -2,7 +2,7 @@
 
 `storm-deepresearch-skill` 是一个证据驱动的 governed 深度研究 harness。它保留 STORM 的多视角提问思想，但不把角色观点当证据：视角只生成检索问题，事实必须进入来源登记和 Claim-Evidence 账本，每个阶段必须写入可重算 receipt，最终从单一 `report.md` 渲染并验证 Markdown、HTML 和 PDF。
 
-当前版本：`1.1.0`
+当前版本：`2.0.0`
 
 ## 能做什么
 
@@ -12,7 +12,10 @@
 - 生成来源登记、STORM tasklets、findings pool、证据账本、报告映射和验证报告。
 - 通过 `storm_research.py` 的 init、plan、ingest、findings、evidence、draft、review、render、validate、release 阶段推进，关键阶段由 receipt chain 约束，findings 作为 evidence 的必要前提被绑定进 evidence receipt。
 - 以 `report.md` 为唯一内容真源，导出一致的 HTML/PDF。
-- 默认中文完整研究为 `8000–10000` 净正文字符；参考文献、资料来源和来源列表不计入字数；输入长度只改变检索量，不会自动把成品压缩成摘要。
+- 默认中文完整研究为 `8000–10000` 净正文字符；参考文献、脚注键、链接地址、图片标记和 Markdown 控制符不计入字数；输入长度只改变检索量，不会自动把成品压缩成摘要。
+- full dossier 必须先冻结 review candidate，再由外部模型会话或人工 reviewer 提交可重算 provenance；`independent: true` 或两个不同字符串不再足以通过。
+- 同一来源可以回答多个 query；Source 去重与问题覆盖分离，Claim 强度不能超过精确 locator 对应的 capture ceiling。
+- “未发现证据”类 material Claim 必须声明 `absence_search` 并提交别名、检索面、结果数和来源快照。
 - 强制将已回答的 STORM 问题和材料性 Claim 映射到 `research-plan.report_outline`，避免研究停留在中间产物。
 - 对空证据、假引用、过期证据、占位符、本地路径泄漏、缺失 PDF 和格式漂移返回非零退出码。
 - 默认在用户工作区的 `output/storm-deepresearch/` 下创建独立运行目录；已存在目标、路径逃逸和符号链接逃逸都会失败。
@@ -107,7 +110,7 @@ WORKSPACE=/path/to/user-workspace
 RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 ```
 
-中文 full dossier 默认为 `8000–10000` net body characters，英文为 `3500–7000` net body words。`report-depth` 只统计正文，排除 `References`、`参考文献`、`参考资料`、`资料来源`、`Sources` 等参考文献区；引用清单仍必须保留并通过 traceability 校验。只有用户明确要求简报时才使用 `--depth-level briefing`，并且必须同时提供 `--briefing-reason "用户明确要求简报的证据"`；宿主默认降级到 briefing 会在 init 阶段失败。
+中文 full dossier 默认为 `8000–10000` net body characters，英文为 `3500–7000` net body words。`report-depth` 排除参考文献区、脚注键、链接地址、图片标记和 Markdown 控制符；validation report 同时记录 `raw_body`、`citation_markers` 和 `net_body`，只有 `net_body` 用于门禁。只有用户明确要求简报时才使用 `--depth-level briefing`，并且必须同时提供 `--briefing-reason "用户明确要求简报的证据"`；宿主默认降级到 briefing 会在 init 阶段失败。
 
 默认 `storm_lens_mode` 是 `strict`：`default_full_dossier` 和 `critique_deepresearch` 都必须让四个 STORM prompt 产生 `storm-lens-*.json` helper artifact，并把它们绑定进后续 receipts。`advisory` 只用于显式兼容或短 briefing，不再是完整研究默认值。
 
@@ -224,6 +227,8 @@ strict mode 下，findings 后必须先注册 Prompt 2 和 Prompt 3 artifacts，
   --input-json storm-lens-outline.json
 ```
 
+Prompt 2 的每个 blind spot 和 resolver question 都必须写入 `resolution_actions`，处置为 `new_retrieval`、`uncertainty` 或 `out_of_scope`。`new_retrieval` 会阻止 Prompt 3，必须通过 `amend` 建立新 generation 后补检索。
+
 ### 5. Evidence
 
 提交 Claim、矛盾、不确定性和报告大纲：
@@ -235,6 +240,8 @@ strict mode 下，findings 后必须先注册 Prompt 2 和 Prompt 3 artifacts，
   --uncertainties uncertainties.json \
   --report-outline report-outline.json
 ```
+
+若 material Claim 表述“未发现证据”“尚无临床试验”等 absence 结论，还必须添加 `--absence-searches absence-searches.jsonl`。full dossier 至少覆盖两个独立检索面；高风险医疗研究还必须覆盖试验注册库、文献数据库和至少三个别名。
 
 材料性事实必须有可定位证据；推断必须指出已支持前提；建议必须写明适用条件和取舍。涉及阿伦特、福柯、康德、马克思、文化工业、生命政治等理论框架的 material claim，必须由 academic、book、expert、peer_reviewed_paper 或 secondary_synthesis 类型来源支撑，用户观后感、转录文本或百科页面不能单独闭合。full dossier 至少需要 5 个视角、10 个问题、6 个 evidence-planned sections 和 12 个 material claims。
 
@@ -286,6 +293,18 @@ sidecar 最小格式是一行一个段落映射，例如 `{"text_locator":"parag
   --input-json storm-lens-red-team.json
 ```
 
+先应用或明确 waiver 所有 P4 repair actions，再冻结候选报告：
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" review-prepare "$RUN_DIR" \
+  --candidate-md report.md \
+  --candidate-map reviewed-paragraph-map.jsonl \
+  --revision-map revision-map.json \
+  --author-context-id "$HOST_SESSION_ID"
+```
+
+将生成的 `research/review-request.json` 交给隔离的外部模型会话或人工 reviewer。reviewer provenance 必须绑定 request hash、review output hash、transcript hash、执行身份和时间窗口。
+
 ```bash
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" review "$RUN_DIR" \
   --claim-reviews claim-reviews.jsonl \
@@ -295,8 +314,12 @@ sidecar 最小格式是一行一个段落映射，例如 `{"text_locator":"parag
   --draft-audit draft-audit.jsonl \
   --revised-md report.md \
   --revised-paragraph-map-jsonl reviewed-paragraph-map.jsonl \
-  --revision-map revision-map.json
+  --revision-map revision-map.json \
+  --review-provenance reviewer-provenance.json \
+  --review-transcript reviewer-transcript.txt
 ```
+
+full dossier 不接受 `self_review`。当前保证等级称为 `captured external review`；没有供应商签名时不宣称 provider-signed。
 
 ### 8. Render
 
@@ -374,6 +397,8 @@ sidecar 最小格式是一行一个段落映射，例如 `{"text_locator":"parag
 - `work/generations/g0001/artifacts/research/source-register.jsonl`：来源权威账本。
 - `work/generations/g0001/artifacts/research/claim-evidence-ledger.jsonl`：事实、推断、建议和证据状态。
 - `work/generations/g0001/artifacts/research/reviewed-paragraph-map.jsonl`：公共报告段落到内部 claim/source/citation 的映射。
+- `work/generations/g0001/artifacts/research/review-request.json`：冻结候选报告、输入哈希和 author context 的外部审查 handoff。
+- `work/generations/g0001/artifacts/research/reviewer-provenance.json`：外部 reviewer 执行与 transcript 的可重算证明。
 - `work/generations/g0001/artifacts/report.md`：唯一内容真源。
 - `work/generations/g0001/artifacts/exports/report.html`、`report.pdf`：确定性派生物。
 - `work/generations/g0001/artifacts/validation/render-manifest.json`：跨格式哈希和章节指纹。
@@ -382,7 +407,7 @@ sidecar 最小格式是一行一个段落映射，例如 `{"text_locator":"parag
 - `current/repair-plan.json`：失败后可选生成的结构化修复计划，不是权威 receipt。
 - `release/`：通过 Trust 和 human approval 后生成的严格 allowlist 发布投影。
 
-可直接查看通过严格验证的 [代表性研究包](examples/validated-output/) 和 [PDF](examples/validated-output/exports/report.pdf)。
+可查看 [历史格式示例](examples/validated-output/) 和 [PDF](examples/validated-output/exports/report.pdf)。该目录用于说明交付物布局，不代表 2.0.0 的 external-review、absence-search 和时间因果合同；2.0.0 成品必须以本次运行的 `validation-report.json` 为准。
 
 ## 开发与发布门禁
 
@@ -399,14 +424,16 @@ sidecar 最小格式是一行一个段落映射，例如 `{"text_locator":"parag
 ```bash
 .venv/bin/python scripts/sanitize_release_archive.py \
   dist/storm-deepresearch-skill.zip \
-  --redact-root "$PWD"
+  --redact-root "$PWD" \
+  --exclude-prefix storm-deepresearch-skill/output/ \
+  --exclude-name .DS_Store
 ```
 
-该命令保留 ZIP 结构和二进制条目，将项目根路径替换为 `$SKILL_ROOT`、用户主目录替换为 `$HOME`；存在不安全条目或未完成净化时非零退出。
+该命令保留 ZIP 结构和二进制条目，将项目根路径替换为 `$SKILL_ROOT`、用户主目录替换为 `$HOME`，并排除本地运行产物与 Finder 元数据；存在不安全条目或未完成净化时非零退出。
 
 ## 版本迁移与回滚
 
-0.4.0 到 1.0.0 的 governed harness、receipt chain、recovery commands 和 legacy import 变化见 [迁移指南](docs/migration-v0.4-to-v1.0.md)。更早版本的迁移文档保留在 `docs/`。
+1.1.0 到 2.0.0 的外部审查、净正文、absence-search 和时间因果变化见 [2.0 迁移指南](docs/migration-v1.1-to-v2.0.md)。更早版本的迁移文档保留在 `docs/`。
 
 ## 设计来源
 

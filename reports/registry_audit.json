@@ -6,8 +6,8 @@
   "package": {
     "schema_version": "2.0",
     "name": "storm-deepresearch-skill",
-    "version": "1.1.0",
-    "description": "Use for source-grounded deep research with STORM tasklets, findings, claim ledgers, receipts, and Markdown/HTML/PDF release. Trigger for dossiers, reviews, and corpora. Do not use for lookup, role-play, summary, or short answers.",
+    "version": "2.0.0",
+    "description": "Use for source-grounded deep research with STORM findings, ledgers, receipts, and Markdown/HTML/PDF. Do not use for lookup.",
     "targets": [
       "openai",
       "claude",
@@ -21,7 +21,7 @@
     "trust_level": "local",
     "license": "MIT-0",
     "checksums": {
-      "package_sha256": "5456f416b24cafe8bd0bb3fa9c8e550e68896569419500ad2b656bd55d0e44e3",
+      "package_sha256": "32db52fd920a06b8beaa13da27e096f9b248970c8bd62d2ed4f50c9a0e928c4c",
       "archive_sha256": "f12fdc85f061d803a3023f8f2ff1a849d7a84f34d5a073a7e0701cc715c4139a"
     },
     "compatibility": {
@@ -57,16 +57,16 @@
       "install_simulated": true,
       "install_simulation": "reports/install_simulation.json"
     },
-    "generated_at": "2026-06-25"
+    "generated_at": "2026-06-29"
   },
   "index": {
     "schema_version": "2.0",
-    "generated_at": "2026-06-25",
+    "generated_at": "2026-06-29",
     "package_count": 1,
     "packages": [
       {
         "name": "storm-deepresearch-skill",
-        "version": "1.1.0",
+        "version": "2.0.0",
         "maturity": "governed",
         "owner": "陈旭",
         "targets": [
@@ -77,7 +77,7 @@
           "generic"
         ],
         "package_metadata": "registry/packages/storm-deepresearch-skill.json",
-        "package_sha256": "5456f416b24cafe8bd0bb3fa9c8e550e68896569419500ad2b656bd55d0e44e3"
+        "package_sha256": "32db52fd920a06b8beaa13da27e096f9b248970c8bd62d2ed4f50c9a0e928c4c"
       }
     ]
   },

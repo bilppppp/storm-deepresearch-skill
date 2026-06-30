@@ -59,9 +59,13 @@ class RunChecksTests(unittest.TestCase):
         self.assertIn("--zip", package_command)
         self.assertIn("sanitize_release_archive.py", commands[1][1])
         self.assertIn("storm-deepresearch-skill.zip", commands[1][2])
+        self.assertIn("--exclude-prefix", commands[1])
+        self.assertIn("storm-deepresearch-skill/output/", commands[1])
         verify_command = commands[2]
         self.assertIn("package-verify", verify_command)
         self.assertIn("--require-zip", verify_command)
+        self.assertIn("--registry-json", verify_command)
+        self.assertTrue(any(item.endswith("reports/registry_audit.json") for item in verify_command))
         self.assertTrue(any(item.endswith("dist/package_verification.json") for item in verify_command))
 
     def invoke_package(self, run: Path) -> subprocess.CompletedProcess[str]:

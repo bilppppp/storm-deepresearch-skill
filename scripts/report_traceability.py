@@ -18,6 +18,11 @@ REFERENCE_DEF_RE = re.compile(r"^\[\^([a-z0-9][a-z0-9-]{1,80})\]:\s*(.+)$")
 HEADING_RE = re.compile(r"(?m)^#{2,6}\s+(.+?)\s*#*\s*$")
 MAPPING_COMMENT_RE = re.compile(r"<!--\s*storm-map:(.*?)-->", re.IGNORECASE | re.DOTALL)
 FENCE_RE = re.compile(r"(?ms)^```.*?^```\s*")
+IMAGE_RE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]*\)")
+AUTOLINK_RE = re.compile(r"<https?://[^>]+>")
+HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+HTML_TAG_RE = re.compile(r"</?[A-Za-z][^>]*>")
 REFERENCE_SECTION_TITLES = {
     "references",
     "reference",
@@ -332,7 +337,35 @@ def validate_report_traceability(
 
 
 def body_length(report: str, unit: str) -> int:
-    return _unit_length(countable_body_text(report), unit)
+    return int(body_length_metrics(report, unit)["net_body"])
+
+
+def body_length_metrics(report: str, unit: str) -> dict[str, Any]:
+    countable = countable_body_text(report)
+    citation_markers = "".join(match.group(0) for match in CITATION_RE.finditer(countable))
+    visible = visible_markdown_text(countable)
+    return {
+        "raw_body": _unit_length(countable, unit),
+        "citation_markers": _unit_length(citation_markers, unit),
+        "net_body": _unit_length(visible, unit),
+        "visible_text": visible,
+    }
+
+
+def visible_markdown_text(markdown: str) -> str:
+    """Return reader-visible prose while removing Markdown control syntax."""
+    text = HTML_COMMENT_RE.sub("", markdown)
+    text = IMAGE_RE.sub("", text)
+    text = CITATION_RE.sub("", text)
+    text = LINK_RE.sub(r"\1", text)
+    text = AUTOLINK_RE.sub("", text)
+    text = HTML_TAG_RE.sub("", text)
+    text = re.sub(r"(?m)^\s{0,3}#{1,6}\s*", "", text)
+    text = re.sub(r"(?m)^\s*(?:[-+*]|\d+[.)])\s+", "", text)
+    text = re.sub(r"(?m)^\s*[-*_]{3,}\s*$", "", text)
+    text = re.sub(r"[`*_~]", "", text)
+    text = text.replace("|", " ")
+    return text
 
 
 def _strip_fences(markdown: str) -> str:

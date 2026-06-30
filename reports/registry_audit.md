@@ -2,11 +2,11 @@
 
 - OK: `True`
 - Package: `storm-deepresearch-skill`
-- Version: `1.1.0`
+- Version: `2.0.0`
 - Maturity: `governed`
 - Owner: `陈旭`
 - License: `MIT-0`
-- Package SHA256: `5456f416b24cafe8bd0bb3fa9c8e550e68896569419500ad2b656bd55d0e44e3`
+- Package SHA256: `32db52fd920a06b8beaa13da27e096f9b248970c8bd62d2ed4f50c9a0e928c4c`
 - Archive SHA256: `f12fdc85f061d803a3023f8f2ff1a849d7a84f34d5a073a7e0701cc715c4139a`
 - Install simulated: `True`
 

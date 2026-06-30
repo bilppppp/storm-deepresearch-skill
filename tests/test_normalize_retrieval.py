@@ -14,6 +14,21 @@ from scripts.normalize_retrieval import (
 
 
 class RetrievalNormalizationTests(unittest.TestCase):
+    def test_same_source_preserves_multiple_query_bindings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cache = self.make_cache(root)
+            first = valid_retrieval()
+            first["url"] = first["final_url"] = "https://www.nist.gov/shared"
+            second = dict(first)
+            second["query_id"] = "Q002"
+            sources, manifests = normalize_retrieval_records(
+                [first, second], mode="host", cache_root=cache
+            )
+            self.assertEqual(len(sources), 1)
+            self.assertEqual({item["query_id"] for item in manifests}, {"Q001", "Q002"})
+            self.assertEqual({item["source_id"] for item in manifests}, {"S001"})
+
     def test_canonicalize_url_removes_tracking_and_fragment(self) -> None:
         value = "HTTPS://www.NIST.GOV/report?utm_source=x&year=2026#results"
         self.assertEqual(canonicalize_url(value), "https://www.nist.gov/report?year=2026")

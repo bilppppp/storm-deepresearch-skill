@@ -21,6 +21,17 @@ CLI = ROOT / "scripts" / "storm_research.py"
 
 
 class StormResearchCLITests(unittest.TestCase):
+    def test_ingest_rejects_future_retrieval_timestamp(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace)
+            inputs = self.write_retrieval_inputs(run, workspace)
+            records = [json.loads(line) for line in inputs.read_text(encoding="utf-8").splitlines()]
+            records[0]["retrieved_at"] = "2999-01-01T00:00:00Z"
+            inputs.write_text("".join(json.dumps(item) + "\n" for item in records), encoding="utf-8")
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(inputs))
+            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+            self.assertIn("timestamp is outside the plan-ingest window", result.stderr)
     def test_init_creates_generation_scoped_brief_and_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)

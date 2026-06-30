@@ -71,6 +71,8 @@ Run the evidence-grounded contradiction prompt from [storm-lens-prompt-pack.md](
 
 In strict mode, register `research/storm-lens-conflicts.json` with `lens-conflicts` after findings and before evidence. The evidence receipt must bind that artifact.
 
+Every blind spot and resolver question must have a `resolution_action`. `new_retrieval` stops Prompt 3 and requires a new generation; `uncertainty` must bind the uncertainty ledger; `out_of_scope` requires a reason. A resolver question cannot be acknowledged and then ignored.
+
 ## Phase 6 — Build the synthesis outline
 Run the synthesis outline prompt only after findings, contradiction mapping, and any resolver search. Complete `research-plan.report_outline` before prose. Allocate the full length budget across distinct sections. Each section must resolve named perspective questions, use material claim IDs, and specify evidence-led expansion elements. This is the article's third prompt turned into an auditable synthesis plan rather than a short briefing.
 
@@ -79,11 +81,13 @@ In strict mode, register `research/storm-lens-outline.json` with `lens-outline` 
 ## Phase 7 — Peer review
 Run the red-team prompt after `draft`. Score finding confidence, identify the weakest link, check source and perspective dominance, add a missing perspective where useful, and record required revisions. This operationalizes the article's fourth prompt. Self-scores guide review; they are not evidence.
 
-Full dossiers require three explicit independent review tracks in addition to the base semantic review: fact checks for material Claims, conflict review for the contradiction ledger, and draft audit for paragraph assertions.
+Full dossiers require three explicit review tracks in addition to the base semantic review: fact checks for material Claims, conflict review for the contradiction ledger, and draft audit for paragraph assertions. These records must come from a captured external-model execution or human reviewer, not from self-attested string IDs.
 
-In strict mode, register `research/storm-lens-red-team.json` with `lens-review` after draft and before review. The review receipt must bind that artifact and the artifact must target the current draft hash.
+In strict mode, register `research/storm-lens-red-team.json` with `lens-review` after draft. Close every repair action in `revision-map.json`, freeze the candidate with `review-prepare`, then hand the immutable request to the external reviewer. The review receipt binds P4, the candidate, request, provenance, transcript, and final review artifacts.
+
+Material absence claims require an `absence-search-ledger.jsonl`. Full dossiers use at least two discovery surfaces; high-stakes medical absence claims also require a trial registry, bibliographic database, and at least three aliases. Closed-corpus runs may only claim absence inside the supplied corpus.
 
 ## Phase 8 — Export and validate
 Generate final Markdown, HTML, and PDF-ready outputs. Run validation.
 
-In governed runs, every major phase after init maps to a stage receipt: `plan`, `ingest`, `evidence`, `draft`, `review`, `render`, `validate`, and optionally `release`. `findings`, `lens-perspectives`, `lens-conflicts`, `lens-outline`, `lens-review`, and `repair-plan` are governed helper commands: findings and strict lens artifacts are bound into the dependent stage receipts, and repair-plan creates current repair actions without writing a receipt. If any phase has missing evidence, do not continue to the next stage. Use `status`, `explain`, `repair-plan`, and `retry` to inspect or repair the chain; use `amend` only to create a new generation.
+In governed runs, every major phase after init maps to a stage receipt: `plan`, `ingest`, `evidence`, `draft`, `review`, `render`, `validate`, and optionally `release`. `findings`, `lens-perspectives`, `lens-conflicts`, `lens-outline`, `lens-review`, `review-prepare`, and `repair-plan` are governed helper commands. Harness-owned timestamps and strictly increasing receipts prove phase causality. If any phase has missing evidence, do not continue to the next stage. Use `status`, `explain`, `repair-plan`, and `retry` to inspect or repair the chain; use `amend` only to create a new generation.

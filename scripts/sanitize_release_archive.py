@@ -39,14 +39,23 @@ def replacements(redact_roots: list[Path]) -> list[tuple[bytes, bytes]]:
     return [(source.encode("utf-8"), marker.encode("utf-8")) for source, marker in pairs]
 
 
-def sanitize_archive(archive: Path, redact_roots: list[Path]) -> dict[str, object]:
+def sanitize_archive(
+    archive: Path,
+    redact_roots: list[Path],
+    *,
+    exclude_prefixes: list[str] | None = None,
+    exclude_names: list[str] | None = None,
+) -> dict[str, object]:
     archive = archive.expanduser().resolve()
     if not archive.is_file():
         raise FileNotFoundError(f"Archive does not exist: {archive}")
 
     pairs = replacements(redact_roots)
     changed_entries: list[str] = []
+    removed_entries: list[str] = []
     entry_count = 0
+    normalized_prefixes = [prefix.strip("/") + "/" for prefix in (exclude_prefixes or [])]
+    excluded_names = set(exclude_names or [])
     temp_path: Path | None = None
     try:
         with zipfile.ZipFile(archive, "r") as source:
@@ -63,6 +72,12 @@ def sanitize_archive(archive: Path, redact_roots: list[Path]) -> dict[str, objec
             temp_path = Path(raw_temp)
             with zipfile.ZipFile(temp_path, "w") as target:
                 for info in infos:
+                    if any(info.filename.startswith(prefix) for prefix in normalized_prefixes):
+                        removed_entries.append(info.filename)
+                        continue
+                    if PurePosixPath(info.filename).name in excluded_names:
+                        removed_entries.append(info.filename)
+                        continue
                     data = source.read(info.filename)
                     original = data
                     try:
@@ -100,6 +115,8 @@ def sanitize_archive(archive: Path, redact_roots: list[Path]) -> dict[str, objec
         "entry_count": entry_count,
         "changed_entry_count": len(changed_entries),
         "changed_entries": changed_entries,
+        "removed_entry_count": len(removed_entries),
+        "removed_entries": removed_entries,
         "markers": [marker.decode("utf-8") for _, marker in pairs],
     }
 
@@ -114,9 +131,26 @@ def main() -> int:
         required=True,
         help="Machine-local root to replace with $SKILL_ROOT; may be repeated.",
     )
+    parser.add_argument(
+        "--exclude-prefix",
+        action="append",
+        default=[],
+        help="Archive member prefix to remove; may be repeated.",
+    )
+    parser.add_argument(
+        "--exclude-name",
+        action="append",
+        default=[],
+        help="Archive member basename to remove; may be repeated.",
+    )
     args = parser.parse_args()
     try:
-        report = sanitize_archive(args.archive, args.redact_root)
+        report = sanitize_archive(
+            args.archive,
+            args.redact_root,
+            exclude_prefixes=args.exclude_prefix,
+            exclude_names=args.exclude_name,
+        )
     except (FileNotFoundError, ValueError, zipfile.BadZipFile) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False, indent=2))
         return 2

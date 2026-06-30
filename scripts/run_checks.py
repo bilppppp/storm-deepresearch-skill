@@ -95,6 +95,10 @@ def run_dist() -> int:
             str(dist / "storm-deepresearch-skill.zip"),
             "--redact-root",
             str(ROOT),
+            "--exclude-prefix",
+            "storm-deepresearch-skill/output/",
+            "--exclude-name",
+            ".DS_Store",
         ],
         [
             python,
@@ -103,6 +107,7 @@ def run_dist() -> int:
             str(ROOT),
             "--package-dir", str(dist),
             "--expectations", str(expectations),
+            "--registry-json", str(ROOT / "reports" / "registry_audit.json"),
             "--output-json", str(dist / "package_verification.json"),
             "--output-md", str(dist / "package_verification.md"),
             "--require-zip",

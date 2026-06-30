@@ -2,7 +2,20 @@
 
 ## Unreleased
 
+## 2.0.0 - 2026-06-29
+
+### Added
+
+- External review handoff and provenance binding through `review-prepare`.
+- Absence-search ledgers for material “not found” claims.
+- Explicit P2 resolution actions and P4 repair-to-revision closure.
+- Machine-readable raw, citation-marker, and net report-depth measurements.
+
 ### Changed
+
+- Full dossiers reject self-attested review, non-causal timestamps, evidence strength above capture ceiling, and unresolved resolver searches.
+- Source identity is deduplicated independently from query coverage, allowing one source to support multiple planned questions.
+- Net body counting excludes citation keys, link destinations, image markers, and Markdown control syntax.
 
 - `init` now requires profile-selection evidence via `--profile-selection-mode` and `--profile-selection-evidence`; missing profile intake fails before any run directory is committed.
 - `init` now preserves caller-provided `user_goal`, `audience`, `geography`, `timeframe`, freshness, uncertainty, high-stakes, user material, and assumptions in `brief.json`.
@@ -14,6 +27,10 @@
 - `default_full_dossier` and `critique_deepresearch` now default to strict STORM lens artifacts across plan, evidence, and review.
 - `critique_deepresearch` source plans now fail unless they cover user claim extraction, support, counterevidence, theory/framework, reception/criticism, and historical comparison/blind spots.
 - Added `scripts/run_checks.py --dist` as the canonical four-adapter package, archive sanitization, and package-verification command.
+
+### Migration
+
+- Follow `docs/migration-v1.1-to-v2.0.md`; old runs remain bound to their 1.1 package hash and are not silently upgraded.
 
 ## 1.1.0 - 2026-06-24
 

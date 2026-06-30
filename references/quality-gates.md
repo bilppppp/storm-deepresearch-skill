@@ -13,6 +13,7 @@ Run `python3 scripts/storm_research.py validate "$RUN_DIR"` or `python3 scripts/
 - At least one material claim exists.
 - Material factual closure is 100%.
 - Source and claim references close.
+- A Claim cannot declare stronger evidence than its bound retrieval capture; inference and recommendation strength cannot exceed their weakest premise.
 - Evidence locators exist.
 - Source helpers reject bad captures by default, including common anti-bot, access-denied, loading-only, and too-short snapshots.
 - Current claims pass freshness policy.
@@ -22,6 +23,7 @@ Run `python3 scripts/storm_research.py validate "$RUN_DIR"` or `python3 scripts/
 - Full external dossiers require `storm-tasklets`, `storm-findings-pool`, and `finding-coverage` before evidence; every material Claim must link to a usable finding that shares its supporting source.
 - `critique_deepresearch` source plans must cover user claim extraction, supporting evidence, counterevidence or contradiction, theory/framework, reception or criticism, and historical comparison or blind spot before `plan` can commit.
 - Full dossiers use at least five researched perspectives, ten questions, six evidence-planned sections, and twelve material claims unless the run is explicitly bounded and unreleased.
+- Material absence claims require a bound search audit; high-stakes medical absence claims cover aliases, a trial registry, and a bibliographic database.
 
 `storm_research.py evidence --preflight-theory --claims claims.jsonl` can be run after retrieval to list theory claims, matched terms, supporting source types, and missing theory-grade support. It does not write an evidence receipt or weaken the evidence gate.
 
@@ -32,7 +34,7 @@ Run `python3 scripts/storm_research.py validate "$RUN_DIR"` or `python3 scripts/
 - Render fingerprints match current files.
 - Full-mode PDF exists, has pages, and contains title/reference text.
 - No unresolved template marker remains.
-- The public report net body satisfies `brief.length_contract`; bibliography/source sections such as `References`, `参考文献`, `参考资料`, `资料来源`, and `Sources` do not count toward the total.
+- The public report net body satisfies `brief.length_contract`; bibliography, footnote keys, link destinations, image markers, and Markdown syntax do not count. Validation records raw, citation-marker, and net counts separately.
 - Markdown blockquotes and fenced code are excluded from `report-depth`; oversized quoted blocks fail when they exceed both the absolute quote limit and 25% of countable body length.
 - Section budgets reach the promised length through claims, mechanisms, evidence, counterevidence, implications, and limits rather than repetition.
 
@@ -52,6 +54,10 @@ The validator writes JSON and Markdown reports only when the resolved `validatio
 - Editing a receipt status, validator hash, or bound artifact invalidates the chain.
 - `storm_lens_mode=strict` requires Prompt 1 before plan, Prompt 2 and Prompt 3 after findings and before evidence, and Prompt 4 after draft and before review.
 - Strict STORM lens artifacts must be bound into the dependent stage receipts: P1 into plan, P2/P3 into evidence, and P4 into review.
+- P2 must dispose every blind spot/resolver; `new_retrieval` prevents P3/evidence.
+- P4 repair actions must close through before/after hashes in the revision map.
+- Full dossiers require a frozen review request and captured external-model or human provenance; self-review and same-context review fail.
+- Receipt, retrieval, finding, lens, and review timestamps must remain inside their causal stage windows.
 - `retry` accepts only the current failed or pending stage.
 - `amend` creates a new generation and cannot downgrade a full dossier to reduced output.
 - `repair-plan` may write `current/repair-plan.json`, but it does not create or replace receipts.

@@ -53,7 +53,7 @@ SOURCE_FIELDS = {
 }
 CLAIM_FIELDS = {
     "schema_version", "claim_id", "claim_text", "claim_type", "material", "premise_claim_ids", "supporting_source_ids",
-    "contradicting_source_ids", "evidence_locators", "evidence_strength", "confidence",
+    "contradicting_source_ids", "evidence_locators", "evidence_strength", "evidence_mode", "absence_search_id", "confidence",
     "freshness_required", "reasoning_note", "conditions", "tradeoffs", "limitation", "change_condition", "status",
 }
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
@@ -863,6 +863,16 @@ def validate_claim_record(data: dict[str, Any]) -> list[str]:
         errors.append("status is invalid")
     if data.get("evidence_strength") not in {"strong", "medium", "weak", "unknown"}:
         errors.append("evidence_strength is invalid")
+    if data.get("evidence_mode") not in {"direct", "premise", "absence_search"}:
+        errors.append("evidence_mode is invalid")
+    if claim_type in {"inference", "recommendation"} and data.get("evidence_mode") != "premise":
+        errors.append(f"{claim_type} evidence_mode must be premise")
+    absence_search_id = data.get("absence_search_id")
+    if data.get("evidence_mode") == "absence_search":
+        if not re.fullmatch(r"AS\d{3}", str(absence_search_id or "")):
+            errors.append("absence_search evidence requires absence_search_id")
+    elif absence_search_id is not None:
+        errors.append("absence_search_id is only valid for absence_search evidence")
     if data.get("confidence") not in {"high", "medium", "low"}:
         errors.append("confidence is invalid")
     if not isinstance(data.get("material"), bool):

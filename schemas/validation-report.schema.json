@@ -4,7 +4,7 @@
   "title": "Validation Report",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "ok", "generation", "validated_through", "checks", "summary"],
+  "required": ["schema_version", "ok", "generation", "validated_through", "checks", "measurements", "summary"],
   "properties": {
     "schema_version": {"const": "2.0"},
     "ok": {"const": true},
@@ -23,6 +23,24 @@
           "path": {"type": "string"},
           "message": {"type": "string"},
           "repair_command": {"type": "string"}
+        }
+      }
+    },
+    "measurements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["report_depth"],
+      "properties": {
+        "report_depth": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["unit", "raw_body", "citation_markers", "net_body"],
+          "properties": {
+            "unit": {"enum": ["characters", "words"]},
+            "raw_body": {"type": "integer", "minimum": 0},
+            "citation_markers": {"type": "integer", "minimum": 0},
+            "net_body": {"type": "integer", "minimum": 0}
+          }
         }
       }
     },

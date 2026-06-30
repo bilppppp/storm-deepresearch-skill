@@ -9,6 +9,7 @@ import re
 import sys
 import uuid
 from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -42,6 +43,7 @@ from scripts.harness_io import (
 from scripts.output_paths import OutputPathError, package_child
 from scripts.report_traceability import (
     body_length,
+    body_length_metrics,
     quote_limit_errors,
     validate_report_traceability,
     validate_review_set,
@@ -54,7 +56,7 @@ from scripts.run_state import (
     latest_generation,
     verify_receipt_chain,
 )
-from scripts.validate_evidence import compute_coverage, validate_claim_closure
+from scripts.validate_evidence import compute_coverage, validate_absence_searches, validate_claim_closure
 
 
 SCRIPT_INTERFACE = "public-worker-cli"
@@ -68,6 +70,9 @@ EXIT_STAGE = 8
 
 RENDER_ARTIFACTS = {
     "drafts/report-v1.md",
+    "review-candidate/report.md",
+    "review-candidate/paragraph-map.jsonl",
+    "review-candidate/revision-map.json",
     "exports/report.html",
     "exports/report.pdf",
     "report.md",
@@ -77,6 +82,9 @@ RENDER_ARTIFACTS = {
     "research/paragraph-map.jsonl",
     "research/peer-review.json",
     "research/peer-review.md",
+    "research/review-request.json",
+    "research/reviewer-provenance.json",
+    "research/reviewer-transcript.txt",
     "research/report-outline.json",
     "research/research-plan.json",
     "research/retrieval-manifest.jsonl",
@@ -89,6 +97,7 @@ RENDER_ARTIFACTS = {
     "validation/render-manifest.json",
 }
 OPTIONAL_ARTIFACTS = {
+    "research/absence-search-ledger.jsonl",
     "research/finding-coverage.json",
     "research/storm-findings-pool.jsonl",
     "research/storm-lens-perspectives.json",
@@ -475,6 +484,7 @@ def _validate_storm_lens_traceability(
     claims: list[dict[str, Any]],
     findings: list[dict[str, Any]],
     contradictions: dict[str, Any],
+    uncertainties: dict[str, Any],
 ) -> list[str]:
     if brief.get("storm_lens_mode", "advisory") != "strict":
         return []
@@ -532,6 +542,30 @@ def _validate_storm_lens_traceability(
     for conflict in contradictions.get("conflicts", []):
         if isinstance(conflict, dict) and str(conflict.get("claim_id", "")) not in p2_conflict_claims:
             errors.append(f"contradiction {conflict.get('claim_id')} is absent from storm lens P2")
+    expected_resolution_texts = {
+        *(str(item) for item in p2_output.get("blind_spots", [])),
+        *(str(item) for item in p2_output.get("resolver_questions", [])),
+    }
+    resolution_actions = p2_output.get("resolution_actions", [])
+    if not isinstance(resolution_actions, list):
+        errors.append("storm lens P2 resolution_actions must be an array")
+        resolution_actions = []
+    observed_resolution_texts = {
+        str(item.get("text")) for item in resolution_actions if isinstance(item, dict)
+    }
+    if observed_resolution_texts != expected_resolution_texts:
+        errors.append("storm lens P2 does not dispose every blind spot and resolver question")
+    uncertainty_ids = {
+        str(item.get("uncertainty_id"))
+        for item in uncertainties.get("uncertainties", []) if isinstance(item, dict)
+    }
+    for action in resolution_actions:
+        if not isinstance(action, dict):
+            continue
+        if action.get("disposition") == "new_retrieval":
+            errors.append(f"storm lens P2 action {action.get('action_id')} still requires new retrieval")
+        if action.get("disposition") == "uncertainty" and str(action.get("uncertainty_id")) not in uncertainty_ids:
+            errors.append(f"storm lens P2 action {action.get('action_id')} references unknown uncertainty")
 
     p3_output = lens_payloads["P3"]["output"]
     p3_sections = set(str(item) for item in p3_output.get("section_ids", []))
@@ -560,6 +594,170 @@ def _validate_storm_lens_traceability(
     return errors
 
 
+def _parsed_datetime(value: object) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parsed if parsed.tzinfo is not None else None
+    except ValueError:
+        return None
+
+
+def _receipt_payload(artifacts: Path, name: str) -> dict[str, Any]:
+    run_root = artifacts.parents[3]
+    generation_name = artifacts.parent.name
+    return load_json(run_root / f"state/generations/{generation_name}/receipts/{name}")
+
+
+def _validate_phase_timestamps(
+    artifacts: Path,
+    brief: dict[str, Any],
+    manifests: list[dict[str, Any]],
+    findings: list[dict[str, Any]],
+) -> list[str]:
+    errors: list[str] = []
+    receipts = {
+        key: _receipt_payload(artifacts, name)
+        for key, name in (
+            ("init", "00-init.json"), ("plan", "10-plan.json"),
+            ("retrieval", "20-retrieval.json"), ("evidence", "30-evidence.json"),
+            ("draft", "40-draft.json"), ("review", "50-review.json"),
+        )
+    }
+    times = {key: _parsed_datetime(value.get("completed_at")) for key, value in receipts.items()}
+    if any(value is None for value in times.values()):
+        return ["stage receipt completed_at is invalid"]
+    ordered = [times[key] for key in ("init", "plan", "retrieval", "evidence", "draft", "review")]
+    if any(left >= right for left, right in zip(ordered, ordered[1:])):
+        errors.append("stage receipt completed_at values are not strictly increasing")
+    skew = timedelta(minutes=5)
+    for manifest in manifests:
+        observed = _parsed_datetime(manifest.get("retrieved_at"))
+        if not observed or observed < times["plan"] - skew or observed > times["retrieval"] + skew:
+            errors.append(f"retrieval {manifest.get('source_id')}/{manifest.get('query_id')} timestamp is outside plan-retrieval window")
+    for finding in findings:
+        observed = _parsed_datetime(finding.get("created_at"))
+        if not observed or observed < times["retrieval"] or observed > times["evidence"]:
+            errors.append(f"finding {finding.get('finding_id')} timestamp is outside retrieval-evidence window")
+    if brief.get("storm_lens_mode") == "strict":
+        lens_windows = {
+            "P1": (times["init"], times["plan"]),
+            "P2": (times["retrieval"], times["evidence"]),
+            "P3": (times["retrieval"], times["evidence"]),
+            "P4": (times["draft"], times["review"]),
+        }
+        lens_times: dict[str, datetime] = {}
+        for prompt_id, (relative, _phase) in STORM_LENS_ARTIFACTS.items():
+            payload = load_json(artifacts / relative)
+            observed = _parsed_datetime(payload.get("created_at"))
+            start, end = lens_windows[prompt_id]
+            if not observed or observed < start or observed > end:
+                errors.append(f"storm lens {prompt_id} timestamp is outside its phase window")
+            elif observed:
+                lens_times[prompt_id] = observed
+        if lens_times.get("P2") and lens_times.get("P3") and lens_times["P2"] > lens_times["P3"]:
+            errors.append("storm lens P3 predates P2")
+    return list(dict.fromkeys(errors))
+
+
+def _validate_lens_review_closure(artifacts: Path) -> list[str]:
+    p4 = load_json(artifacts / "research/storm-lens-red-team.json")
+    revision_map = load_json(artifacts / "research/revision-map.json")
+    repairs = p4.get("output", {}).get("repair_actions", [])
+    revisions = revision_map.get("revisions", [])
+    if not isinstance(repairs, list) or not isinstance(revisions, list):
+        return ["P4 repair actions or revision map is invalid"]
+    repair_by_id = {
+        str(item.get("action_id")): item for item in repairs if isinstance(item, dict)
+    }
+    revision_by_id = {
+        str(item.get("action_id")): item for item in revisions if isinstance(item, dict)
+    }
+    errors: list[str] = []
+    unknown = sorted(set(revision_by_id) - set(repair_by_id))
+    if unknown:
+        errors.append("revision map contains unknown P4 actions: " + ", ".join(unknown))
+    draft_hash = sha256_file(artifacts / "drafts/report-v1.md")
+    report_hash = sha256_file(artifacts / "report.md")
+    for action_id, action in repair_by_id.items():
+        revision = revision_by_id.get(action_id)
+        if revision is None:
+            errors.append(f"P4 action {action_id} is absent from revision map")
+            continue
+        required_status = "applied" if action.get("disposition") == "required" else "waived"
+        if revision.get("status") != required_status:
+            errors.append(f"P4 action {action_id} must be {required_status}")
+        if revision.get("before_sha256") != action.get("before_sha256"):
+            errors.append(f"P4 action {action_id} before hash mismatch")
+        if revision.get("action") != action.get("action"):
+            errors.append(f"P4 action {action_id} action mismatch")
+        if action.get("target_kind") == "draft":
+            if revision.get("before_sha256") != draft_hash:
+                errors.append(f"P4 action {action_id} draft before hash mismatch")
+            if required_status == "applied" and revision.get("after_sha256") != report_hash:
+                errors.append(f"P4 action {action_id} draft after hash mismatch")
+        if required_status == "waived" and not str(revision.get("reason", "")).strip():
+            errors.append(f"P4 action {action_id} waiver lacks reason")
+    return list(dict.fromkeys(errors))
+
+
+def _validate_review_provenance_artifacts(
+    artifacts: Path, peer_review: dict[str, Any]
+) -> list[str]:
+    request = load_json(artifacts / "research/review-request.json")
+    provenance = load_json(artifacts / "research/reviewer-provenance.json")
+    errors: list[str] = []
+    request_unsigned = {key: value for key, value in request.items() if key != "request_sha256"}
+    if request.get("request_sha256") != canonical_json_sha256(request_unsigned):
+        errors.append("review request hash mismatch")
+    for logical, expected in request.get("candidate_artifacts", {}).items():
+        relative = str(logical).removeprefix("artifacts/")
+        path = artifacts / relative
+        if not path.is_file() or sha256_file(path) != expected:
+            errors.append(f"review candidate hash mismatch: {logical}")
+    review_output = {
+        key: peer_review.get(key, [])
+        for key in ("claim_reviews", "paragraph_reviews", "fact_checks", "conflict_reviews", "draft_audits")
+    }
+    if provenance.get("execution_kind") not in {"external_model", "human"}:
+        errors.append("review provenance is not external_model or human")
+    if provenance.get("author_context_id") == provenance.get("reviewer_context_id"):
+        errors.append("reviewer context equals author context")
+    if provenance.get("request_sha256") != request.get("request_sha256"):
+        errors.append("review provenance request hash mismatch")
+    if provenance.get("review_output_sha256") != canonical_json_sha256(review_output):
+        errors.append("review provenance output hash mismatch")
+    transcript = artifacts / "research/reviewer-transcript.txt"
+    if provenance.get("transcript_sha256") != sha256_file(transcript):
+        errors.append("reviewer transcript hash mismatch")
+    if provenance.get("isolation_attestation") is not True:
+        errors.append("review isolation attestation is missing")
+    session_id = provenance.get("review_session_id")
+    author_id = provenance.get("author_context_id")
+    started = _parsed_datetime(provenance.get("started_at"))
+    completed = _parsed_datetime(provenance.get("completed_at"))
+    created = _parsed_datetime(request.get("created_at"))
+    if not started or not completed or not created or not (created <= started <= completed):
+        errors.append("review provenance timestamps are not causal")
+    for collection in review_output.values():
+        if not isinstance(collection, list):
+            errors.append("peer review collection is invalid")
+            continue
+        for review in collection:
+            if not isinstance(review, dict):
+                continue
+            if review.get("reviewer_run_id") != session_id or review.get("author_run_id") != author_id:
+                errors.append(f"review {review.get('review_id')} is not provenance-bound")
+            reviewed = _parsed_datetime(review.get("reviewed_at"))
+            if started and completed and (not reviewed or not (started <= reviewed <= completed)):
+                errors.append(f"review {review.get('review_id')} timestamp is outside reviewer execution")
+    summary = peer_review.get("summary", {})
+    if not isinstance(summary, dict) or summary.get("assurance") != "captured external review":
+        errors.append("peer review does not disclose captured external review assurance")
+    if peer_review.get("reviewer_provenance") != provenance:
+        errors.append("peer review embedded provenance mismatch")
+    return list(dict.fromkeys(errors))
+
+
 def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
     checks: list[Check] = []
     brief = load_json(brief_path)
@@ -575,6 +773,8 @@ def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
     outline = load_json(artifacts / "research/report-outline.json")
     contradictions = load_json(artifacts / "research/contradiction-ledger.json")
     uncertainties = load_json(artifacts / "research/uncertainty-ledger.json")
+    absence_path = artifacts / "research/absence-search-ledger.jsonl"
+    absence_searches = load_jsonl(absence_path) if absence_path.exists() else []
     finding_coverage = load_json(coverage_path) if coverage_path.exists() else {}
     paragraph_map = load_jsonl(artifacts / "research/reviewed-paragraph-map.jsonl")
     peer_review = load_json(artifacts / "research/peer-review.json")
@@ -593,6 +793,7 @@ def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
     )
 
     evidence_errors = validate_claim_closure(claims, sources, outline, manifests)
+    evidence_errors.extend(validate_absence_searches(claims, absence_searches, sources, manifests, brief))
     evidence_errors.extend(_validate_contradictions(contradictions, claims))
     evidence_errors.extend(_validate_uncertainties(uncertainties))
     full_external_dossier = _is_full_external_dossier(brief)
@@ -628,14 +829,36 @@ def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
 
     add_check(
         checks,
-        "storm-lens-phase-order",
+        "storm-lens-traceability",
         _validate_storm_lens_traceability(
-            artifacts, brief, plan, outline, claims, findings, contradictions
+            artifacts, brief, plan, outline, claims, findings, contradictions, uncertainties
         ),
         "artifacts/research/storm-lens-*.json; receipts/",
         "STORM lens artifacts are phase-bound or advisory mode is explicit",
         "register lens artifacts at the required phase and rerun the dependent stage",
         EXIT_STAGE,
+    )
+    add_check(
+        checks,
+        "storm-lens-phase-order",
+        _validate_phase_timestamps(artifacts, brief, manifests, findings),
+        "artifacts/research/storm-lens-*.json; receipts/",
+        "receipts, retrieval, findings, and STORM lens timestamps are causal",
+        "create a new generation with harness-owned timestamps",
+        EXIT_STAGE,
+    )
+    closure_errors = (
+        _validate_lens_review_closure(artifacts)
+        if brief.get("storm_lens_mode") == "strict" else []
+    )
+    add_check(
+        checks,
+        "storm-lens-review-closure",
+        closure_errors,
+        "artifacts/research/storm-lens-red-team.json; artifacts/research/revision-map.json",
+        "every P4 repair action is closed by an applied revision or reasoned waiver",
+        "repair the candidate and rebuild the revision map before external review",
+        EXIT_EVIDENCE,
     )
 
     traceability_errors = validate_report_traceability(report, paragraph_map, claims, sources)
@@ -657,6 +880,7 @@ def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
     summary = peer_review.get("summary")
     if not isinstance(summary, dict) or summary.get("decision") != "passed":
         traceability_errors.append("peer review summary is not passing")
+    traceability_errors.extend(_validate_review_provenance_artifacts(artifacts, peer_review))
     add_check(
         checks, "report-traceability", traceability_errors,
         "artifacts/report.md; artifacts/research/reviewed-paragraph-map.jsonl; artifacts/research/peer-review.json",
@@ -665,7 +889,8 @@ def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
     )
 
     length_contract = brief["length_contract"]
-    measured = body_length(report, str(length_contract["unit"]))
+    metrics = body_length_metrics(report, str(length_contract["unit"]))
+    measured = int(metrics["net_body"])
     length_errors = []
     if measured < int(length_contract["minimum"]) or measured > int(length_contract["maximum"]):
         length_errors.append(
@@ -675,7 +900,11 @@ def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
     length_errors.extend(quote_limit_errors(report, str(length_contract["unit"])))
     add_check(
         checks, "report-depth", length_errors, "artifacts/report.md",
-        f"report body satisfies the evidence-led length contract ({measured} {length_contract['unit']})",
+        (
+            "report body satisfies the evidence-led length contract "
+            f"(raw={metrics['raw_body']}, citations={metrics['citation_markers']}, "
+            f"net={measured} {length_contract['unit']})"
+        ),
         "revise evidence-backed sections without padding", EXIT_EXPORT,
     )
     return checks
@@ -783,13 +1012,16 @@ def validate_governed_run(
     return checks, max(failed, default=0)
 
 
-def _report_payload(checks: list[Check], generation: int) -> dict[str, object]:
+def _report_payload(
+    checks: list[Check], generation: int, measurements: dict[str, object]
+) -> dict[str, object]:
     return {
         "schema_version": "2.0",
         "ok": True,
         "generation": generation,
         "validated_through": Stage.RENDER.value,
         "checks": [check.public() for check in checks],
+        "measurements": measurements,
         "summary": {
             "passed": sum(check.status == "pass" for check in checks),
             "warnings": sum(check.status == "warn" for check in checks),
@@ -804,8 +1036,14 @@ def _report_markdown(payload: dict[str, object]) -> str:
         check = raw if isinstance(raw, dict) else {}
         lines.append(f"- [x] `{check.get('check_id', '')}` {check.get('message', '')} (`{check.get('path', '')}`)")
     summary = payload["summary"]
+    depth = payload.get("measurements", {}).get("report_depth", {})
     lines.extend([
         "",
+        (
+            "Report depth: "
+            f"raw={depth.get('raw_body', 0)}, citations={depth.get('citation_markers', 0)}, "
+            f"net={depth.get('net_body', 0)} {depth.get('unit', '')}"
+        ),
         f"Passed: {summary['passed']} | Warnings: {summary['warnings']} | Failed: {summary['failed']}",
     ])
     return "\n".join(lines) + "\n"
@@ -817,7 +1055,19 @@ def commit_validation(
     package_hash: str,
     checks: list[Check],
 ) -> None:
-    payload = _report_payload(checks, generation)
+    brief = load_json(layout.generation_input(generation, "brief.json"))
+    unit = str(brief["length_contract"]["unit"])
+    depth_metrics = body_length_metrics(
+        layout.artifact(generation, "report.md").read_text(encoding="utf-8"), unit
+    )
+    payload = _report_payload(checks, generation, {
+        "report_depth": {
+            "unit": unit,
+            "raw_body": depth_metrics["raw_body"],
+            "citation_markers": depth_metrics["citation_markers"],
+            "net_body": depth_metrics["net_body"],
+        }
+    })
     staging = package_child(
         layout.root, f"work/.staging/g{generation:04d}/validation-{uuid.uuid4().hex}"
     )

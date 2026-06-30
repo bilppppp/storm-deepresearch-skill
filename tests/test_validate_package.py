@@ -38,6 +38,9 @@ class ValidatePackageTests(unittest.TestCase):
             self.assertTrue(payload["ok"])
             self.assertEqual(payload["schema_version"], "2.0")
             self.assertEqual(payload["summary"]["failed"], 0)
+            depth = payload["measurements"]["report_depth"]
+            self.assertGreater(depth["raw_body"], depth["net_body"])
+            self.assertGreater(depth["citation_markers"], 0)
             self.assertTrue((artifacts / "validation/validation-report.md").is_file())
             self.assertTrue((run / "state/generations/g0001/receipts/70-validation.json").is_file())
 

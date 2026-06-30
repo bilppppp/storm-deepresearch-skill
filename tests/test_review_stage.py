@@ -14,6 +14,7 @@ from scripts.report_traceability import (
     validate_review_bindings,
     validate_semantic_review,
 )
+from scripts.storm_research import _validate_review_provenance, _validate_revision_map
 import tests.test_evidence_stage as evidence_stage_helpers
 from tests.governed_fixtures import valid_storm_lens_artifact
 
@@ -23,10 +24,50 @@ CLI = ROOT / "scripts/storm_research.py"
 
 
 class ReviewStageTests(unittest.TestCase):
+    def test_p4_required_action_cannot_use_empty_revision_map(self) -> None:
+        action = {
+            "action_id": "RA001", "target_kind": "draft", "target_id": "draft",
+            "before_sha256": "a" * 64, "action": "rewrite", "disposition": "required",
+            "reason": "The draft overstates the result.",
+        }
+        errors = _validate_revision_map(
+            {"schema_version": "2.0", "revisions": []}, [action],
+            draft_sha256="a" * 64, candidate_sha256="b" * 64,
+        )
+        self.assertIn("P4 repair actions are not closed in revision map", errors)
+
+    def test_review_provenance_rejects_same_author_and_reviewer_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            transcript = Path(tmp) / "transcript.txt"
+            transcript.write_text("review", encoding="utf-8")
+            request = {"author_context_id": "same", "request_sha256": "a" * 64, "created_at": "2026-06-29T00:00:00Z"}
+            review = self.review_record(1, "claim", "C001", "b" * 64)
+            review.update({"author_run_id": "same", "reviewer_run_id": "session", "reviewed_at": "2026-06-29T00:00:00Z"})
+            provenance = {
+                "schema_version": "2.0", "provenance_id": "RPROV-test", "review_session_id": "session",
+                "execution_kind": "external_model", "author_context_id": "same", "reviewer_context_id": "same",
+                "reviewer_identity": "reviewer", "provider": "provider", "model": "model", "runner": "runner",
+                "execution_id": "exec", "request_sha256": "a" * 64, "review_output_sha256": "c" * 64,
+                "transcript_ref": "artifacts/research/reviewer-transcript.txt",
+                "transcript_sha256": sha256_file(transcript), "started_at": "2026-06-29T00:00:00Z",
+                "completed_at": "2026-06-29T00:00:00Z", "isolation_attestation": True,
+            }
+            errors = _validate_review_provenance(provenance, request, "c" * 64, transcript, [review])
+            self.assertIn("reviewer context must differ from author context", errors)
     def test_review_rejects_author_as_reviewer(self) -> None:
         review = self.review_record(1, "claim", "C001", "a" * 64)
         review["reviewer_run_id"] = review["author_run_id"]
         self.assertIn("reviewer must be independent", validate_semantic_review(review))
+
+    def test_review_rejects_self_attested_independence_without_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.drafted_run(workspace)
+            self.register_lens_review(run, workspace)
+            inputs = self.write_review_inputs(run, workspace)
+            result = self.invoke_review(run, inputs, with_provenance=False)
+            self.assertEqual(result.returncode, 4, result.stdout + result.stderr)
+            self.assertIn("--review-provenance", result.stderr)
 
     def test_overstated_material_claim_blocks_review(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -64,12 +105,41 @@ class ReviewStageTests(unittest.TestCase):
             self.assertTrue((artifacts / "research/peer-review.md").is_file())
             self.assertTrue((run / "state/generations/g0001/receipts/50-review.json").is_file())
 
+    def test_review_prepare_is_immutable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.drafted_run(workspace)
+            self.register_lens_review(run, workspace)
+            inputs = self.write_review_inputs(run, workspace)
+            command = [
+                sys.executable, str(CLI), "review-prepare", str(run),
+                "--candidate-md", str(inputs[5]), "--candidate-map", str(inputs[6]),
+                "--revision-map", str(inputs[7]), "--author-context-id", "author-run-1",
+            ]
+            first = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
+            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+            request_path = run / "work/generations/g0001/artifacts/research/review-request.json"
+            before = request_path.read_bytes()
+
+            second = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
+
+            self.assertEqual(second.returncode, 8, second.stdout + second.stderr)
+            self.assertIn("review request is immutable", second.stderr)
+            self.assertEqual(request_path.read_bytes(), before)
+
     def test_strict_lens_mode_requires_p4_after_draft_before_review(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
             run = self.drafted_run(workspace, strict_lens=True)
             inputs = self.write_review_inputs(run, workspace)
-            result = self.invoke_review(run, inputs)
+            result = subprocess.run(
+                [
+                    sys.executable, str(CLI), "review-prepare", str(run),
+                    "--candidate-md", str(inputs[5]), "--candidate-map", str(inputs[6]),
+                    "--revision-map", str(inputs[7]), "--author-context-id", "author-run-1",
+                ],
+                cwd=ROOT, capture_output=True, text=True, check=False,
+            )
             self.assertEqual(result.returncode, 8, result.stdout + result.stderr)
             self.assertIn("storm-lens-red-team.json", result.stderr)
 
@@ -209,20 +279,65 @@ class ReviewStageTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def invoke_review(
-        self, run: Path, inputs: tuple[Path, Path, Path, Path, Path, Path, Path, Path]
+        self, run: Path, inputs: tuple[Path, Path, Path, Path, Path, Path, Path, Path],
+        *,
+        with_provenance: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         claims, audit, fact_checks, conflict_reviews, draft_audit, revised, revised_map, revision_map = inputs
+        command = [
+            sys.executable, str(CLI), "review", str(run),
+            "--claim-reviews", str(claims), "--report-audit", str(audit),
+            "--fact-checks", str(fact_checks),
+            "--conflict-reviews", str(conflict_reviews),
+            "--draft-audit", str(draft_audit),
+            "--revised-md", str(revised),
+            "--revised-paragraph-map-jsonl", str(revised_map),
+            "--revision-map", str(revision_map),
+        ]
+        if with_provenance:
+            prepare = subprocess.run(
+                [
+                    sys.executable, str(CLI), "review-prepare", str(run),
+                    "--candidate-md", str(revised), "--candidate-map", str(revised_map),
+                    "--revision-map", str(revision_map), "--author-context-id", "author-run-1",
+                ],
+                cwd=ROOT, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(prepare.returncode, 0, prepare.stdout + prepare.stderr)
+            request = json.loads((run / "work/generations/g0001/artifacts/research/review-request.json").read_text(encoding="utf-8"))
+            reviewed_at = request["created_at"]
+            for path in (claims, audit, fact_checks, conflict_reviews, draft_audit):
+                rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+                for row in rows:
+                    row["author_run_id"] = "author-run-1"
+                    row["reviewer_run_id"] = "reviewer-run-1"
+                    row["reviewed_at"] = reviewed_at
+                path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+            output_payload = {
+                "claim_reviews": [json.loads(line) for line in claims.read_text(encoding="utf-8").splitlines()],
+                "paragraph_reviews": [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()],
+                "fact_checks": [json.loads(line) for line in fact_checks.read_text(encoding="utf-8").splitlines()],
+                "conflict_reviews": [json.loads(line) for line in conflict_reviews.read_text(encoding="utf-8").splitlines()],
+                "draft_audits": [json.loads(line) for line in draft_audit.read_text(encoding="utf-8").splitlines()],
+            }
+            transcript = revised.parent / "reviewer-transcript.txt"
+            transcript.write_text("Captured external reviewer transcript.", encoding="utf-8")
+            provenance = revised.parent / "reviewer-provenance.json"
+            provenance.write_text(json.dumps({
+                "schema_version": "2.0", "provenance_id": "RPROV-test",
+                "review_session_id": "reviewer-run-1", "execution_kind": "external_model",
+                "author_context_id": "author-run-1", "reviewer_context_id": "reviewer-context-1",
+                "reviewer_identity": "test reviewer", "provider": "test-provider",
+                "model": "test-model", "runner": "test-runner", "execution_id": "exec-1",
+                "request_sha256": request["request_sha256"],
+                "review_output_sha256": canonical_json_sha256(output_payload),
+                "transcript_ref": "artifacts/research/reviewer-transcript.txt",
+                "transcript_sha256": sha256_file(transcript), "started_at": reviewed_at,
+                "completed_at": reviewed_at, "isolation_attestation": True,
+            }), encoding="utf-8")
+            command.extend(["--review-provenance", str(provenance), "--review-transcript", str(transcript)])
         return subprocess.run(
-            [
-                sys.executable, str(CLI), "review", str(run),
-                "--claim-reviews", str(claims), "--report-audit", str(audit),
-                "--fact-checks", str(fact_checks),
-                "--conflict-reviews", str(conflict_reviews),
-                "--draft-audit", str(draft_audit),
-                "--revised-md", str(revised),
-                "--revised-paragraph-map-jsonl", str(revised_map),
-                "--revision-map", str(revision_map),
-            ],
+            command,
             cwd=ROOT, capture_output=True, text=True, check=False,
         )
 

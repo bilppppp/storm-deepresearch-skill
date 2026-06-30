@@ -68,7 +68,7 @@ def normalize_retrieval_records(
     """Return source and manifest records after deterministic evidence validation."""
     if mode not in ALLOWED_MODES:
         raise ValueError(f"unknown retrieval mode: {mode}")
-    by_identity: dict[str, tuple[dict[str, object], dict[str, object]]] = {}
+    by_identity: dict[str, list[tuple[dict[str, object], dict[str, object]]]] = {}
     for index, record in enumerate(records, start=1):
         if not isinstance(record, dict):
             raise ValueError(f"retrieval record {index} must be an object")
@@ -77,18 +77,39 @@ def normalize_retrieval_records(
             raise ValueError(f"adapter {adapter or '<missing>'} is not allowed in {mode} mode")
         captured = capture_retrieval_evidence(record, cache_root)
         identity = source_identity(captured)
-        current = by_identity.get(identity)
-        if current is None or str(captured["retrieved_at"]) > str(current[1]["retrieved_at"]):
-            by_identity[identity] = (record, captured)
+        by_identity.setdefault(identity, []).append((record, captured))
     sources: list[dict[str, object]] = []
     manifests: list[dict[str, object]] = []
     for index, identity in enumerate(sorted(by_identity), start=1):
-        adapter_record, captured = by_identity[identity]
+        captures = by_identity[identity]
+        adapter_record, captured = max(
+            captures, key=lambda item: str(item[1].get("retrieved_at", ""))
+        )
         source_id = f"S{index:03d}"
-        manifest = dict(captured)
-        manifest["source_id"] = source_id
-        sources.append(_source_from_capture(source_id, adapter_record, manifest))
-        manifests.append(manifest)
+        canonical_manifest = dict(captured)
+        canonical_manifest["source_id"] = source_id
+        sources.append(_source_from_capture(source_id, adapter_record, canonical_manifest))
+        seen: set[tuple[str, str, str, str]] = set()
+        for _record, item in sorted(
+            captures,
+            key=lambda pair: (
+                str(pair[1].get("query_id", "")),
+                str(pair[1].get("snapshot_sha256", "")),
+                str(pair[1].get("locator", "")),
+            ),
+        ):
+            identity_key = (
+                str(item.get("query_id", "")),
+                str(item.get("snapshot_sha256", "")),
+                str(item.get("locator", "")),
+                str(item.get("excerpt_sha256", "")),
+            )
+            if identity_key in seen:
+                continue
+            seen.add(identity_key)
+            manifest = dict(item)
+            manifest["source_id"] = source_id
+            manifests.append(manifest)
     return sources, manifests
 
 

@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def valid_brief_v2() -> dict[str, object]:
@@ -143,7 +148,7 @@ def valid_source_v2(index: int = 1) -> dict[str, object]:
         "file_ref": None,
         "published_at": "2026-05-01",
         "publication_date_status": "known",
-        "retrieved_at": "2026-06-23T00:00:00Z",
+        "retrieved_at": _now(),
         "source_type": "official",
         "primary_class": "primary",
         "reliability_tier": "A",
@@ -196,6 +201,8 @@ def valid_claim_v2(
             "snapshot_sha256": format(source_index % 16, "x") * 64,
         }],
         "evidence_strength": "strong",
+        "evidence_mode": "direct" if claim_type == "fact" else "premise",
+        "absence_search_id": None,
         "confidence": "high",
         "freshness_required": True,
         "reasoning_note": "The supported premise and scoped evidence justify this step." if claim_type != "fact" else "",
@@ -268,6 +275,14 @@ def valid_storm_lens_artifact(
             "consensus_candidates": ["Fixture findings agree inside their limited scope."],
             "blind_spots": ["No external blind spot is material in this fixture."],
             "resolver_questions": [],
+            "resolution_actions": [{
+                "action_id": "RA001",
+                "item_kind": "blind_spot",
+                "text": "No external blind spot is material in this fixture.",
+                "disposition": "out_of_scope",
+                "uncertainty_id": None,
+                "reason": "The deterministic fixture has no additional external scope.",
+            }],
         },
         "P3": {
             "section_ids": [f"SEC{index:02d}" for index in range(1, 7)],
@@ -308,7 +323,7 @@ def valid_retrieval_evidence() -> dict[str, object]:
         "file_ref": None,
         "observed_status": 200,
         "content_type": "text/html",
-        "retrieved_at": "2026-06-23T00:00:00Z",
+        "retrieved_at": _now(),
         "adapter": "host",
         "adapter_run_id": "host-run-1",
         "capture_level": "full_text",
@@ -339,7 +354,7 @@ def valid_adapter_record(index: int = 1) -> dict[str, object]:
         "publisher": "National Institute of Standards and Technology",
         "published_at": "2026-05-01",
         "publication_date_status": "known",
-        "retrieved_at": "2026-06-23T00:00:00Z",
+        "retrieved_at": _now(),
         "content_excerpt": f"Directly inspectable evidence excerpt {index}.",
         "content_locator": "p:1",
         "locator_type": "paragraph",

@@ -26,6 +26,33 @@ CLI = ROOT / "scripts/storm_research.py"
 
 
 class EvidenceStageTests(unittest.TestCase):
+    def test_p2_new_retrieval_disposition_blocks_p3(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.retrieved_run(workspace, register_lens_for_evidence=False)
+            artifacts = run / "work/generations/g0001/artifacts"
+            p2_inputs = {
+                "artifacts/research/storm-findings-pool.jsonl": sha256_file(artifacts / "research/storm-findings-pool.jsonl"),
+                "artifacts/research/finding-coverage.json": sha256_file(artifacts / "research/finding-coverage.json"),
+                "artifacts/research/source-register.jsonl": sha256_file(artifacts / "research/source-register.jsonl"),
+                "artifacts/research/retrieval-manifest.jsonl": sha256_file(artifacts / "research/retrieval-manifest.jsonl"),
+            }
+            p2 = valid_storm_lens_artifact("P2", self.prompt_pack_hash(), p2_inputs)
+            p2["output"]["resolution_actions"][0]["disposition"] = "new_retrieval"
+            p2_path = workspace / "p2-new-retrieval.json"
+            p2_path.write_text(json.dumps(p2), encoding="utf-8")
+            result = self.invoke("lens-conflicts", str(run), "--input-json", str(p2_path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            p3_inputs = {
+                "artifacts/research/storm-findings-pool.jsonl": sha256_file(artifacts / "research/storm-findings-pool.jsonl"),
+                "artifacts/research/storm-lens-conflicts.json": sha256_file(artifacts / "research/storm-lens-conflicts.json"),
+            }
+            p3 = valid_storm_lens_artifact("P3", self.prompt_pack_hash(), p3_inputs)
+            p3_path = workspace / "p3.json"
+            p3_path.write_text(json.dumps(p3), encoding="utf-8")
+            result = self.invoke("lens-outline", str(run), "--input-json", str(p3_path))
+            self.assertEqual(result.returncode, 8, result.stdout + result.stderr)
+            self.assertIn("requires a new retrieval generation", result.stderr)
     def test_evidence_stage_requires_retrieval_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)

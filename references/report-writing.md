@@ -6,7 +6,7 @@ Input size does not determine output depth. A one-sentence topic triggers more d
 
 - Chinese net body: `8000-10000` non-whitespace characters.
 - English net body: `3500-7000` words.
-- Exclude bibliography/source sections from the count, including `References`, `参考文献`, `参考资料`, `资料来源`, and `Sources`.
+- Exclude bibliography/source sections, footnote keys, link destinations, image markers, HTML tags, and Markdown control syntax from the count. Preserve visible link text and inline-code content.
 - Exclude Markdown blockquotes and fenced code from the count; long quoted blocks are supporting evidence, not original analysis.
 - Never satisfy the contract with repeated conclusions, generic background, oversized quotations, source lists, or fabricated examples.
 

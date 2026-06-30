@@ -47,6 +47,8 @@ class ExportReportTests(unittest.TestCase):
             self.assertIn("中文内容", html)
             self.assertIn("<nav", html)
             self.assertIn('href="#executive-summary"', html)
+            self.assertIn("overflow-wrap: anywhere", html)
+            self.assertIn("nav, .footnote-back { display: none; }", html)
             self.assertNotIn("Generated from the canonical Markdown report at", html)
             self.assertNotIn("{{", html)
             self.assertNotIn("{%", html)

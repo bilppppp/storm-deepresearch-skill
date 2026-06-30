@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from scripts.contract_io import validate_claim_record
-from scripts.validate_evidence import compute_coverage, validate_claim_closure
+from scripts.validate_evidence import compute_coverage, validate_absence_searches, validate_claim_closure
 from tests.governed_fixtures import (
     valid_claim_v2,
     valid_report_outline_v2,
@@ -13,6 +13,49 @@ from tests.governed_fixtures import (
 
 
 class EvidenceValidationTests(unittest.TestCase):
+    def test_strong_fact_requires_strong_capture(self) -> None:
+        claim = valid_claim_v2()
+        source = valid_source_v2()
+        manifest = valid_retrieval_manifest_v2()
+        manifest["evidence_strength_ceiling"] = "medium"
+        errors = validate_claim_closure(
+            [claim], [source], self.outline_for("C001"), [manifest]
+        )
+        self.assertIn("claim C001 evidence strength strong exceeds capture ceiling medium", errors)
+
+    def test_absence_claim_requires_bound_multi_surface_search(self) -> None:
+        claim = valid_claim_v2()
+        claim["claim_text"] = "No clinical trials were found for the intervention."
+        claim["evidence_mode"] = "absence_search"
+        claim["absence_search_id"] = "AS001"
+        sources = [valid_source_v2(1), valid_source_v2(2)]
+        manifests = [valid_retrieval_manifest_v2(1), valid_retrieval_manifest_v2(2)]
+        search = {
+            "schema_version": "2.0", "search_id": "AS001", "claim_id": "C001",
+            "scope": "external", "aliases": ["term", "TERM"],
+            "queries": [{
+                "query_id": "Q001", "alias": "term", "surface": "ClinicalTrials.gov",
+                "surface_class": "trial_registry", "source_id": "S001", "result_count": 0,
+                "searched_at": manifests[0]["retrieved_at"],
+            }],
+            "conclusion": "No matching record was returned.",
+            "limitations": "One surface cannot establish global absence.",
+        }
+        errors = validate_absence_searches(
+            [claim], [search], sources, manifests,
+            {"depth_level": "full_dossier", "retrieval_mode": "host", "high_stakes": False},
+        )
+        self.assertIn("absence search AS001 requires two independent discovery surfaces", errors)
+
+    def test_unmarked_absence_language_is_rejected(self) -> None:
+        claim = valid_claim_v2()
+        claim["claim_text"] = "尚无人体临床试验证据。"
+        errors = validate_absence_searches(
+            [claim], [], [valid_source_v2()], [valid_retrieval_manifest_v2()],
+            {"depth_level": "full_dossier", "retrieval_mode": "host", "high_stakes": True},
+        )
+        self.assertIn("material claim C001 uses absence language without absence_search evidence_mode", errors)
+
     def test_valid_material_fact_closes(self) -> None:
         errors = validate_claim_closure(
             [valid_claim_v2()],

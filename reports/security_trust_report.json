@@ -2,7 +2,7 @@
   "ok": true,
   "skill_dir": "$SKILL_ROOT",
   "summary": {
-    "scanned_files": 64,
+    "scanned_files": 65,
     "script_count": 20,
     "internal_module_count": 7,
     "secret_findings": 0,
@@ -22,8 +22,8 @@
     "help_smoke_failed_count": 0,
     "interactive_script_count": 0,
     "package_hash_scope": "source-contract-without-generated-reports",
-    "package_hash_file_count": 64,
-    "package_sha256": "5456f416b24cafe8bd0bb3fa9c8e550e68896569419500ad2b656bd55d0e44e3"
+    "package_hash_file_count": 65,
+    "package_sha256": "32db52fd920a06b8beaa13da27e096f9b248970c8bd62d2ed4f50c9a0e928c4c"
   },
   "failures": [],
   "warnings": [],
@@ -423,7 +423,7 @@
         "timed_out": false,
         "passed": true,
         "has_help_text": true,
-        "stdout_excerpt": "usage: run_checks.py [-h] (--all | --package PACKAGE)\n\nRun the local release gates with non-zero failure propagation.\n\noptions:\n  -h, --help         show this help message and exit\n  --all\n  --package PACKAGE",
+        "stdout_excerpt": "usage: run_checks.py [-h] (--all | --package PACKAGE | --dist)\n\nRun the local release gates with non-zero failure propagation.\n\noptions:\n  -h, --help         show this help message and exit\n  --all\n  --package PACKAGE\n  --dist",
         "stderr_excerpt": ""
       },
       {
@@ -433,7 +433,7 @@
         "timed_out": false,
         "passed": true,
         "has_help_text": true,
-        "stdout_excerpt": "usage: sanitize_release_archive.py [-h] --redact-root REDACT_ROOT archive\n\nRedact machine-local roots from text files inside a release ZIP.\n\npositional arguments:\n  archive\n\noptions:\n  -h, --help            show this help message and exit\n ",
+        "stdout_excerpt": "usage: sanitize_release_archive.py [-h] --redact-root REDACT_ROOT\n                                   [--exclude-prefix EXCLUDE_PREFIX]\n                                   [--exclude-name EXCLUDE_NAME]\n                                   archi",
         "stderr_excerpt": ""
       },
       {
@@ -443,7 +443,7 @@
         "timed_out": false,
         "passed": true,
         "has_help_text": true,
-        "stdout_excerpt": "usage: storm_research.py [-h]\n                         {init,plan,lens-perspectives,ingest,findings,lens-conflicts,lens-outline,evidence,draft,review,lens-review,render,validate,collect,release,amend,retry,status,explain,repair-plan,import-",
+        "stdout_excerpt": "usage: storm_research.py [-h]\n                         {init,plan,lens-perspectives,capture-source,ingest-dir,ingest,findings,lens-conflicts,lens-outline,evidence,build-paragraph-map,draft,review-prepare,review,lens-review,render,validate,c",
         "stderr_excerpt": ""
       },
       {

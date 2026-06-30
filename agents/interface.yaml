@@ -1,6 +1,6 @@
 interface:
   display_name: "STORM DeepResearch"
-  short_description: "Governed evidence research with STORM tasklets, findings, and receipts"
+  short_description: "Governed STORM research with evidence ceilings and external review provenance"
   default_prompt: "Use $storm-deepresearch-skill. Ask research_profile when vague; default default_full_dossier. Record profile_selection; stop on missing evidence."
 compatibility:
   canonical_format: "agent-skills"
@@ -44,6 +44,8 @@ contract:
     state_model: "generation artifacts plus immutable receipt chain"
     research_pool_policy: "storm-tasklets require usable findings before evidence"
     release_policy: "validation-plus-trust-plus-human-approval"
+    review_policy: "full dossiers require frozen candidate plus captured external_model or human provenance"
+    absence_claim_policy: "material absence claims require multi-surface search audit"
   permissions: ["read approved inputs", "write inside resolved output root", "use host network when brief allows", "run validation/rendering"]
-  stop_conditions: ["scope or permission missing", "source, Claim, citation, review, trust, approval, or receipt chain missing evidence", "full dossier lacks tasklets/findings or critique dimensions", "retrieval lacks provenance or has bad captures", "material facts unsupported", "quote padding exceeds report-depth gate", "formats fail validation", "path exists or escapes output root", "release lacks human approval or trust"]
+  stop_conditions: ["scope, permission, evidence, review provenance, or receipt chain missing evidence", "P2 retrieval or P4 repair remains open", "Claim support, absence audit, depth, format, or path gate fails", "release lacks Trust or human approval"]
   non_goals: ["quick lookup", "unsupported role-play", "personalized professional advice"]

@@ -38,10 +38,10 @@
         "references resource resolves: references/research-protocol.md",
         "references resource resolves: references/retrieval-adapters.md",
         "references resource resolves: references/source-and-evidence-policy.md",
+        "references resource resolves: references/storm-lens-prompt-pack.md",
         "references resource resolves: references/storm-workflow-mapping.md",
-        "scripts resource resolves: scripts/contract_io.py",
-        "scripts resource resolves: scripts/export_report.py",
-        "scripts resource resolves: scripts/governed_release.py"
+        "scripts resource resolves: scripts/agent_run_guard.py",
+        "scripts resource resolves: scripts/contract_io.py"
       ],
       "failures": [],
       "warnings": []
@@ -82,10 +82,10 @@
         "references resource resolves: references/research-protocol.md",
         "references resource resolves: references/retrieval-adapters.md",
         "references resource resolves: references/source-and-evidence-policy.md",
+        "references resource resolves: references/storm-lens-prompt-pack.md",
         "references resource resolves: references/storm-workflow-mapping.md",
-        "scripts resource resolves: scripts/contract_io.py",
-        "scripts resource resolves: scripts/export_report.py",
-        "scripts resource resolves: scripts/governed_release.py"
+        "scripts resource resolves: scripts/agent_run_guard.py",
+        "scripts resource resolves: scripts/contract_io.py"
       ],
       "failures": [],
       "warnings": []
@@ -126,10 +126,10 @@
         "references resource resolves: references/research-protocol.md",
         "references resource resolves: references/retrieval-adapters.md",
         "references resource resolves: references/source-and-evidence-policy.md",
+        "references resource resolves: references/storm-lens-prompt-pack.md",
         "references resource resolves: references/storm-workflow-mapping.md",
-        "scripts resource resolves: scripts/contract_io.py",
-        "scripts resource resolves: scripts/export_report.py",
-        "scripts resource resolves: scripts/governed_release.py"
+        "scripts resource resolves: scripts/agent_run_guard.py",
+        "scripts resource resolves: scripts/contract_io.py"
       ],
       "failures": [],
       "warnings": [
@@ -173,10 +173,10 @@
         "references resource resolves: references/research-protocol.md",
         "references resource resolves: references/retrieval-adapters.md",
         "references resource resolves: references/source-and-evidence-policy.md",
+        "references resource resolves: references/storm-lens-prompt-pack.md",
         "references resource resolves: references/storm-workflow-mapping.md",
-        "scripts resource resolves: scripts/contract_io.py",
-        "scripts resource resolves: scripts/export_report.py",
-        "scripts resource resolves: scripts/governed_release.py"
+        "scripts resource resolves: scripts/agent_run_guard.py",
+        "scripts resource resolves: scripts/contract_io.py"
       ],
       "failures": [],
       "warnings": [
@@ -220,10 +220,10 @@
         "references resource resolves: references/research-protocol.md",
         "references resource resolves: references/retrieval-adapters.md",
         "references resource resolves: references/source-and-evidence-policy.md",
+        "references resource resolves: references/storm-lens-prompt-pack.md",
         "references resource resolves: references/storm-workflow-mapping.md",
-        "scripts resource resolves: scripts/contract_io.py",
-        "scripts resource resolves: scripts/export_report.py",
-        "scripts resource resolves: scripts/governed_release.py"
+        "scripts resource resolves: scripts/agent_run_guard.py",
+        "scripts resource resolves: scripts/contract_io.py"
       ],
       "failures": [],
       "warnings": []

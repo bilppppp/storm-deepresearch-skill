@@ -4,6 +4,7 @@ import unittest
 
 from scripts.report_traceability import (
     body_length,
+    body_length_metrics,
     citation_index,
     extract_paragraphs,
     generate_references,
@@ -88,6 +89,23 @@ class ReportTraceabilityTests(unittest.TestCase):
         self.assertEqual(body_length(report, "words"), 4)
         self.assertGreater(quoted_length(report, "words"), 500)
         self.assertTrue(quote_limit_errors(report, "words"))
+
+    def test_body_length_excludes_citation_keys_and_markdown_syntax(self) -> None:
+        citation = "biomedical-physics-2026-proton-boron-capture-therapy-analysis"
+        report = (
+            "# 标题\n\n"
+            "## 结论\n\n"
+            f"这是[可见链接文字](https://example.org/very/long/path)和`代码内容`。[^%s]\n\n"
+            "![不计入正文](image.png)\n" % citation
+        )
+        metrics = body_length_metrics(report, "characters")
+        self.assertEqual(metrics["citation_markers"], len(citation) + 3)
+        self.assertEqual(metrics["net_body"], body_length(report, "characters"))
+        self.assertNotIn("https", metrics["visible_text"])
+        self.assertNotIn(citation, metrics["visible_text"])
+        self.assertIn("可见链接文字", metrics["visible_text"])
+        self.assertIn("代码内容", metrics["visible_text"])
+        self.assertNotIn("不计入正文", metrics["visible_text"])
 
     def test_storm_map_comments_are_stripped_and_parsed(self) -> None:
         draft = (

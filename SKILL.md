@@ -8,38 +8,35 @@ description: Use for source-grounded deep research with STORM findings, ledgers,
 ## Router Rules
 
 - Vague `run ... research X`: ask `research_profile`; default `default_full_dossier`, not `briefing`.
-- Full dossiers require strict P1/P2/P3/P4 lens artifacts.
-- Chinese full dossiers: `8000–10000` net body chars; bibliography/source sections excluded; `briefing` must be explicit.
+- Full dossiers: strict P1-P4, external/human review provenance, no self-review.
+- Chinese full dossiers: `8000–10000` visible chars; citations/Markdown excluded.
+- Absence claims need search ledgers; Claims cannot exceed capture ceilings.
 - Fresh output path only; reject existing, escaping, symlink paths.
-- Use `closed_corpus` for supplied material; otherwise host search.
-- Run `scripts/storm_research.py`; stop on missing evidence.
+- Use `closed_corpus` for supplied material; otherwise host search. Stop on missing evidence.
 
 ## Compact Workflow
 
-1. `init`: enforce profile evidence; create `g0001`.
-2. `plan`: STORM questions, source plan, tasklets, `report_outline`.
-3. `ingest` + `findings`: register retrieval before Claims.
-4. `evidence`: close source and Claim ledgers.
-5. `draft` + `review`: bind paragraphs, citations, Claims, checks, conflicts.
-6. `render` + `validate` + `release`: derive formats; release needs Trust and approval.
+1. `init` + `plan`: profile evidence, STORM tasklets, `report_outline`.
+2. `ingest` + `findings` + `evidence`: close sources and Claims.
+3. `draft` + P4 + `review-prepare` + `review`: close repairs and external review.
+4. `render` + `validate` + `release`: derive formats; require Trust and approval.
 
 ## Decision Points
 
-- Input length changes retrieval, not report depth.
-- Full dossiers cannot downgrade after render failure.
-- `init` fails without `--profile-selection-mode` and `--profile-selection-evidence`.
-- `amend` creates a generation; `retry`/`status`/`explain` inspect.
+- Input length changes retrieval, not depth; full dossiers cannot downgrade.
+- `init` needs profile-selection evidence; `amend` creates a generation.
 
 ## Output Contract
 
-Produce brief, plans, tasklets, findings, ledgers, review, Markdown, HTML, PDF, validation receipt, repair plan, and allowlisted release. Follow [workflow](references/research-protocol.md), [writing](references/report-writing.md), [export](references/export-workflow.md), [gates](references/quality-gates.md), [paths](references/output-path-policy.md).
+Produce plans, findings, ledgers, review, Markdown/HTML/PDF, receipts, and release. Follow [workflow](references/research-protocol.md), [gates](references/quality-gates.md), and [paths](references/output-path-policy.md).
 
 ## Failure Policy
 
-- Never invent citations, quotes, metrics, or full-dossier findings.
+- Never invent citations, metrics, or findings.
 - Never reinitialize or truncate ledgers.
 - Never edit receipts or validators to pass.
-- Fail non-zero with repair details; release needs Trust, registry match, re-verification, approval.
+- Never mark P4 repairs applied without matching before/after hashes.
+- Fail non-zero; release needs Trust, registry, re-verification, human approval.
 
 ## Resources
 

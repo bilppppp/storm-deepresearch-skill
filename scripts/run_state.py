@@ -198,6 +198,7 @@ def verify_receipt_chain(
     layout: RunLayout, generation: int, through: Stage, package_hash: str
 ) -> None:
     previous_digest = ""
+    previous_completed: datetime | None = None
     for stage in stages_through(through):
         path = layout.receipt(generation, stage)
         if not path.is_file() or path.is_symlink():
@@ -216,8 +217,15 @@ def verify_receipt_chain(
             raise ReceiptError(f"previous receipt digest mismatch: {stage.value}")
         if receipt.get("skill_package_sha256") != package_hash:
             raise ReceiptError(f"skill package hash mismatch: {stage.value}")
+        try:
+            completed = datetime.fromisoformat(str(receipt.get("completed_at", "")).replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ReceiptError(f"invalid receipt completed_at: {stage.value}") from exc
+        if previous_completed is not None and completed <= previous_completed:
+            raise ReceiptError(f"receipt completed_at is not strictly increasing: {stage.value}")
         verify_artifact_hashes(layout, generation, receipt)
         previous_digest = str(receipt["receipt_sha256"])
+        previous_completed = completed
 
 
 def verify_stage_precondition(

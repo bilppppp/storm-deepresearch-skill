@@ -1,7 +1,7 @@
 # Security Trust Report
 
 - OK: `True`
-- Scanned files: `64`
+- Scanned files: `65`
 - Scripts: `20`
 - Internal script modules: `7`
 - Secret findings: `0`
@@ -15,8 +15,8 @@
 - CLI help smoke failures: `0`
 - Interactive scripts: `0`
 - Package hash scope: `source-contract-without-generated-reports`
-- Package hash files: `64`
-- Package SHA256: `5456f416b24cafe8bd0bb3fa9c8e550e68896569419500ad2b656bd55d0e44e3`
+- Package hash files: `65`
+- Package SHA256: `32db52fd920a06b8beaa13da27e096f9b248970c8bd62d2ed4f50c9a0e928c4c`
 
 ## Failures
 

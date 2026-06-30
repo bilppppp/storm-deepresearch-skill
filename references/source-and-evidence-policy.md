@@ -37,6 +37,14 @@ For full dossiers with external research allowed, user material, transcripts, lo
 - If sources conflict, cite both sides and explain the disagreement.
 - If a source is old, say why it is still applicable or mark it as historical context.
 
+## Capture ceilings and absence claims
+
+- A fact Claim cannot be stronger than the exact retrieval manifest bound by its locator. `strong` requires at least one strong full-text or official-data capture; several medium abstracts do not automatically become strong.
+- Inference and recommendation strength cannot exceed the weakest premise Claim.
+- One canonical source may serve multiple query IDs. Source identity is deduplicated, while each query/capture binding remains in the retrieval manifest.
+- Material “not found” claims use `evidence_mode=absence_search` and a matching absence-search record. Full dossiers require two discovery surfaces; high-stakes medical searches require a trial registry, bibliographic database, and at least three aliases.
+- Closed-corpus searches may only conclude that evidence is absent from the supplied corpus.
+
 ## Unsupported claim handling
 Unsupported claims must be one of:
 1. Removed.
