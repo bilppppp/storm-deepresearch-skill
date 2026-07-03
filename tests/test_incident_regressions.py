@@ -94,9 +94,10 @@ class IncidentRegressionTests(unittest.TestCase):
             run = helper.planned_run(workspace)
             retrieval = helper.write_retrieval_inputs(run, workspace)
             records = [json.loads(line) for line in retrieval.read_text(encoding="utf-8").splitlines()]
-            records[0]["source_type"] = "encyclopedia"
-            records[0]["primary_class"] = "primary"
-            records[0]["reliability_tier"] = "A"
+            capture = next(record for record in records if record.get("record_kind") == "capture")
+            capture["source_type"] = "encyclopedia"
+            capture["primary_class"] = "primary"
+            capture["reliability_tier"] = "A"
             retrieval.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
             result = self.invoke("ingest", str(run), "--input-jsonl", str(retrieval))
             self.assertEqual(result.returncode, 5, result.stdout + result.stderr)

@@ -7,8 +7,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import tests.test_storm_research_cli as cli_helpers
+
 from tests.governed_fixtures import (
-    valid_adapter_record,
     valid_claim_v2,
     valid_contradiction_ledger_v2,
     valid_report_outline_v2,
@@ -26,6 +27,54 @@ CLI = ROOT / "scripts/storm_research.py"
 
 
 class EvidenceStageTests(unittest.TestCase):
+    def test_needs_more_evidence_finding_requires_gap_fill_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.retrieved_run(workspace, register_findings=False)
+            findings_path = self.write_findings_inputs(run, workspace)
+            findings = [
+                json.loads(line)
+                for line in findings_path.read_text(encoding="utf-8").splitlines()
+            ]
+            findings[0]["status"] = "needs_more_evidence"
+            findings_path.write_text(
+                "".join(json.dumps(row) + "\n" for row in findings), encoding="utf-8"
+            )
+            result = self.invoke(
+                "findings", str(run), "--findings-jsonl", str(findings_path)
+            )
+            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+            self.assertIn("needs_more_evidence requires a completed gap_fill search", result.stderr)
+
+    def test_unresolved_tasklet_must_enter_uncertainty_ledger(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.retrieved_run(
+                workspace,
+                register_findings=False,
+                gap_fill_query_ids={"Q001"},
+            )
+            findings_path = self.write_findings_inputs(run, workspace)
+            findings = [
+                json.loads(line)
+                for line in findings_path.read_text(encoding="utf-8").splitlines()
+            ]
+            findings[0]["status"] = "needs_more_evidence"
+            findings[0]["claim_ids"] = []
+            findings_path.write_text(
+                "".join(json.dumps(row) + "\n" for row in findings), encoding="utf-8"
+            )
+            result = self.invoke(
+                "findings", str(run), "--findings-jsonl", str(findings_path)
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.register_lens_conflicts(run, workspace)
+            self.register_lens_outline(run, workspace)
+            inputs = self.write_evidence_inputs(run, workspace)
+            result = self.invoke_evidence(run, inputs)
+            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+            self.assertIn("unresolved tasklet T001 is absent from uncertainty ledger", result.stderr)
+
     def test_p2_new_retrieval_disposition_blocks_p3(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
@@ -117,7 +166,7 @@ class EvidenceStageTests(unittest.TestCase):
     def test_theory_claim_requires_theory_grade_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
-            run = self.retrieved_run(workspace)
+            run = self.retrieved_run(workspace, official_query_ids={"Q001"})
             inputs = self.write_evidence_inputs(run, workspace)
             claims, _contradictions, _uncertainties, _outline = inputs
             records = [json.loads(line) for line in claims.read_text(encoding="utf-8").splitlines()]
@@ -131,7 +180,7 @@ class EvidenceStageTests(unittest.TestCase):
     def test_evidence_preflight_theory_reports_source_types_without_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
-            run = self.retrieved_run(workspace)
+            run = self.retrieved_run(workspace, official_query_ids={"Q001"})
             inputs = self.write_evidence_inputs(run, workspace)
             claims, _contradictions, _uncertainties, _outline = inputs
             records = [json.loads(line) for line in claims.read_text(encoding="utf-8").splitlines()]
@@ -344,18 +393,19 @@ class EvidenceStageTests(unittest.TestCase):
         *,
         register_findings: bool = True,
         register_lens_for_evidence: bool = True,
+        gap_fill_query_ids: set[str] | frozenset[str] = frozenset(),
+        zero_result_query_ids: set[str] | frozenset[str] = frozenset(),
+        official_query_ids: set[str] | frozenset[str] = frozenset(),
     ) -> Path:
         run = self.planned_run(workspace)
-        cache = run / "work/generations/g0001/evidence-cache"
-        records = []
-        for index in range(1, 11):
-            record = valid_adapter_record(index)
-            (cache / f"source-{index}.txt").write_text(
-                f"Directly inspectable evidence excerpt {index}. Additional context.", encoding="utf-8"
-            )
-            records.append(record)
-        retrieval = workspace / "retrieval.jsonl"
-        retrieval.write_text("".join(json.dumps(item) + "\n" for item in records), encoding="utf-8")
+        helper = cli_helpers.StormResearchCLITests(methodName="runTest")
+        retrieval = helper.write_retrieval_inputs(
+            run,
+            workspace,
+            gap_fill_query_ids=gap_fill_query_ids,
+            zero_result_query_ids=zero_result_query_ids,
+            official_query_ids=official_query_ids,
+        )
         result = self.invoke("ingest", str(run), "--input-jsonl", str(retrieval))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         if register_findings:

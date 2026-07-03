@@ -1812,6 +1812,7 @@ def validate_findings_pool(
     tasklets: list[dict[str, object]],
     sources: list[dict[str, object]],
     manifests: list[dict[str, object]],
+    audit: list[dict[str, object]],
     *,
     require_tasklet_coverage: bool,
 ) -> list[str]:
@@ -1825,6 +1826,14 @@ def validate_findings_pool(
     manifests_by_source = _manifest_by_source_id(manifests)
     finding_ids: set[str] = set()
     usable_tasklets: set[str] = set()
+    unresolved_tasklets: set[str] = set()
+    gap_fill_queries = {
+        str(item.get("query_id"))
+        for item in audit
+        if item.get("record_kind") == "search_run"
+        and item.get("pass_kind") == "gap_fill"
+        and item.get("execution_status") in {"completed", "zero_results"}
+    }
     for index, finding in enumerate(findings, start=1):
         errors.extend(f"finding {index}: {item}" for item in validate_finding_record(finding))
         finding_id = str(finding.get("finding_id", ""))
@@ -1853,8 +1862,16 @@ def validate_findings_pool(
                 errors.append(f"finding {finding_id} locator snapshot does not bind source {source_id}")
         if finding.get("status") == "usable":
             usable_tasklets.add(tasklet_id)
+        elif finding.get("status") == "needs_more_evidence":
+            question_id = str(finding.get("question_id", ""))
+            if question_id not in gap_fill_queries:
+                errors.append(
+                    f"finding {finding_id} needs_more_evidence requires a completed gap_fill search"
+                )
+            else:
+                unresolved_tasklets.add(tasklet_id)
     if require_tasklet_coverage:
-        missing = sorted(set(tasklet_by_id) - usable_tasklets)
+        missing = sorted(set(tasklet_by_id) - usable_tasklets - unresolved_tasklets)
         if missing:
             errors.append("findings pool must cover every STORM tasklet: " + ", ".join(missing))
     return errors
@@ -1887,7 +1904,9 @@ def validate_findings_claim_links(
 
 
 def findings_coverage(
-    tasklets: list[dict[str, object]], findings: list[dict[str, object]]
+    tasklets: list[dict[str, object]],
+    findings: list[dict[str, object]],
+    audit: list[dict[str, object]],
 ) -> dict[str, object]:
     usable = [finding for finding in findings if finding.get("status") == "usable"]
     covered_tasklets = sorted({str(finding.get("tasklet_id")) for finding in usable})
@@ -1897,13 +1916,59 @@ def findings_coverage(
         for finding in usable
         for claim_id in finding.get("claim_ids", [])
     })
+    unresolved_tasklets = sorted({
+        str(finding.get("tasklet_id"))
+        for finding in findings
+        if finding.get("status") == "needs_more_evidence"
+    })
+    gap_fill_required = sorted({
+        str(finding.get("question_id"))
+        for finding in findings
+        if finding.get("status") == "needs_more_evidence"
+    })
+    gap_fill_completed = sorted({
+        str(record.get("query_id"))
+        for record in audit
+        if record.get("record_kind") == "search_run"
+        and record.get("pass_kind") == "gap_fill"
+        and record.get("execution_status") in {"completed", "zero_results"}
+    })
     return {
         "schema_version": "2.0",
         "tasklets_total": len(tasklets),
         "tasklets_with_usable_findings": len(covered_tasklets),
         "usable_findings": len(usable),
-        "missing_tasklet_ids": sorted(set(all_tasklets) - set(covered_tasklets)),
+        "missing_tasklet_ids": sorted(
+            set(all_tasklets) - set(covered_tasklets) - set(unresolved_tasklets)
+        ),
         "claim_ids_linked": claim_ids,
+        "academic_baseline_complete": any(
+            record.get("record_kind") == "search_run"
+            and record.get("pass_kind") == "baseline"
+            and record.get("surface_class") == "scholarly_index"
+            and record.get("execution_status") in {"completed", "zero_results"}
+            for record in audit
+        ),
+        "corpus_seeded_question_ids": sorted({
+            str(record.get("query_id"))
+            for record in audit
+            if record.get("record_kind") == "search_run" and record.get("pass_kind") == "corpus"
+        }),
+        "gap_fill_required_query_ids": gap_fill_required,
+        "gap_fill_completed_query_ids": gap_fill_completed,
+        "zero_result_search_run_ids": sorted({
+            str(record.get("search_run_id"))
+            for record in audit
+            if record.get("record_kind") == "search_run"
+            and record.get("execution_status") == "zero_results"
+        }),
+        "unreachable_search_run_ids": sorted({
+            str(record.get("search_run_id"))
+            for record in audit
+            if record.get("record_kind") == "search_run"
+            and record.get("execution_status") == "unreachable"
+        }),
+        "unresolved_tasklet_ids": unresolved_tasklets,
         "created_at": _utc_now(),
     }
 
@@ -1946,14 +2011,15 @@ def command_findings(args: argparse.Namespace) -> int:
     tasklets = load_jsonl(layout.artifact(generation, "research/storm-tasklets.jsonl"))
     sources = load_jsonl(layout.artifact(generation, "research/source-register.jsonl"))
     manifests = load_jsonl(layout.artifact(generation, "research/retrieval-manifest.jsonl"))
+    audit = load_jsonl(layout.artifact(generation, "research/retrieval-audit.jsonl"))
     errors = validate_storm_tasklets(tasklets, plan, source_plan)
     errors.extend(validate_findings_pool(
-        findings, tasklets, sources, manifests,
+        findings, tasklets, sources, manifests, audit,
         require_tasklet_coverage=_is_full_external_dossier(brief),
     ))
     if errors:
         raise EvidenceGateError("; ".join(dict.fromkeys(errors)))
-    coverage = findings_coverage(tasklets, findings)
+    coverage = findings_coverage(tasklets, findings, audit)
     _write_findings_artifacts(layout, generation, findings, coverage)
     print(f"Registered {len(findings)} STORM findings in {layout.root}")
     return EXIT_OK
@@ -1992,13 +2058,23 @@ def _validate_uncertainties(payload: dict[str, object]) -> list[str]:
     records = payload.get("uncertainties")
     if not isinstance(records, list):
         return ["uncertainty ledger uncertainties must be an array"]
-    fields = {"uncertainty_id", "claim_id", "description", "impact", "next_evidence"}
+    fields = {
+        "uncertainty_id", "claim_id", "question_ids", "tasklet_ids",
+        "description", "impact", "next_evidence",
+    }
     errors = []
     for index, record in enumerate(records, start=1):
         if not isinstance(record, dict) or set(record) != fields:
             errors.append(f"uncertainty {index} has invalid fields")
         elif not all(str(record.get(field, "")).strip() for field in ("uncertainty_id", "description", "impact", "next_evidence")):
             errors.append(f"uncertainty {index} has empty required fields")
+        else:
+            for field, pattern in (("question_ids", r"Q\d{3}"), ("tasklet_ids", r"T\d{3}")):
+                values = record.get(field)
+                if not isinstance(values, list) or not all(re.fullmatch(pattern, str(item)) for item in values):
+                    errors.append(f"uncertainty {index} has invalid {field}")
+            if not record.get("claim_id") and not record.get("question_ids") and not record.get("tasklet_ids"):
+                errors.append(f"uncertainty {index} must bind a claim, question, or tasklet")
     return errors
 
 
@@ -2173,9 +2249,11 @@ def command_evidence(args: argparse.Namespace) -> int:
     findings_path = layout.artifact(generation, "research/storm-findings-pool.jsonl")
     coverage_path = layout.artifact(generation, "research/finding-coverage.json")
     manifest_path = layout.artifact(generation, "research/retrieval-manifest.jsonl")
+    audit_path = layout.artifact(generation, "research/retrieval-audit.jsonl")
     research_plan = load_json(research_plan_path)
     source_plan = load_json(source_plan_path)
     manifests = load_jsonl(manifest_path)
+    audit = load_jsonl(audit_path)
     question_ids = {
         str(item.get("question_id"))
         for item in research_plan.get("questions", [])
@@ -2205,9 +2283,25 @@ def command_evidence(args: argparse.Namespace) -> int:
             findings = load_jsonl(findings_path)
             errors.extend(validate_storm_tasklets(tasklets, research_plan, source_plan))
             errors.extend(validate_findings_pool(
-                findings, tasklets, sources, manifests, require_tasklet_coverage=True
+                findings, tasklets, sources, manifests, audit,
+                require_tasklet_coverage=True,
             ))
             errors.extend(validate_findings_claim_links(claims, findings))
+            coverage = load_json(coverage_path)
+            unresolved = set(str(item) for item in coverage.get("unresolved_tasklet_ids", []))
+            uncertainty_bindings: dict[str, int] = {}
+            for record in uncertainties.get("uncertainties", []):
+                if not isinstance(record, dict):
+                    continue
+                for tasklet_id in record.get("tasklet_ids", []):
+                    key = str(tasklet_id)
+                    uncertainty_bindings[key] = uncertainty_bindings.get(key, 0) + 1
+            for tasklet_id in sorted(unresolved):
+                count = uncertainty_bindings.get(tasklet_id, 0)
+                if count == 0:
+                    errors.append(f"unresolved tasklet {tasklet_id} is absent from uncertainty ledger")
+                elif count > 1:
+                    errors.append(f"unresolved tasklet {tasklet_id} appears in multiple uncertainty records")
     strict_lens = _storm_lens_mode(brief) == "strict"
     p2_path = _storm_lens_artifact_path(layout, generation, "P2")
     p3_path = _storm_lens_artifact_path(layout, generation, "P3")
@@ -2248,6 +2342,7 @@ def command_evidence(args: argparse.Namespace) -> int:
         "artifacts/research/source-plan.json": sha256_file(source_plan_path),
         "artifacts/research/source-register.jsonl": sha256_file(source_path),
         "artifacts/research/retrieval-manifest.jsonl": sha256_file(manifest_path),
+        "artifacts/research/retrieval-audit.jsonl": sha256_file(audit_path),
         "artifacts/research/storm-tasklets.jsonl": sha256_file(tasklet_path),
     }
     if findings_path.is_file() and not findings_path.is_symlink():

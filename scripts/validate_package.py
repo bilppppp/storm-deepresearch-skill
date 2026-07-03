@@ -295,13 +295,21 @@ def _validate_uncertainties(payload: dict[str, Any]) -> list[str]:
     records = payload.get("uncertainties")
     if not isinstance(records, list):
         return ["uncertainty ledger uncertainties must be an array"]
-    fields = {"uncertainty_id", "claim_id", "description", "impact", "next_evidence"}
+    fields = {
+        "uncertainty_id", "claim_id", "question_ids", "tasklet_ids",
+        "description", "impact", "next_evidence",
+    }
     errors: list[str] = []
     for index, record in enumerate(records, start=1):
         if not isinstance(record, dict) or set(record) != fields:
             errors.append(f"uncertainty {index} has invalid fields")
         elif not all(str(record.get(field, "")).strip() for field in ("uncertainty_id", "description", "impact", "next_evidence")):
             errors.append(f"uncertainty {index} has empty required fields")
+        else:
+            for field, pattern in (("question_ids", r"Q\d{3}"), ("tasklet_ids", r"T\d{3}")):
+                values = record.get(field)
+                if not isinstance(values, list) or not all(re.fullmatch(pattern, str(item)) for item in values):
+                    errors.append(f"uncertainty {index} has invalid {field}")
     return errors
 
 

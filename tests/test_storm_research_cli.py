@@ -708,6 +708,9 @@ class StormResearchCLITests(unittest.TestCase):
         *,
         placeholder: bool = False,
         encyclopedia_only: bool = False,
+        gap_fill_query_ids: set[str] | frozenset[str] = frozenset(),
+        zero_result_query_ids: set[str] | frozenset[str] = frozenset(),
+        official_query_ids: set[str] | frozenset[str] = frozenset(),
     ) -> Path:
         cache = run / "work/generations/g0001/evidence-cache"
         records: list[dict[str, object]] = []
@@ -715,7 +718,12 @@ class StormResearchCLITests(unittest.TestCase):
             search = valid_search_run_record(index)
             search["surface"] = "OpenAlex" if index % 2 else "Semantic Scholar"
             candidate = valid_candidate_record(index)
-            record = valid_capture_input(index)
+            query_id = f"Q{index:03d}"
+            record = (
+                valid_adapter_record(index)
+                if query_id in official_query_ids
+                else valid_capture_input(index)
+            )
             if placeholder and index == 1:
                 record["url"] = "https://example.com/fake-paper"
                 record["final_url"] = record["url"]
@@ -746,6 +754,24 @@ class StormResearchCLITests(unittest.TestCase):
                 cache / f"crossref-{index}.json"
             )
             records.extend([search, candidate, record])
+            if query_id in gap_fill_query_ids:
+                gap_id = f"SR{100 + index:03d}"
+                gap_artifact = cache / f"gap-{index}.json"
+                zero_results = query_id in zero_result_query_ids
+                gap_artifact.write_text(
+                    json.dumps({"results": [] if zero_results else [candidate["candidate_id"]]}) + "\n",
+                    encoding="utf-8",
+                )
+                gap = valid_search_run_record(index, pass_kind="gap_fill")
+                gap.update({
+                    "search_run_id": gap_id,
+                    "surface": "Google Scholar",
+                    "raw_artifact": gap_artifact.name,
+                    "snapshot_sha256": sha256_file(gap_artifact),
+                    "execution_status": "zero_results" if zero_results else "completed",
+                    "result_count": 0 if zero_results else 1,
+                })
+                records.append(gap)
         path = workspace / "retrieval-inputs.jsonl"
         path.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
         return path
