@@ -2,6 +2,8 @@
 
 `storm-deepresearch-skill` 是一个证据驱动的 governed 深度研究 harness。它保留 STORM 的多视角提问思想，但不把角色观点当证据：视角只生成检索问题，事实必须进入来源登记和 Claim-Evidence 账本，每个阶段必须写入可重算 receipt，最终从单一 `report.md` 渲染并验证 Markdown、HTML 和 PDF。
 
+`storm-academic` 分支相对主分支的重点差异，是把“检索到了来源”升级为“索引过程本身可审计”。主分支已经能约束 STORM 阶段、证据账本、外部审查和多格式输出；本分支进一步要求外部 full dossier 先完成 academic baseline，记录 `search_run`、候选文献筛选、DOI/PMID/arXiv/OpenAlex/Semantic Scholar 等书目身份核验、同一论文多版本归并、精确 capture 和 gap-fill。这样它能做主分支做不到的事：证明哪些学术检索面被查过、哪些候选被排除、引用的是哪一个具体版本、用户语料是否只是 seed 而没有替代外部检索，以及最终 Claim 是否绑定到可复查的学术索引和正文快照。
+
 当前版本：`3.0.0`
 
 ## 能做什么
