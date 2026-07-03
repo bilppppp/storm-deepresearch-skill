@@ -13,6 +13,30 @@ from tests.governed_fixtures import (
 
 
 class EvidenceValidationTests(unittest.TestCase):
+    def test_claim_locator_cannot_use_another_candidate_version(self) -> None:
+        claim = valid_claim_v2()
+        source = valid_source_v2()
+        first = valid_retrieval_manifest_v2()
+        second = valid_retrieval_manifest_v2(2)
+        second["source_id"] = "S001"
+        claim["evidence_locators"][0].update({
+            "snapshot_sha256": second["snapshot_sha256"],
+            "excerpt": second["excerpt"],
+        })
+        errors = validate_claim_closure(
+            [claim], [source], self.outline_for("C001"), [first, second]
+        )
+        self.assertIn("claim C001 capture candidate does not match source version", errors)
+
+    def test_academic_source_must_be_bibliographically_verified(self) -> None:
+        source = valid_source_v2(academic=True)
+        source["bibliographic"]["status"] = "unverified"
+        errors = validate_claim_closure(
+            [valid_claim_v2()], [source], self.outline_for("C001"),
+            [valid_retrieval_manifest_v2()],
+        )
+        self.assertIn("academic source S001 is not bibliographically verified", errors)
+
     def test_strong_fact_requires_strong_capture(self) -> None:
         claim = valid_claim_v2()
         source = valid_source_v2()

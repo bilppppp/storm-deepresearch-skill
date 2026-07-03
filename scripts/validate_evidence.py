@@ -19,6 +19,7 @@ from scripts.contract_io import (
     validate_retrieval_evidence,
     validate_source_record,
 )
+from scripts.source_evidence import ACADEMIC_SOURCE_TYPES
 
 
 SCRIPT_INTERFACE = "internal-worker-cli"
@@ -142,13 +143,22 @@ def validate_claim_closure(
             f"retrieval manifest {source_id}: {item}"
             for item in validate_retrieval_evidence(manifest)
         )
+    candidate_by_source: dict[str, str] = {}
     for source_id, source in source_by_id.items():
         source_manifests = manifests_by_source.get(source_id, [])
-        if source_manifests and not any(
-            source.get("content_hash") == item.get("snapshot_sha256")
-            for item in source_manifests
-        ):
+        canonical_manifests = [
+            item for item in source_manifests
+            if source.get("content_hash") == item.get("snapshot_sha256")
+        ]
+        if source_manifests and not canonical_manifests:
             errors.append(f"source {source_id} content hash does not match any retrieval snapshot")
+        canonical_candidates = {
+            str(item.get("candidate_id")) for item in canonical_manifests
+        }
+        if len(canonical_candidates) == 1:
+            candidate_by_source[source_id] = next(iter(canonical_candidates))
+        elif len(canonical_candidates) > 1:
+            errors.append(f"source {source_id} canonical snapshot spans multiple candidate versions")
 
     claim_by_id: dict[str, dict[str, Any]] = {}
     for claim in claims:
@@ -193,6 +203,14 @@ def validate_claim_closure(
             errors.append(f"material claim {claim_id} is not mapped to report outline")
         if claim.get("material") and claim.get("status") == "unsupported":
             errors.append(f"unsupported material claim {claim_id} cannot enter the report")
+        if claim.get("material"):
+            for source_id in claim.get("supporting_source_ids", []):
+                source = source_by_id.get(str(source_id))
+                if not source or source.get("source_type") not in ACADEMIC_SOURCE_TYPES:
+                    continue
+                bibliographic = source.get("bibliographic")
+                if not isinstance(bibliographic, dict) or bibliographic.get("status") != "verified":
+                    errors.append(f"academic source {source_id} is not bibliographically verified")
         if claim.get("status") == "contested" and not claim.get("contradicting_source_ids"):
             errors.append(f"claim {claim_id}: contested claim requires contradicting evidence")
         if claim.get("freshness_required"):
@@ -228,6 +246,12 @@ def validate_claim_closure(
                 errors.append(f"claim {claim_id} locator snapshot hash mismatch for {source_id}")
                 errors.append(f"claim {claim_id} locator excerpt is not bound to {source_id}")
                 continue
+            expected_candidate = candidate_by_source.get(str(source_id))
+            if expected_candidate and any(
+                str(manifest.get("candidate_id")) != expected_candidate
+                for manifest in matching
+            ):
+                errors.append(f"claim {claim_id} capture candidate does not match source version")
             declared = str(claim.get("evidence_strength", "unknown"))
             ceiling = max(
                 (str(item.get("evidence_strength_ceiling", "background")) for item in matching),
