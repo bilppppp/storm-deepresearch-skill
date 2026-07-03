@@ -104,6 +104,74 @@ class IncidentRegressionTests(unittest.TestCase):
             self.assertIn("secondary synthesis cannot be classified as primary", result.stderr)
             self.assertFalse(self.receipt_path(run, "retrieval").exists())
 
+    def test_zero_result_search_cannot_close_question_or_support_absence_claim(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            helper = evidence_stage_helpers.EvidenceStageTests(methodName="runTest")
+            run = helper.retrieved_run(
+                workspace,
+                register_findings=False,
+                gap_fill_query_ids={"Q001"},
+                zero_result_query_ids={"Q001"},
+            )
+            findings_path = helper.write_findings_inputs(run, workspace)
+            findings = [
+                json.loads(line)
+                for line in findings_path.read_text(encoding="utf-8").splitlines()
+            ]
+            findings[0]["source_ids"] = []
+            findings[0]["evidence_locators"] = []
+            findings_path.write_text(
+                "".join(json.dumps(row) + "\n" for row in findings),
+                encoding="utf-8",
+            )
+            result = helper.invoke(
+                "findings", str(run), "--findings-jsonl", str(findings_path)
+            )
+            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+            self.assertIn("usable finding requires source_ids and evidence_locators", result.stderr)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            helper = evidence_stage_helpers.EvidenceStageTests(methodName="runTest")
+            run = helper.retrieved_run(
+                workspace,
+                register_findings=False,
+                gap_fill_query_ids={"Q001"},
+                zero_result_query_ids={"Q001"},
+            )
+            findings_path = helper.write_findings_inputs(run, workspace)
+            findings = [
+                json.loads(line)
+                for line in findings_path.read_text(encoding="utf-8").splitlines()
+            ]
+            findings[0]["status"] = "needs_more_evidence"
+            findings[0]["claim_ids"] = []
+            findings_path.write_text(
+                "".join(json.dumps(row) + "\n" for row in findings),
+                encoding="utf-8",
+            )
+            result = helper.invoke(
+                "findings", str(run), "--findings-jsonl", str(findings_path)
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            helper.register_lens_conflicts(run, workspace)
+            helper.register_lens_outline(run, workspace)
+            inputs = helper.write_evidence_inputs(run, workspace)
+            claims_path = inputs[0]
+            claims = [
+                json.loads(line)
+                for line in claims_path.read_text(encoding="utf-8").splitlines()
+            ]
+            claims[0]["claim_text"] = "No clinical evidence was found for this material claim."
+            claims_path.write_text(
+                "".join(json.dumps(row) + "\n" for row in claims),
+                encoding="utf-8",
+            )
+            result = helper.invoke_evidence(run, inputs)
+            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+            self.assertIn("uses absence language without absence_search evidence_mode", result.stderr)
+
     def run_incident_fixture(self, name: str, workspace: Path) -> IncidentRun:
         if name == "placeholder-source":
             helper = cli_helpers.StormResearchCLITests(methodName="runTest")

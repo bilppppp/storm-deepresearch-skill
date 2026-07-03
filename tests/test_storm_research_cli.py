@@ -125,6 +125,45 @@ class StormResearchCLITests(unittest.TestCase):
             result = self.invoke("ingest", str(run), "--input-jsonl", str(inputs))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_critique_profile_accepts_academic_baseline_and_reception_surfaces(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace, profile="critique_deepresearch")
+            inputs = self.write_retrieval_inputs(run, workspace)
+            rows = [json.loads(line) for line in inputs.read_text(encoding="utf-8").splitlines()]
+            surface_classes = {
+                str(row["surface_class"])
+                for row in rows
+                if row.get("record_kind") == "search_run"
+            }
+            self.assertGreaterEqual(
+                surface_classes,
+                {"scholarly_index", "reception_archive", "interview_archive"},
+            )
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(inputs))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_high_stakes_profile_accepts_pubmed_and_trial_registry_surfaces(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace, high_stakes=True)
+            brief_path = run / "work/generations/g0001/inputs/brief.json"
+            brief = json.loads(brief_path.read_text(encoding="utf-8"))
+            self.assertTrue(brief["high_stakes"])
+            inputs = self.write_retrieval_inputs(run, workspace, high_stakes=True)
+            rows = [json.loads(line) for line in inputs.read_text(encoding="utf-8").splitlines()]
+            search_runs = [row for row in rows if row.get("record_kind") == "search_run"]
+            surfaces = {str(row["surface"]) for row in search_runs}
+            surface_classes = {str(row["surface_class"]) for row in search_runs}
+            self.assertIn("PubMed", surfaces)
+            self.assertIn("ClinicalTrials.gov", surfaces)
+            self.assertGreaterEqual(
+                surface_classes,
+                {"scholarly_index", "literature_database", "trial_registry"},
+            )
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(inputs))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_version_siblings_do_not_inflate_independent_source_depth(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
@@ -637,20 +676,32 @@ class StormResearchCLITests(unittest.TestCase):
         )
 
     def initialized_run(
-        self, workspace: Path, *, profile: str = "default_full_dossier"
+        self,
+        workspace: Path,
+        *,
+        profile: str = "default_full_dossier",
+        high_stakes: bool = False,
     ) -> Path:
         extra = ["--research-profile", profile]
         if profile == "briefing":
             extra.extend(["--briefing-reason", "fixture explicitly requests a short briefing"])
+        if high_stakes:
+            extra.append("--high-stakes")
         result = self.invoke_init(workspace, *extra)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return workspace / "output" / "storm-deepresearch" / "test-run"
 
     def planned_run(
-        self, workspace: Path, *, profile: str = "default_full_dossier"
+        self,
+        workspace: Path,
+        *,
+        profile: str = "default_full_dossier",
+        high_stakes: bool = False,
     ) -> Path:
-        run = self.initialized_run(workspace, profile=profile)
-        plan_path, source_plan_path = self.write_plans(workspace)
+        run = self.initialized_run(workspace, profile=profile, high_stakes=high_stakes)
+        plan_path, source_plan_path = self.write_plans(
+            workspace, high_stakes=high_stakes
+        )
         if profile == "critique_deepresearch":
             source_plan_path = self.write_critique_source_plan(workspace)
         self.register_lens_perspectives(run, workspace)
@@ -661,11 +712,21 @@ class StormResearchCLITests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return run
 
-    def write_plans(self, workspace: Path) -> tuple[Path, Path]:
+    def write_plans(
+        self, workspace: Path, *, high_stakes: bool = False
+    ) -> tuple[Path, Path]:
         plan = workspace / "research-plan.json"
         source_plan = workspace / "source-plan.json"
         plan.write_text(json.dumps(valid_research_plan_v2()), encoding="utf-8")
-        source_plan.write_text(json.dumps(valid_source_plan()), encoding="utf-8")
+        source_plan_payload = valid_source_plan()
+        if high_stakes:
+            source_plan_payload["questions"][0]["search_requirements"]["required_surfaces"] = [
+                "scholarly_index", "literature_database"
+            ]
+            source_plan_payload["questions"][1]["search_requirements"]["required_surfaces"] = [
+                "scholarly_index", "trial_registry"
+            ]
+        source_plan.write_text(json.dumps(source_plan_payload), encoding="utf-8")
         return plan, source_plan
 
     def write_critique_source_plan(self, workspace: Path) -> Path:
@@ -711,8 +772,13 @@ class StormResearchCLITests(unittest.TestCase):
         gap_fill_query_ids: set[str] | frozenset[str] = frozenset(),
         zero_result_query_ids: set[str] | frozenset[str] = frozenset(),
         official_query_ids: set[str] | frozenset[str] = frozenset(),
+        high_stakes: bool = False,
     ) -> Path:
         cache = run / "work/generations/g0001/evidence-cache"
+        brief = json.loads(
+            (run / "work/generations/g0001/inputs/brief.json").read_text(encoding="utf-8")
+        )
+        critique = brief.get("research_profile") == "critique_deepresearch"
         records: list[dict[str, object]] = []
         for index in range(1, 11):
             search = valid_search_run_record(index)
@@ -754,6 +820,34 @@ class StormResearchCLITests(unittest.TestCase):
                 cache / f"crossref-{index}.json"
             )
             records.extend([search, candidate, record])
+            extra_surfaces: list[tuple[int, str, str, str]] = []
+            if critique and index == 5:
+                extra_surfaces.append((205, "reception", "reception_archive", "counterevidence"))
+            if critique and index == 6:
+                extra_surfaces.append((206, "interviews", "interview_archive", "counterevidence"))
+            if high_stakes and index == 1:
+                extra_surfaces.append((301, "PubMed", "literature_database", "baseline"))
+            if high_stakes and index == 2:
+                extra_surfaces.append((302, "ClinicalTrials.gov", "trial_registry", "baseline"))
+            for run_number, surface, surface_class, pass_kind in extra_surfaces:
+                run_id = f"SR{run_number:03d}"
+                artifact = cache / f"search-{run_number}.json"
+                artifact.write_text(
+                    json.dumps({"results": [candidate["candidate_id"]]}) + "\n",
+                    encoding="utf-8",
+                )
+                extra_search = valid_search_run_record(index, pass_kind=pass_kind)
+                extra_search.update({
+                    "search_run_id": run_id,
+                    "surface": surface,
+                    "surface_class": surface_class,
+                    "raw_artifact": artifact.name,
+                    "snapshot_sha256": sha256_file(artifact),
+                    "result_count": 1,
+                })
+                candidate["search_run_ids"].append(run_id)
+                record["search_run_ids"].append(run_id)
+                records.append(extra_search)
             if query_id in gap_fill_query_ids:
                 gap_id = f"SR{100 + index:03d}"
                 gap_artifact = cache / f"gap-{index}.json"

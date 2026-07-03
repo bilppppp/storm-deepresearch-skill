@@ -149,7 +149,10 @@ def validate_retrieval_audit(
             and str(source.get("canonical_url") or "").startswith(("http://", "https://"))
         }
         if len(independent) < 6:
-            errors.append("full_dossier independent source depth requires at least 6 external sources")
+            errors.append(
+                "full_dossier independent source depth requires at least 6 "
+                "non-user, non-encyclopedia external sources"
+            )
 
     pass_rank = {"corpus": 0, "baseline": 1, "counterevidence": 1, "gap_fill": 2}
     by_query: dict[str, list[dict[str, object]]] = {}
