@@ -23,10 +23,13 @@ def render(root: Path) -> None:
     sources = load_jsonl(package_child(root, "research/source-register.jsonl"))
     claims = load_jsonl(package_child(root, "research/claim-evidence-ledger.jsonl"))
     conflicts = load_json(package_child(root, "research/contradiction-ledger.json")).get("conflicts", [])
-    source_lines = ["# Source Register", "", "| ID | Title | Organization | Published | Retrieved | Type | Tier | Location | Freshness |", "|---|---|---|---|---|---|---|---|---|"]
+    source_lines = ["# Source Register", "", "| ID | Title | Organization | Published | Retrieved | Type | Tier | Bibliographic | Version | Location | Freshness |", "|---|---|---|---|---|---|---|---|---|---|---|"]
     for source in sources:
         location = source.get("canonical_url") or source.get("file_ref")
-        source_lines.append("| " + " | ".join(cell(source.get(key, "")) for key in ("source_id", "title", "author_or_org", "published_at", "retrieved_at", "source_type", "reliability_tier")) + f" | {cell(location)} | {cell(source.get('freshness_status', ''))} |")
+        bibliographic = source.get("bibliographic")
+        status = bibliographic.get("status") if isinstance(bibliographic, dict) else "n/a"
+        version = bibliographic.get("version_role") if isinstance(bibliographic, dict) else "n/a"
+        source_lines.append("| " + " | ".join(cell(source.get(key, "")) for key in ("source_id", "title", "author_or_org", "published_at", "retrieved_at", "source_type", "reliability_tier")) + f" | {cell(status)} | {cell(version)} | {cell(location)} | {cell(source.get('freshness_status', ''))} |")
     if not sources:
         source_lines.extend(["", "No sources registered."])
     source_view = package_child(root, "research/source-register.md")

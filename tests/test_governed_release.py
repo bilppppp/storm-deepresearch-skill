@@ -17,7 +17,8 @@ from scripts.governed_release import (
 )
 from scripts.harness_io import compute_skill_package_hash, sha256_file
 from scripts.run_state import RunLayout, Stage, verify_receipt_chain
-from tests.test_validate_package import build_valid_governed_run
+from scripts.render_audit_views import render as render_audit_views
+from tests.test_validate_package import artifact_root, build_valid_governed_run
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +26,15 @@ CLI = ROOT / "scripts/storm_research.py"
 
 
 class GovernedReleaseTests(unittest.TestCase):
+    def test_internal_source_view_exposes_bibliographic_status_and_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run = build_valid_governed_run(Path(tmp))
+            artifacts = artifact_root(run)
+            render_audit_views(artifacts)
+            source_view = (artifacts / "research/source-register.md").read_text(encoding="utf-8")
+            self.assertIn("Bibliographic", source_view)
+            self.assertIn("Version", source_view)
+
     def test_missing_trust_evidence_blocks_release(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
@@ -88,6 +98,10 @@ class GovernedReleaseTests(unittest.TestCase):
             self.assertFalse((release / "raw.jsonl").exists())
             self.assertFalse((release / "work").exists())
             self.assertFalse((release / "state").exists())
+            self.assertFalse((release / "research/retrieval-audit.jsonl").exists())
+            source_view = (release / "research/source-register.md").read_text(encoding="utf-8")
+            self.assertIn("Bibliographic", source_view)
+            self.assertIn("Version", source_view)
             self.assertTrue(self.release_receipt(run).is_file())
             verify_receipt_chain(
                 RunLayout(run), 1, Stage.RELEASE, compute_skill_package_hash(ROOT)

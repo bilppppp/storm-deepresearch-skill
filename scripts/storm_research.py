@@ -41,7 +41,11 @@ from scripts.harness_io import (
 )
 from scripts.export_report import DEFAULT_CHROME, RenderError, export_report, markdown_title
 from scripts.governed_release import ReleaseGateError, release_run
-from scripts.normalize_retrieval import independent_source_identity, normalize_retrieval_records
+from scripts.normalize_retrieval import (
+    independent_source_identity,
+    normalize_retrieval_records,
+    validate_retrieval_audit as validate_retrieval_audit_contract,
+)
 from scripts.merge_claim_ledger import merge_claim_records
 from scripts.output_paths import OutputPathError, package_child, select_new_output_dir
 from scripts.run_state import (
@@ -70,7 +74,6 @@ from scripts.report_traceability import (
     validate_review_set,
 )
 from scripts.source_evidence import (
-    ACADEMIC_SOURCE_TYPES,
     SourceEvidenceError,
     capture_retrieval_evidence,
     normalized_snapshot_text,
@@ -1312,96 +1315,6 @@ def validate_retrieval_depth(
     return []
 
 
-def validate_retrieval_audit(
-    audit: list[dict[str, object]],
-    manifests: list[dict[str, object]],
-    sources: list[dict[str, object]],
-    source_plan: dict[str, object],
-    brief: dict[str, object],
-) -> list[str]:
-    search_runs = {
-        str(row.get("search_run_id")): row
-        for row in audit
-        if row.get("record_kind") == "search_run"
-    }
-    candidates = {
-        str(row.get("candidate_id")): row
-        for row in audit
-        if row.get("record_kind") == "candidate"
-    }
-    errors: list[str] = []
-    external_full = _is_full_external_dossier(brief)
-    completed_statuses = {"completed", "zero_results"}
-    if external_full:
-        baseline = [
-            row for row in search_runs.values()
-            if row.get("pass_kind") == "baseline"
-            and row.get("execution_status") in completed_statuses
-            and row.get("surface_class") == "scholarly_index"
-        ]
-        if not baseline:
-            errors.append("full_dossier requires a completed academic baseline")
-        surfaces = {str(row.get("surface")) for row in baseline}
-        if len(surfaces) < 2:
-            errors.append("full_dossier requires two independent academic discovery surfaces")
-
-        runs_by_query: dict[str, list[dict[str, object]]] = {}
-        for row in search_runs.values():
-            runs_by_query.setdefault(str(row.get("query_id")), []).append(row)
-        for question in source_plan.get("questions", []):
-            if not isinstance(question, dict):
-                continue
-            requirements = question.get("search_requirements")
-            if not isinstance(requirements, dict) or not requirements.get("academic_required"):
-                continue
-            query_id = str(question.get("query_id"))
-            if not any(
-                row.get("surface_class") in {"scholarly_index", "literature_database"}
-                and row.get("execution_status") in completed_statuses
-                for row in runs_by_query.get(query_id, [])
-            ):
-                errors.append(f"academic-required query {query_id} lacks an academic search run")
-
-    pass_rank = {"corpus": 0, "baseline": 1, "counterevidence": 1, "gap_fill": 2}
-    by_query: dict[str, list[dict[str, object]]] = {}
-    for row in search_runs.values():
-        by_query.setdefault(str(row.get("query_id")), []).append(row)
-    for query_id, rows in by_query.items():
-        ordered = sorted(rows, key=lambda row: str(row.get("searched_at", "")))
-        ranks = [pass_rank.get(str(row.get("pass_kind")), -1) for row in ordered]
-        if ranks != sorted(ranks):
-            errors.append(f"{query_id} search passes are out of order")
-
-    if brief.get("retrieval_mode") == "closed_corpus" or brief.get("source_policy") == "closed_corpus":
-        for row in search_runs.values():
-            if row.get("adapter") != "closed_corpus" or row.get("surface_class") != "local_corpus":
-                errors.append("closed_corpus forbids external search runs")
-        for candidate in candidates.values():
-            outcomes = candidate.get("resolver_outcomes", [])
-            if any(
-                isinstance(outcome, dict) and outcome.get("status") != "skipped"
-                for outcome in outcomes
-            ):
-                errors.append("closed_corpus forbids external resolver outcomes")
-
-    manifest_candidates = {str(item.get("candidate_id")) for item in manifests}
-    for candidate_id, candidate in candidates.items():
-        disposition = candidate.get("disposition")
-        if disposition == "include" and candidate_id not in manifest_candidates:
-            errors.append(f"included candidate {candidate_id} lacks a capture")
-        if disposition in {"exclude", "needs_review"} and candidate_id in manifest_candidates:
-            errors.append(f"capture refers to {disposition} candidate {candidate_id}")
-    for source in sources:
-        if source.get("source_type") not in ACADEMIC_SOURCE_TYPES:
-            continue
-        bibliographic = source.get("bibliographic")
-        if not isinstance(bibliographic, dict) or bibliographic.get("status") != "verified":
-            errors.append(
-                f"academic candidate is not bibliographically verified: {source.get('source_id')}"
-            )
-    return list(dict.fromkeys(errors))
-
-
 def _infer_content_type(path: Path, explicit: str | None = None) -> str:
     if explicit:
         return explicit
@@ -1724,7 +1637,9 @@ def command_ingest(args: argparse.Namespace) -> int:
         raise RetrievalGateError(
             "retrieval evidence does not cover planned questions: " + ", ".join(missing)
         )
-    audit_errors = validate_retrieval_audit(audit, manifests, sources, source_plan, brief)
+    audit_errors = validate_retrieval_audit_contract(
+        audit, manifests, sources, source_plan, brief
+    )
     if audit_errors:
         raise RetrievalGateError("; ".join(audit_errors))
     plan_receipt = load_json(layout.receipt(generation, Stage.PLAN))

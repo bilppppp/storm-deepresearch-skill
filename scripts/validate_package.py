@@ -27,9 +27,11 @@ from scripts.contract_io import (
     validate_brief,
     validate_report_outline,
     validate_research_plan,
+    validate_retrieval_input_record,
     validate_tasklet_record,
     validate_source_plan,
 )
+from scripts.normalize_retrieval import validate_retrieval_audit
 from scripts.export_report import markdown_sections, markdown_title
 from scripts.harness_io import (
     atomic_copy_file,
@@ -88,6 +90,7 @@ RENDER_ARTIFACTS = {
     "research/report-outline.json",
     "research/research-plan.json",
     "research/retrieval-manifest.jsonl",
+    "research/retrieval-audit.jsonl",
     "research/reviewed-paragraph-map.jsonl",
     "research/revision-map.json",
     "research/source-plan.json",
@@ -773,6 +776,7 @@ def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
     source_plan = load_json(artifacts / "research/source-plan.json")
     sources = load_jsonl(artifacts / "research/source-register.jsonl")
     manifests = load_jsonl(artifacts / "research/retrieval-manifest.jsonl")
+    audit = load_jsonl(artifacts / "research/retrieval-audit.jsonl")
     tasklets = load_jsonl(artifacts / "research/storm-tasklets.jsonl")
     findings_path = artifacts / "research/storm-findings-pool.jsonl"
     coverage_path = artifacts / "research/finding-coverage.json"
@@ -798,6 +802,23 @@ def _domain_checks(artifacts: Path, brief_path: Path) -> list[Check]:
     add_check(
         checks, "contracts", contract_errors, "inputs/brief.json; artifacts/research/*.json",
         "brief, plan, source plan, and outline contracts are valid", "repair contracts and restart from the responsible stage", EXIT_CONTRACT,
+    )
+
+    audit_errors: list[str] = []
+    for index, record in enumerate(audit, start=1):
+        audit_errors.extend(
+            f"retrieval audit row {index}: {item}"
+            for item in validate_retrieval_input_record(record)
+        )
+    audit_errors.extend(validate_retrieval_audit(audit, manifests, sources, source_plan, brief))
+    add_check(
+        checks,
+        "academic-retrieval-integrity",
+        audit_errors,
+        "artifacts/research/retrieval-audit.jsonl; artifacts/research/retrieval-manifest.jsonl",
+        "academic baseline, candidate screening, version families, and captures are closed",
+        "repair retrieval audit inputs and create a new governed generation",
+        EXIT_EVIDENCE,
     )
 
     evidence_errors = validate_claim_closure(claims, sources, outline, manifests)

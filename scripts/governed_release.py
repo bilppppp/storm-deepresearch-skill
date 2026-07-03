@@ -282,14 +282,18 @@ def _cell(value: object) -> str:
 def _source_register_markdown(sources: list[dict[str, Any]]) -> str:
     lines = [
         "# Source Register", "",
-        "| ID | Title | Organization | Published | Retrieved | Type | Class | Tier | Location | Freshness |",
-        "|---|---|---|---|---|---|---|---|---|---|",
+        "| ID | Title | Organization | Published | Retrieved | Type | Class | Tier | Bibliographic | Version | Location | Freshness |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for source in sources:
+        bibliographic = source.get("bibliographic")
+        status = bibliographic.get("status") if isinstance(bibliographic, dict) else "n/a"
+        version = bibliographic.get("version_role") if isinstance(bibliographic, dict) else "n/a"
         values = (
             source.get("source_id"), source.get("title"), source.get("author_or_org"),
             source.get("published_at") or "unknown", source.get("retrieved_at"),
             source.get("source_type"), source.get("primary_class"), source.get("reliability_tier"),
+            status, version,
             source.get("canonical_url") or source.get("file_ref"), source.get("freshness_status"),
         )
         lines.append("| " + " | ".join(_cell(value) for value in values) + " |")

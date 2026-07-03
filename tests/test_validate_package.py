@@ -17,6 +17,25 @@ CLI = ROOT / "scripts/storm_research.py"
 
 
 class ValidatePackageTests(unittest.TestCase):
+    def test_validation_requires_retrieval_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run = build_valid_governed_run(Path(tmp))
+            (artifact_root(run) / "research/retrieval-audit.jsonl").unlink()
+            result = self.validate(run)
+            self.assertEqual(result.returncode, 4)
+            self.assertIn("retrieval-audit.jsonl", result.stderr)
+
+    def test_validation_reports_academic_retrieval_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run = build_valid_governed_run(Path(tmp))
+            result = self.validate(run)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            report = json.loads(
+                (artifact_root(run) / "validation/validation-report.json").read_text()
+            )
+            checks = {item["check_id"]: item for item in report["checks"]}
+            self.assertEqual(checks["academic-retrieval-integrity"]["status"], "pass")
+
     def validate(self, run: Path) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [sys.executable, str(CLI), "validate", str(run)],
