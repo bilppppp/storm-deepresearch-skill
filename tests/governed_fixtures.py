@@ -307,7 +307,7 @@ def valid_storm_lens_artifact(
         "P1": {
             "perspectives": ["historian", "domain_expert", "skeptic", "practitioner", "affected_party"],
             "question_ids": [f"Q{index:03d}" for index in range(1, 11)],
-            "source_class_ids": ["official-record"],
+            "source_class_ids": ["official-record", "academic"],
             "notes": "Prompt 1 created perspective questions and source needs before retrieval.",
         },
         "P2": {

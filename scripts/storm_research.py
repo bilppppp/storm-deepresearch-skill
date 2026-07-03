@@ -41,7 +41,7 @@ from scripts.harness_io import (
 )
 from scripts.export_report import DEFAULT_CHROME, RenderError, export_report, markdown_title
 from scripts.governed_release import ReleaseGateError, release_run
-from scripts.normalize_retrieval import normalize_retrieval_records
+from scripts.normalize_retrieval import independent_source_identity, normalize_retrieval_records
 from scripts.merge_claim_ledger import merge_claim_records
 from scripts.output_paths import OutputPathError, package_child, select_new_output_dir
 from scripts.run_state import (
@@ -70,6 +70,7 @@ from scripts.report_traceability import (
     validate_review_set,
 )
 from scripts.source_evidence import (
+    ACADEMIC_SOURCE_TYPES,
     SourceEvidenceError,
     capture_retrieval_evidence,
     normalized_snapshot_text,
@@ -1043,6 +1044,13 @@ def validate_source_depth_plan(
         item for item in source_plan.get("source_classes", [])
         if isinstance(item, dict)
     ]
+    academic_class_ids = {
+        str(item.get("class_id"))
+        for item in source_classes
+        if "academic" in _source_class_text(item) or "scholar" in _source_class_text(item)
+    }
+    if not academic_class_ids:
+        errors.append("full_dossier requires an academic source class")
     external_class_ids = {
         str(item.get("class_id"))
         for item in source_classes
@@ -1233,31 +1241,38 @@ def _promote_retrieval_artifacts(
     generation: int,
     sources: list[dict[str, object]],
     manifests: list[dict[str, object]],
-) -> tuple[Path, Path]:
+    audit: list[dict[str, object]],
+) -> tuple[Path, Path, Path]:
     staging = package_child(
         layout.root, f"work/.staging/g{generation:04d}/retrieval-{uuid.uuid4().hex}"
     )
     staging.mkdir(parents=True, exist_ok=False)
     staged_sources = staging / "source-register.jsonl"
     staged_manifest = staging / "retrieval-manifest.jsonl"
+    staged_audit = staging / "retrieval-audit.jsonl"
     atomic_write_text(staged_sources, _jsonl_text(sources))
     atomic_write_text(staged_manifest, _jsonl_text(manifests))
+    atomic_write_text(staged_audit, _jsonl_text(audit))
     source_path = layout.artifact(generation, "research/source-register.jsonl")
     manifest_path = layout.artifact(generation, "research/retrieval-manifest.jsonl")
+    audit_path = layout.artifact(generation, "research/retrieval-audit.jsonl")
     atomic_promote(staged_sources, source_path)
     atomic_promote(staged_manifest, manifest_path)
+    atomic_promote(staged_audit, audit_path)
     staging.rmdir()
-    return source_path, manifest_path
+    return source_path, manifest_path, audit_path
 
 
 def _refresh_current_retrieval_view(
     layout: RunLayout,
     sources: list[dict[str, object]],
     manifests: list[dict[str, object]],
+    audit: list[dict[str, object]],
 ) -> None:
     root = package_child(layout.root, "current/research")
     atomic_write_text(root / "source-register.jsonl", _jsonl_text(sources))
     atomic_write_text(root / "retrieval-manifest.jsonl", _jsonl_text(manifests))
+    atomic_write_text(root / "retrieval-audit.jsonl", _jsonl_text(audit))
 
 
 def _is_user_material_source(source: dict[str, object]) -> bool:
@@ -1288,12 +1303,103 @@ def validate_retrieval_depth(
     if not _is_full_external_dossier(brief):
         return []
     deep_external = [source for source in sources if _is_deep_external_source(source)]
-    if len(deep_external) < MIN_FULL_DOSSIER_DEEP_EXTERNAL_SOURCES:
+    independent = {independent_source_identity(source) for source in deep_external}
+    if len(independent) < MIN_FULL_DOSSIER_DEEP_EXTERNAL_SOURCES:
         return [
-            "full_dossier external research requires at least "
+            "full_dossier independent source depth requires at least "
             f"{MIN_FULL_DOSSIER_DEEP_EXTERNAL_SOURCES} non-user, non-encyclopedia external sources"
         ]
     return []
+
+
+def validate_retrieval_audit(
+    audit: list[dict[str, object]],
+    manifests: list[dict[str, object]],
+    sources: list[dict[str, object]],
+    source_plan: dict[str, object],
+    brief: dict[str, object],
+) -> list[str]:
+    search_runs = {
+        str(row.get("search_run_id")): row
+        for row in audit
+        if row.get("record_kind") == "search_run"
+    }
+    candidates = {
+        str(row.get("candidate_id")): row
+        for row in audit
+        if row.get("record_kind") == "candidate"
+    }
+    errors: list[str] = []
+    external_full = _is_full_external_dossier(brief)
+    completed_statuses = {"completed", "zero_results"}
+    if external_full:
+        baseline = [
+            row for row in search_runs.values()
+            if row.get("pass_kind") == "baseline"
+            and row.get("execution_status") in completed_statuses
+            and row.get("surface_class") == "scholarly_index"
+        ]
+        if not baseline:
+            errors.append("full_dossier requires a completed academic baseline")
+        surfaces = {str(row.get("surface")) for row in baseline}
+        if len(surfaces) < 2:
+            errors.append("full_dossier requires two independent academic discovery surfaces")
+
+        runs_by_query: dict[str, list[dict[str, object]]] = {}
+        for row in search_runs.values():
+            runs_by_query.setdefault(str(row.get("query_id")), []).append(row)
+        for question in source_plan.get("questions", []):
+            if not isinstance(question, dict):
+                continue
+            requirements = question.get("search_requirements")
+            if not isinstance(requirements, dict) or not requirements.get("academic_required"):
+                continue
+            query_id = str(question.get("query_id"))
+            if not any(
+                row.get("surface_class") in {"scholarly_index", "literature_database"}
+                and row.get("execution_status") in completed_statuses
+                for row in runs_by_query.get(query_id, [])
+            ):
+                errors.append(f"academic-required query {query_id} lacks an academic search run")
+
+    pass_rank = {"corpus": 0, "baseline": 1, "counterevidence": 1, "gap_fill": 2}
+    by_query: dict[str, list[dict[str, object]]] = {}
+    for row in search_runs.values():
+        by_query.setdefault(str(row.get("query_id")), []).append(row)
+    for query_id, rows in by_query.items():
+        ordered = sorted(rows, key=lambda row: str(row.get("searched_at", "")))
+        ranks = [pass_rank.get(str(row.get("pass_kind")), -1) for row in ordered]
+        if ranks != sorted(ranks):
+            errors.append(f"{query_id} search passes are out of order")
+
+    if brief.get("retrieval_mode") == "closed_corpus" or brief.get("source_policy") == "closed_corpus":
+        for row in search_runs.values():
+            if row.get("adapter") != "closed_corpus" or row.get("surface_class") != "local_corpus":
+                errors.append("closed_corpus forbids external search runs")
+        for candidate in candidates.values():
+            outcomes = candidate.get("resolver_outcomes", [])
+            if any(
+                isinstance(outcome, dict) and outcome.get("status") != "skipped"
+                for outcome in outcomes
+            ):
+                errors.append("closed_corpus forbids external resolver outcomes")
+
+    manifest_candidates = {str(item.get("candidate_id")) for item in manifests}
+    for candidate_id, candidate in candidates.items():
+        disposition = candidate.get("disposition")
+        if disposition == "include" and candidate_id not in manifest_candidates:
+            errors.append(f"included candidate {candidate_id} lacks a capture")
+        if disposition in {"exclude", "needs_review"} and candidate_id in manifest_candidates:
+            errors.append(f"capture refers to {disposition} candidate {candidate_id}")
+    for source in sources:
+        if source.get("source_type") not in ACADEMIC_SOURCE_TYPES:
+            continue
+        bibliographic = source.get("bibliographic")
+        if not isinstance(bibliographic, dict) or bibliographic.get("status") != "verified":
+            errors.append(
+                f"academic candidate is not bibliographically verified: {source.get('source_id')}"
+            )
+    return list(dict.fromkeys(errors))
 
 
 def _infer_content_type(path: Path, explicit: str | None = None) -> str:
@@ -1379,8 +1485,17 @@ def _capture_record_payload(
         raw.get("publication_date_status")
         or ("known" if raw.get("published_at") else "unknown")
     )
+    query_id = str(raw.get("query_id", ""))
+    suffix = query_id[1:] if re.fullmatch(r"Q\d{3}", query_id) else "001"
+    candidate_id = str(raw.get("candidate_id") or f"K{suffix}")
+    search_run_ids = raw.get("search_run_ids")
+    if not isinstance(search_run_ids, list) or not search_run_ids:
+        search_run_ids = [f"SR{suffix}"]
     record: dict[str, object] = {
-        "query_id": str(raw.get("query_id", "")),
+        "record_kind": "capture",
+        "candidate_id": candidate_id,
+        "search_run_ids": list(search_run_ids),
+        "query_id": query_id,
         "final_url": str(raw.get("final_url") or url) if url else None,
         "file_ref": None if url else file_ref,
         "title": str(raw.get("title", "")).strip(),
@@ -1411,6 +1526,71 @@ def _capture_record_payload(
     except SourceEvidenceError as exc:
         raise RetrievalGateError(str(exc)) from exc
     return record, warnings
+
+
+def _manual_audit_records(
+    capture: dict[str, object], cache_root: Path
+) -> list[dict[str, object]]:
+    search_run_id = str(capture["search_run_ids"][0])
+    snapshot_ref = str(capture["raw_artifact"])
+    snapshot = resolve_snapshot(cache_root, snapshot_ref)
+    adapter = str(capture["adapter"])
+    closed = adapter == "closed_corpus"
+    search = {
+        "record_kind": "search_run",
+        "search_run_id": search_run_id,
+        "query_id": str(capture["query_id"]),
+        "adapter": adapter,
+        "pass_kind": "corpus" if closed else "baseline",
+        "surface": "supplied-corpus" if closed else "manual-capture",
+        "surface_class": "local_corpus" if closed else "web",
+        "query": str(capture.get("title", "manual capture")),
+        "aliases": [str(capture.get("title", "manual capture"))],
+        "searched_at": str(capture["retrieved_at"]),
+        "result_count": 1,
+        "execution_status": "completed",
+        "raw_artifact": snapshot_ref,
+        "snapshot_sha256": sha256_file(snapshot),
+        "limitations": ["Manual capture does not establish exhaustive search coverage."],
+    }
+    candidate = {
+        "record_kind": "candidate",
+        "candidate_id": str(capture["candidate_id"]),
+        "adapter": adapter,
+        "search_run_ids": list(capture["search_run_ids"]),
+        "title": str(capture["title"]),
+        "authors": [str(capture["publisher"])],
+        "year": int(str(capture["published_at"])[:4]) if capture.get("published_at") else None,
+        "venue": str(capture["publisher"]),
+        "url": capture.get("url") or capture.get("final_url"),
+        "identifiers": {
+            "doi": None,
+            "pmid": None,
+            "arxiv_id": None,
+            "semantic_scholar_id": None,
+            "openalex_id": None,
+        },
+        "resolver_outcomes": [{
+            "resolver": "manual-capture",
+            "status": "skipped",
+            "query_basis": "metadata",
+            "matched_identifier": None,
+            "returned_title": None,
+            "returned_authors": [],
+            "returned_year": None,
+            "metadata_match": False,
+            "checked_at": str(capture["retrieved_at"]),
+            "raw_artifact": None,
+            "snapshot_sha256": None,
+            "reason": "No external bibliographic resolver was supplied.",
+        }],
+        "disposition": "include",
+        "screening_reason": "Manually captured against the planned research question.",
+        "version_family_id": None,
+        "version_role": None,
+        "relationship_basis": None,
+    }
+    return [search, candidate, capture]
 
 
 def _write_capture_records(path: Path, records: list[dict[str, object]], *, append: bool) -> None:
@@ -1463,11 +1643,12 @@ def command_capture_source(args: argparse.Namespace) -> int:
         layout, generation, raw, snapshot_base=None, allow_warning=args.allow_warning
     )
     target = args.to or package_child(layout.root, "current/research/retrieval-inputs.jsonl")
-    _write_capture_records(target, [record], append=args.append or target.exists())
+    records = _manual_audit_records(record, layout.evidence_cache(generation, "."))
+    _write_capture_records(target, records, append=args.append or target.exists())
     _print_json({
         "schema_version": "2.0",
         "mode": "capture-source",
-        "record_count": 1,
+        "record_count": len(records),
         "output_jsonl": str(target),
         "warnings": warnings,
     })
@@ -1498,7 +1679,7 @@ def command_ingest_dir(args: argparse.Namespace) -> int:
         record, row_warnings = _capture_record_payload(
             layout, generation, raw, snapshot_base=input_dir, allow_warning=args.allow_warning
         )
-        captured.append(record)
+        captured.extend(_manual_audit_records(record, layout.evidence_cache(generation, ".")))
         if row_warnings:
             warnings.append({"row": index, "query_id": query_id, "warnings": row_warnings})
     target = args.to or package_child(layout.root, "current/research/retrieval-inputs.jsonl")
@@ -1523,7 +1704,7 @@ def command_ingest(args: argparse.Namespace) -> int:
     brief = verify_current_brief_view(layout, generation)
     try:
         records = load_jsonl(args.input_jsonl)
-        sources, manifests = normalize_retrieval_records(
+        sources, manifests, audit = normalize_retrieval_records(
             records,
             mode=str(brief["retrieval_mode"]),
             cache_root=layout.evidence_cache(generation, "."),
@@ -1543,6 +1724,9 @@ def command_ingest(args: argparse.Namespace) -> int:
         raise RetrievalGateError(
             "retrieval evidence does not cover planned questions: " + ", ".join(missing)
         )
+    audit_errors = validate_retrieval_audit(audit, manifests, sources, source_plan, brief)
+    if audit_errors:
+        raise RetrievalGateError("; ".join(audit_errors))
     plan_receipt = load_json(layout.receipt(generation, Stage.PLAN))
     plan_completed = _parse_datetime(plan_receipt.get("completed_at"))
     now = datetime.now(timezone.utc)
@@ -1554,13 +1738,30 @@ def command_ingest(args: argparse.Namespace) -> int:
             timestamp_errors.append(
                 f"retrieval {manifest.get('query_id')} timestamp is outside the plan-ingest window"
             )
+    for record in audit:
+        timestamp_field = "searched_at" if record.get("record_kind") == "search_run" else None
+        if timestamp_field:
+            observed = _parse_datetime(record.get(timestamp_field))
+            if not observed or not plan_completed or observed < plan_completed - skew or observed > now + skew:
+                timestamp_errors.append(
+                    f"search run {record.get('search_run_id')} timestamp is outside the plan-ingest window"
+                )
+        if record.get("record_kind") == "candidate":
+            for outcome in record.get("resolver_outcomes", []):
+                if not isinstance(outcome, dict) or outcome.get("status") == "skipped":
+                    continue
+                observed = _parse_datetime(outcome.get("checked_at"))
+                if not observed or not plan_completed or observed < plan_completed - skew or observed > now + skew:
+                    timestamp_errors.append(
+                        f"candidate {record.get('candidate_id')} resolver timestamp is outside the plan-ingest window"
+                    )
     if timestamp_errors:
         raise RetrievalGateError("; ".join(timestamp_errors))
     depth_errors = validate_retrieval_depth(sources, brief)
     if depth_errors:
         raise RetrievalGateError("; ".join(depth_errors))
-    source_path, manifest_path = _promote_retrieval_artifacts(
-        layout, generation, sources, manifests
+    source_path, manifest_path, audit_path = _promote_retrieval_artifacts(
+        layout, generation, sources, manifests, audit
     )
     plan_path = layout.artifact(generation, "research/research-plan.json")
     snapshot_paths = [
@@ -1569,6 +1770,19 @@ def command_ingest(args: argparse.Namespace) -> int:
         )
         for item in manifests
     ]
+    audit_snapshot_refs: set[str] = set()
+    for record in audit:
+        if record.get("record_kind") == "search_run":
+            audit_snapshot_refs.add(str(record["raw_artifact"]))
+        elif record.get("record_kind") == "candidate":
+            for outcome in record.get("resolver_outcomes", []):
+                if isinstance(outcome, dict) and outcome.get("status") != "skipped":
+                    audit_snapshot_refs.add(str(outcome["raw_artifact"]))
+    snapshot_paths.extend(
+        resolve_snapshot(layout.evidence_cache(generation, "."), ref)
+        for ref in sorted(audit_snapshot_refs)
+    )
+    snapshot_paths = list(dict.fromkeys(snapshot_paths))
     commit_stage_receipt(
         layout,
         generation=generation,
@@ -1579,9 +1793,9 @@ def command_ingest(args: argparse.Namespace) -> int:
             "artifacts/research/research-plan.json": sha256_file(plan_path),
             "artifacts/research/source-plan.json": sha256_file(source_plan_path),
         },
-        output_paths=[source_path, manifest_path, *snapshot_paths],
+        output_paths=[source_path, manifest_path, audit_path, *snapshot_paths],
     )
-    _refresh_current_retrieval_view(layout, sources, manifests)
+    _refresh_current_retrieval_view(layout, sources, manifests, audit)
     print(f"Ingested {len(sources)} sources into {layout.root}")
     return EXIT_OK
 

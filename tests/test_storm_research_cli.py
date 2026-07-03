@@ -5,12 +5,16 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from tests.governed_fixtures import (
     valid_adapter_record,
+    valid_candidate_record,
+    valid_capture_input,
     valid_research_plan_v2,
     valid_source_plan,
+    valid_search_run_record,
     valid_storm_lens_artifact,
 )
 from scripts.harness_io import sha256_file
@@ -21,13 +25,172 @@ CLI = ROOT / "scripts" / "storm_research.py"
 
 
 class StormResearchCLITests(unittest.TestCase):
+    def test_corpus_seeded_search_requires_pass_order(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace)
+            inputs = self.write_retrieval_inputs(run, workspace)
+            rows = [json.loads(line) for line in inputs.read_text(encoding="utf-8").splitlines()]
+            baseline = next(
+                row for row in rows
+                if row.get("record_kind") == "search_run" and row.get("query_id") == "Q001"
+            )
+            base = datetime.fromisoformat(str(baseline["searched_at"]).replace("Z", "+00:00"))
+            cache = run / "work/generations/g0001/evidence-cache"
+            for search_id, pass_kind, offset in (
+                ("SR011", "corpus", 2),
+                ("SR012", "gap_fill", 3),
+            ):
+                artifact = cache / f"{search_id}.json"
+                artifact.write_text('{"results":[]}\n', encoding="utf-8")
+                row = valid_search_run_record(1, pass_kind=pass_kind)
+                row.update({
+                    "search_run_id": search_id,
+                    "raw_artifact": artifact.name,
+                    "snapshot_sha256": sha256_file(artifact),
+                    "searched_at": (base + timedelta(seconds=offset)).isoformat().replace("+00:00", "Z"),
+                })
+                rows.append(row)
+            inputs.write_text(
+                "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+            )
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(inputs))
+            self.assertEqual(result.returncode, 5)
+            self.assertIn("Q001 search passes are out of order", result.stderr)
+
+    def test_closed_corpus_accepts_local_audit_and_rejects_external_surface(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace, profile="closed_corpus")
+            inputs = self.write_closed_corpus_inputs(run, workspace)
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(inputs))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace, profile="closed_corpus")
+            inputs = self.write_closed_corpus_inputs(run, workspace)
+            rows = [json.loads(line) for line in inputs.read_text(encoding="utf-8").splitlines()]
+            search = next(row for row in rows if row.get("record_kind") == "search_run")
+            search.update({"surface": "OpenAlex", "surface_class": "scholarly_index"})
+            inputs.write_text(
+                "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+            )
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(inputs))
+            self.assertEqual(result.returncode, 5)
+            self.assertIn("closed_corpus forbids external search runs", result.stderr)
+
+    def test_full_dossier_requires_academic_baseline(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace)
+            inputs = self.write_retrieval_inputs(run, workspace)
+            rows = [json.loads(line) for line in inputs.read_text(encoding="utf-8").splitlines()]
+            for row in rows:
+                if row.get("record_kind") == "search_run":
+                    row["pass_kind"] = "counterevidence"
+            inputs.write_text(
+                "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+            )
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(inputs))
+            self.assertEqual(result.returncode, 5)
+            self.assertIn("full_dossier requires a completed academic baseline", result.stderr)
+
+    def test_ingest_writes_receipt_bound_retrieval_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace)
+            inputs = self.write_retrieval_inputs(run, workspace)
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(inputs))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            audit = run / "work/generations/g0001/artifacts/research/retrieval-audit.jsonl"
+            self.assertTrue(audit.is_file())
+            receipt = json.loads(
+                (run / "state/generations/g0001/receipts/20-retrieval.json").read_text()
+            )
+            self.assertIn("artifacts/research/retrieval-audit.jsonl", receipt["output_artifacts"])
+
+    def test_briefing_accepts_one_academic_surface(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace, profile="briefing")
+            inputs = self.write_retrieval_inputs(run, workspace)
+            rows = [json.loads(line) for line in inputs.read_text(encoding="utf-8").splitlines()]
+            for row in rows:
+                if row.get("record_kind") == "search_run":
+                    row["surface"] = "OpenAlex"
+            inputs.write_text(
+                "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+            )
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(inputs))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_version_siblings_do_not_inflate_independent_source_depth(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace)
+            inputs = self.write_retrieval_inputs(run, workspace)
+            rows = [json.loads(line) for line in inputs.read_text(encoding="utf-8").splitlines()]
+            for row in rows:
+                if row.get("record_kind") == "candidate":
+                    row["version_family_id"] = "W001"
+                    row["relationship_basis"] = "explicit_metadata"
+            inputs.write_text(
+                "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+            )
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(inputs))
+            self.assertEqual(result.returncode, 5)
+            self.assertIn("independent source depth", result.stderr)
+
+    def test_capture_for_excluded_candidate_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace)
+            inputs = self.write_retrieval_inputs(run, workspace)
+            rows = [json.loads(line) for line in inputs.read_text(encoding="utf-8").splitlines()]
+            candidate = next(row for row in rows if row.get("record_kind") == "candidate")
+            candidate.update({
+                "disposition": "exclude",
+                "screening_reason": "Fails the declared inclusion criteria.",
+            })
+            inputs.write_text(
+                "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+            )
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(inputs))
+            self.assertEqual(result.returncode, 5)
+            self.assertIn("capture refers to exclude candidate", result.stderr)
+
+    def test_full_dossier_rejects_unverified_academic_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.planned_run(workspace)
+            inputs = self.write_retrieval_inputs(run, workspace)
+            rows = [json.loads(line) for line in inputs.read_text(encoding="utf-8").splitlines()]
+            candidate = next(row for row in rows if row.get("record_kind") == "candidate")
+            candidate["resolver_outcomes"][0].update({
+                "status": "unreachable",
+                "matched_identifier": None,
+                "returned_title": None,
+                "returned_authors": [],
+                "returned_year": None,
+                "metadata_match": False,
+                "reason": "Resolver returned no trustworthy response.",
+            })
+            inputs.write_text(
+                "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+            )
+            result = self.invoke("ingest", str(run), "--input-jsonl", str(inputs))
+            self.assertEqual(result.returncode, 5)
+            self.assertIn("academic candidate is not bibliographically verified", result.stderr)
+
     def test_ingest_rejects_future_retrieval_timestamp(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
             run = self.planned_run(workspace)
             inputs = self.write_retrieval_inputs(run, workspace)
             records = [json.loads(line) for line in inputs.read_text(encoding="utf-8").splitlines()]
-            records[0]["retrieved_at"] = "2999-01-01T00:00:00Z"
+            capture = next(item for item in records if item.get("record_kind") == "capture")
+            capture["retrieved_at"] = "2999-01-01T00:00:00Z"
             inputs.write_text("".join(json.dumps(item) + "\n" for item in records), encoding="utf-8")
             result = self.invoke("ingest", str(run), "--input-jsonl", str(inputs))
             self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
@@ -367,16 +530,17 @@ class StormResearchCLITests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             payload = json.loads(result.stdout)
-            self.assertEqual(payload["record_count"], 1)
+            self.assertEqual(payload["record_count"], 3)
             rows = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
-            self.assertEqual(rows[0]["query_id"], "Q001")
-            self.assertTrue((run / "work/generations/g0001/evidence-cache" / rows[0]["raw_artifact"]).is_file())
+            capture = next(row for row in rows if row.get("record_kind") == "capture")
+            self.assertEqual(capture["query_id"], "Q001")
+            self.assertTrue((run / "work/generations/g0001/evidence-cache" / capture["raw_artifact"]).is_file())
             self.assertFalse((run / "state/generations/g0001/receipts/20-retrieval.json").exists())
 
     def test_ingest_dir_builds_inputs_that_ingest_can_commit(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
-            run = self.planned_run(workspace)
+            run = self.planned_run(workspace, profile="briefing")
             input_dir = workspace / "source-captures"
             input_dir.mkdir()
             rows = []
@@ -472,14 +636,23 @@ class StormResearchCLITests(unittest.TestCase):
             *extra,
         )
 
-    def initialized_run(self, workspace: Path) -> Path:
-        result = self.invoke_init(workspace)
+    def initialized_run(
+        self, workspace: Path, *, profile: str = "default_full_dossier"
+    ) -> Path:
+        extra = ["--research-profile", profile]
+        if profile == "briefing":
+            extra.extend(["--briefing-reason", "fixture explicitly requests a short briefing"])
+        result = self.invoke_init(workspace, *extra)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return workspace / "output" / "storm-deepresearch" / "test-run"
 
-    def planned_run(self, workspace: Path) -> Path:
-        run = self.initialized_run(workspace)
+    def planned_run(
+        self, workspace: Path, *, profile: str = "default_full_dossier"
+    ) -> Path:
+        run = self.initialized_run(workspace, profile=profile)
         plan_path, source_plan_path = self.write_plans(workspace)
+        if profile == "critique_deepresearch":
+            source_plan_path = self.write_critique_source_plan(workspace)
         self.register_lens_perspectives(run, workspace)
         result = self.invoke(
             "plan", str(run), "--plan-json", str(plan_path),
@@ -537,12 +710,16 @@ class StormResearchCLITests(unittest.TestCase):
         encyclopedia_only: bool = False,
     ) -> Path:
         cache = run / "work/generations/g0001/evidence-cache"
-        records = []
+        records: list[dict[str, object]] = []
         for index in range(1, 11):
-            record = valid_adapter_record(index)
+            search = valid_search_run_record(index)
+            search["surface"] = "OpenAlex" if index % 2 else "Semantic Scholar"
+            candidate = valid_candidate_record(index)
+            record = valid_capture_input(index)
             if placeholder and index == 1:
                 record["url"] = "https://example.com/fake-paper"
                 record["final_url"] = record["url"]
+                candidate["url"] = record["url"]
             if encyclopedia_only:
                 record["url"] = f"https://en.wikipedia.org/wiki/Research_fixture_{index}"
                 record["final_url"] = record["url"]
@@ -550,13 +727,90 @@ class StormResearchCLITests(unittest.TestCase):
                 record["source_type"] = "encyclopedia"
                 record["primary_class"] = "secondary"
                 record["reliability_tier"] = "B"
+                record["reliability_notes"] = "Secondary encyclopedia fixture."
+                candidate["url"] = record["url"]
             (cache / f"source-{index}.txt").write_text(
                 f"Directly inspectable evidence excerpt {index}. Additional context.",
                 encoding="utf-8",
             )
-            records.append(record)
+            (cache / f"search-{index}.json").write_text(
+                json.dumps({"results": [candidate["candidate_id"]]}) + "\n",
+                encoding="utf-8",
+            )
+            (cache / f"crossref-{index}.json").write_text(
+                json.dumps({"doi": candidate["identifiers"]["doi"]}) + "\n",
+                encoding="utf-8",
+            )
+            search["snapshot_sha256"] = sha256_file(cache / f"search-{index}.json")
+            candidate["resolver_outcomes"][0]["snapshot_sha256"] = sha256_file(
+                cache / f"crossref-{index}.json"
+            )
+            records.extend([search, candidate, record])
         path = workspace / "retrieval-inputs.jsonl"
         path.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
+        return path
+
+    def write_closed_corpus_inputs(self, run: Path, workspace: Path) -> Path:
+        cache = run / "work/generations/g0001/evidence-cache"
+        records: list[dict[str, object]] = []
+        for index in range(1, 11):
+            snapshot = cache / f"source-{index}.txt"
+            snapshot.write_text(
+                f"Directly inspectable evidence excerpt {index}. Closed corpus context.",
+                encoding="utf-8",
+            )
+            search_artifact = cache / f"search-{index}.json"
+            search_artifact.write_text(
+                json.dumps({"local_results": [f"K{index:03d}"]}) + "\n",
+                encoding="utf-8",
+            )
+            search = valid_search_run_record(index, pass_kind="corpus")
+            search.update({
+                "adapter": "closed_corpus",
+                "surface": "supplied-corpus",
+                "surface_class": "local_corpus",
+                "snapshot_sha256": sha256_file(search_artifact),
+            })
+            candidate = valid_candidate_record(index)
+            candidate.update({
+                "adapter": "closed_corpus",
+                "url": None,
+                "identifiers": {key: None for key in candidate["identifiers"]},
+                "version_family_id": None,
+                "version_role": None,
+                "relationship_basis": None,
+            })
+            candidate["resolver_outcomes"] = [{
+                "resolver": "closed-corpus",
+                "status": "skipped",
+                "query_basis": "metadata",
+                "matched_identifier": None,
+                "returned_title": None,
+                "returned_authors": [],
+                "returned_year": None,
+                "metadata_match": False,
+                "checked_at": candidate["resolver_outcomes"][0]["checked_at"],
+                "raw_artifact": None,
+                "snapshot_sha256": None,
+                "reason": "External resolution is forbidden in closed-corpus mode.",
+            }]
+            capture = valid_adapter_record(index)
+            capture.pop("url")
+            capture.update({
+                "adapter": "closed_corpus",
+                "final_url": None,
+                "file_ref": f"input/source-{index}.txt",
+                "observed_status": None,
+                "publisher": "User supplied corpus",
+                "capture_level": "user_file",
+                "source_type": "user_provided_file",
+                "reliability_notes": "File-backed fixture from the supplied closed corpus.",
+            })
+            records.extend([search, candidate, capture])
+        path = workspace / "closed-retrieval-inputs.jsonl"
+        path.write_text(
+            "".join(json.dumps(record) + "\n" for record in records), encoding="utf-8"
+        )
         return path
 
     def write_findings_inputs(self, run: Path, workspace: Path) -> Path:
