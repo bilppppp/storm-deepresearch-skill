@@ -20,6 +20,8 @@ Example:
 
 For full dossiers with external research allowed, source classes cannot be only user transcript, closed corpus, local files, or supplied materials. At least half of planned questions must require external source classes, and the retrieval budget must allow at least six external sources.
 
+Each planned question defines aliases, required discovery surfaces, academic need, corpus-seeded status, and inclusion/exclusion criteria. Every external full dossier includes an academic baseline across at least two scholarly surfaces. A supplied corpus seeds terminology and candidate claims but never cancels the baseline.
+
 For `critique_deepresearch`, the source plan must cover six search dimensions before tasklets can be generated: user claim extraction, supporting evidence, counterevidence or contradiction, theory/framework, reception or criticism, and historical comparison or blind spot. A plan that only searches background pages is invalid.
 
 ## Phase 2 — Generate perspectives
@@ -53,10 +55,12 @@ For each perspective, generate at least two concrete research questions for a fu
 
 For film reviews or essay prompts, do not search only the film's background page. Turn the user's concepts, comparisons, and named theorists into separate research questions, then retrieve sources that can actually prove or challenge those claims.
 
-In 1.1, `plan` automatically creates `research/storm-tasklets.jsonl`. After `ingest`, run `storm_research.py findings` to register `research/storm-findings-pool.jsonl` and `research/finding-coverage.json`. A full external dossier cannot advance to evidence unless every tasklet has at least one usable finding.
+In 1.1, `plan` automatically creates `research/storm-tasklets.jsonl`. After `ingest`, run `storm_research.py findings` to register `research/storm-findings-pool.jsonl` and `research/finding-coverage.json`. A full external dossier cannot advance to evidence unless every tasklet has at least one usable finding. A `needs_more_evidence` finding requires a later gap-fill search; if it remains unresolved, bind its tasklet to exactly one uncertainty record.
 
 ## Phase 4 — Create findings and evidence map
 Findings are the bridge between retrieval and Claims. A finding must name the tasklet, source IDs, evidence locators, limitations, and candidate Claim IDs. Do not turn search snippets, model memory, or unsupported interpretation into findings.
+
+Before findings, ingest a typed search audit: search runs, screened candidates, and exact captures. Academic candidates must have resolver-backed bibliographic identity. Version-family siblings are one independent work, and Claims must cite the captured version that actually contains the located evidence. The internal `retrieval-audit.jsonl` is receipt-bound and excluded from public release.
 
 Each key claim must be recorded with source IDs, confidence, strength, contradictions, and notes.
 

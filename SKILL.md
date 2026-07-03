@@ -9,6 +9,8 @@ description: Use for source-grounded deep research with STORM findings, ledgers,
 
 - Vague `run ... research X`: ask `research_profile`; recommend `default_full_dossier` (strict P1-P4), not briefing.
 - Full dossiers: strict P1-P4, external/human review provenance, no self-review.
+- External full dossiers: run an academic baseline; corpus-seeded search cannot replace it.
+- Ingest search runs, screened candidates, and captures; bind `retrieval-audit.jsonl` internally.
 - Chinese full dossiers: `8000–10000` visible chars; citations/Markdown excluded.
 - Absence claims need search ledgers; Claims cannot exceed capture ceilings.
 - Fresh output path only; reject existing, escaping, symlink paths.
@@ -17,7 +19,7 @@ description: Use for source-grounded deep research with STORM findings, ledgers,
 ## Compact Workflow
 
 1. `init` + `plan`: profile evidence, STORM tasklets, `report_outline`.
-2. `ingest` + `findings` + `evidence`: close sources and Claims.
+2. `ingest` + `findings` + `evidence`: verify bibliography, close gaps, sources, and Claims.
 3. `draft` + P4 + `review-prepare` + `review`: close repairs and external review.
 4. `render` + `validate` + `release`: derive formats; require Trust and approval.
 

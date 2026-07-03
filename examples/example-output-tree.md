@@ -25,7 +25,9 @@ output/
 │               │   ├── storm-lens-outline.json           # strict mode
 │               │   ├── storm-lens-red-team.json          # strict mode
 │               │   ├── source-register.jsonl
+│               │   │   # academic rows contain bibliographic identifiers/status/version family
 │               │   ├── retrieval-manifest.jsonl
+│               │   ├── retrieval-audit.jsonl             # internal; receipt-bound, not released
 │               │   ├── claim-evidence-ledger.jsonl
 │               │   ├── contradiction-ledger.json
 │               │   ├── uncertainty-ledger.json
@@ -60,4 +62,4 @@ output/
                 └── 70-validation.json
 ```
 
-Files under `work/generations/g0001/` are authoritative. `current/` is a convenience view. `report.md` is the only public content source; HTML and PDF are derived outputs. `storm-lens-*.json` files are required only when `storm_lens_mode` is `strict`.
+Files under `work/generations/g0001/` are authoritative. `current/` is a convenience view. `report.md` is the only public content source; HTML and PDF are derived outputs. `storm-lens-*.json` files are required only when `storm_lens_mode` is `strict`. `retrieval-audit.jsonl` preserves search, screening, resolver, and version-family evidence internally and is excluded from the public release projection.

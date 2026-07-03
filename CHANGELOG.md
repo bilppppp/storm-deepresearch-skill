@@ -2,9 +2,25 @@
 
 ## Unreleased
 
+## 3.0.0 - 2026-07-03
+
+### Added
+
+- Typed `search_run`, `candidate`, and `capture` records in the existing ingest JSONL contract.
+- Receipt-bound internal retrieval audit with search/resolver snapshots, screening decisions, bibliographic identities, and version families.
+- Academic baseline, corpus-seeded, counterevidence, and gap-fill retrieval passes.
+
 ### Changed
 
+- External full dossiers require two scholarly discovery surfaces; briefings verify every academic source they cite.
+- Academic Claims must bind a verified candidate and the exact captured version; sibling versions count as one independent work.
+- Zero results, unmatched candidates, and unreachable resolvers remain distinct and cannot directly prove absence.
+- Custom 2.x retrieval adapters must emit the 3.0 typed union; old runs are not silently migrated.
 - Merged the duplicate `strict_storm_lens` user option into the recommended `default_full_dossier`; the old CLI name remains a compatibility alias and normalizes to the canonical profile.
+
+### Migration
+
+- Follow `docs/migration-v2-to-v3.md`; roll back to the archived 2.0.0 package when interpreting a 2.x run.
 
 ## 2.0.0 - 2026-06-29
 

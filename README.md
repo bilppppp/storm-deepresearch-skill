@@ -2,7 +2,7 @@
 
 `storm-deepresearch-skill` 是一个证据驱动的 governed 深度研究 harness。它保留 STORM 的多视角提问思想，但不把角色观点当证据：视角只生成检索问题，事实必须进入来源登记和 Claim-Evidence 账本，每个阶段必须写入可重算 receipt，最终从单一 `report.md` 渲染并验证 Markdown、HTML 和 PDF。
 
-当前版本：`2.0.0`
+当前版本：`3.0.0`
 
 ## 能做什么
 
@@ -15,6 +15,8 @@
 - 默认中文完整研究为 `8000–10000` 净正文字符；参考文献、脚注键、链接地址、图片标记和 Markdown 控制符不计入字数；输入长度只改变检索量，不会自动把成品压缩成摘要。
 - full dossier 必须先冻结 review candidate，再由外部模型会话或人工 reviewer 提交可重算 provenance；`independent: true` 或两个不同字符串不再足以通过。
 - 同一来源可以回答多个 query；Source 去重与问题覆盖分离，Claim 强度不能超过精确 locator 对应的 capture ceiling。
+- 外部 full dossier 强制完成 academic baseline：先记录搜索运行，再筛选候选文献、核验 bibliographic 身份、归并论文版本，最后捕获可引用正文。
+- 用户语料采用 corpus-seeded 检索，不会替代学术基线；未闭合问题必须进入 gap-fill 或不确定性账本。
 - “未发现证据”类 material Claim 必须声明 `absence_search` 并提交别名、检索面、结果数和来源快照。
 - 强制将已回答的 STORM 问题和材料性 Claim 映射到 `research-plan.report_outline`，避免研究停留在中间产物。
 - 对空证据、假引用、过期证据、占位符、本地路径泄漏、缺失 PDF 和格式漂移返回非零退出码。
@@ -172,11 +174,17 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 
 `plan` 必须覆盖 STORM 多视角问题、source classes、停止条件和 `report_outline` 所需的问题闭环。full dossier 且非 `closed_corpus` 时，source plan 不能只依赖用户转录、封闭语料或本地材料：至少一半问题要要求外部 source classes，且 `retrieval_budget.max_sources` 不得低于 `6`。成功后会自动生成 `research/storm-tasklets.jsonl`，每个 STORM 问题变成后续 findings 的最小执行单元。
 
+每个问题还要声明 `search_requirements`：别名、检索面、是否需要学术证据、是否由用户语料提供 corpus-seeded 查询，以及纳入/排除标准。外部 full dossier 至少有一个问题要求 academic source class，并完成跨两个学术发现面的 academic baseline；briefing 可只用一个学术面，但引用的学术来源仍必须完成书目核验。
+
 生成 plan 时先使用 [STORM Lens Prompt Pack](references/storm-lens-prompt-pack.md)：Prompt 1 只生成视角、研究问题和证据需求；检索和 findings 完成后再用 Prompt 2 做证据支持的矛盾地图；Prompt 3 只在 findings 和矛盾处理后生成 `report_outline`；Prompt 4 只在 draft 后做 red-team review。不要先把四条 STORM prompt 一次性跑完再联网搜索。
 
 ### 3. Ingest
 
-内置脚本不会主动联网。宿主检索结果必须符合 `schemas/retrieval-record.schema.json`，包含真实 URL 或闭合语料文件引用、快照 hash、locator 和 excerpt：
+内置脚本不会主动联网，网络调用始终由宿主工具或用户批准的 provider 执行。宿主把一次检索的三类记录写入同一个、符合 `schemas/retrieval-record.schema.json` 的 JSONL，再交给现有 `ingest` 命令：
+
+- `search_run`：查询、别名、检索面、pass kind、结果数和原始结果快照。
+- `candidate`：候选文献、纳入/排除决定、DOI/PMID/arXiv/OpenAlex/Semantic Scholar 身份、resolver 结果和版本家族。
+- `capture`：真实 URL 或语料文件、精确 snapshot、locator、excerpt 和证据强度上限。
 
 ```bash
 # single source helper; copies the snapshot into evidence-cache and writes retrieval-inputs.jsonl
@@ -207,6 +215,8 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 
 `host` 是默认检索模式；`provider` 只在用户明确配置凭证时使用；`closed_corpus` 只使用指定文件或 URL。占位符域名、`.internal` 伪来源、无快照、secondary-as-primary、Wikipedia 伪装成 primary/Tier A 和 blanket Tier A 会在 ingest 阶段失败。full dossier 的外部研究至少需要 `6` 个非用户、非百科的外部来源；Wikipedia 可作背景线索，但不能替代 deep research。
 
+成功 ingest 会生成内部、receipt-bound 的 `research/retrieval-audit.jsonl`，保留 search run、候选筛选、resolver、版本家族和快照哈希；它不会进入公开 release。`unreachable` 表示检索面不可达，不等于 `unmatched`。同一论文的预印本、会议版和期刊版会合并进一个 version family，不能冒充多个独立来源。零结果只证明该次查询没有返回候选，不能直接证明某事实不存在。
+
 ### 4. Findings
 
 检索后先提交 findings pool，把每个 tasklet 的可用发现、来源和候选 Claim 绑定起来：
@@ -217,6 +227,8 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 ```
 
 full dossier 要求每个 `storm-tasklets.jsonl` 里的 tasklet 至少有一个 `usable` finding。后续 evidence 阶段会要求材料性 Claim 链接到 usable finding，且 finding 与 Claim 必须共享 supporting source。
+
+若 finding 标为 `needs_more_evidence`，必须先执行并登记 `gap-fill` search run；仍无法闭合的 tasklet 只能进入 uncertainty ledger 或明确 out of scope。corpus-seeded 搜索先提取用户语料中的术语、作者和主张，但仍须按 plan 完成 baseline、counterevidence 和必要的 gap-fill。
 
 strict mode 下，findings 后必须先注册 Prompt 2 和 Prompt 3 artifacts，不能把 contradictions、uncertainties、outline 和 claims 一次性批处理进 evidence：
 
@@ -396,6 +408,7 @@ full dossier 不接受 `self_review`。当前保证等级称为 `captured extern
 - `work/generations/g0001/artifacts/research/finding-coverage.json`：tasklet 与 finding 覆盖摘要。
 - `work/generations/g0001/artifacts/research/report-outline.json`：问题/Claim 到章节及篇幅预算的闭环。
 - `work/generations/g0001/artifacts/research/source-register.jsonl`：来源权威账本。
+- `work/generations/g0001/artifacts/research/retrieval-audit.jsonl`：内部检索、筛选、书目解析与版本归并审计；绑定 retrieval receipt，不进入 release。
 - `work/generations/g0001/artifacts/research/claim-evidence-ledger.jsonl`：事实、推断、建议和证据状态。
 - `work/generations/g0001/artifacts/research/reviewed-paragraph-map.jsonl`：公共报告段落到内部 claim/source/citation 的映射。
 - `work/generations/g0001/artifacts/research/review-request.json`：冻结候选报告、输入哈希和 author context 的外部审查 handoff。
@@ -408,7 +421,7 @@ full dossier 不接受 `self_review`。当前保证等级称为 `captured extern
 - `current/repair-plan.json`：失败后可选生成的结构化修复计划，不是权威 receipt。
 - `release/`：通过 Trust 和 human approval 后生成的严格 allowlist 发布投影。
 
-可查看 [历史格式示例](examples/validated-output/) 和 [PDF](examples/validated-output/exports/report.pdf)。该目录用于说明交付物布局，不代表 2.0.0 的 external-review、absence-search 和时间因果合同；2.0.0 成品必须以本次运行的 `validation-report.json` 为准。
+可查看 [历史格式示例](examples/validated-output/) 和 [PDF](examples/validated-output/exports/report.pdf)。该目录只用于说明旧版交付物布局，不代表 3.0.0 的 academic retrieval、bibliographic、screening、version-family 和 gap-fill 合同；3.0.0 成品必须以本次运行的 `validation-report.json` 为准。
 
 ## 开发与发布门禁
 
@@ -434,7 +447,7 @@ full dossier 不接受 `self_review`。当前保证等级称为 `captured extern
 
 ## 版本迁移与回滚
 
-1.1.0 到 2.0.0 的外部审查、净正文、absence-search 和时间因果变化见 [2.0 迁移指南](docs/migration-v1.1-to-v2.0.md)。更早版本的迁移文档保留在 `docs/`。
+2.x 到 3.0.0 的检索输入、academic baseline 和内部审计变化见 [3.0 迁移指南](docs/migration-v2-to-v3.md)。1.1.0 到 2.0.0 的外部审查、净正文、absence-search 和时间因果变化见 [2.0 迁移指南](docs/migration-v1.1-to-v2.0.md)。旧 run 不会静默迁移；必须由创建该 run 的版本解释。
 
 ## 设计来源
 

@@ -33,6 +33,8 @@ These are authoritative records:
 - `research/source-register.jsonl`
 - `research/claim-evidence-ledger.jsonl`
 
+`research/retrieval-audit.jsonl` is an internal, generation-scoped audit artifact. The ingest stage rebuilds it only from the validated typed input and binds its hash plus every referenced snapshot into `20-retrieval.json`; it is never copied into `release/`.
+
 Never recreate or truncate them after initialization. The retrieval normalizer reads the existing source register, preserves all existing IDs, updates a matching identity only with a newer retrieval record, assigns new IDs monotonically, and replaces the file atomically only after the complete merge succeeds. A failed parse or merge leaves the existing ledger unchanged.
 
 Use `scripts/merge_claim_ledger.py` for Claim updates. It preserves every existing Claim and its order, appends new IDs, replaces only an explicitly supplied matching ID, validates all records before commit, and writes atomically. A failed update leaves the previous Claim ledger unchanged.
@@ -50,4 +52,4 @@ Regeneration does not authorize writes outside the package or replacement of can
 
 ## Release projection
 
-`release/` is created only by `storm_research.py release`. It is a strict allowlist projection from the current generation plus `validation/release-manifest.json`. It never includes `work/`, `state/`, retrieval inputs, claim update files, amendment inputs, raw caches, or host approval files.
+`release/` is created only by `storm_research.py release`. It is a strict allowlist projection from the current generation plus `validation/release-manifest.json`. It never includes `work/`, `state/`, retrieval inputs, `retrieval-audit.jsonl`, claim update files, amendment inputs, raw caches, or host approval files.

@@ -16,9 +16,15 @@ Use only when the user explicitly configures a provider adapter. Credentials com
 
 Use only supplied files and URLs. Do not expand the corpus through external search. Record file identity and content hash where available.
 
-## Adapter Record
+## Enriched ingest contract
 
-Each record needs a stable query ID, URL or relative file reference, exact title, publisher, publication and retrieval times, evidence-bearing excerpt, content locator, and adapter identity. Optional reliability labels are reviewer judgments, not proof.
+Submit one JSONL containing a typed union defined by `schemas/retrieval-record.schema.json`:
+
+1. `search_run` records the query, aliases, surface, pass kind (`corpus`, `baseline`, `counterevidence`, or `gap_fill`), result count, execution status, and immutable result snapshot.
+2. `candidate` records screening disposition, bibliographic identifiers, resolver outcomes, and version-family membership. `unreachable` means the resolver could not be reached; it is not equivalent to `unmatched`.
+3. `capture` binds an included candidate and query to the exact content snapshot, locator, excerpt, and evidence-strength ceiling used by a Claim.
+
+Search and resolver snapshots are required audit evidence. Search snippets can identify candidates but cannot close material Claims. A zero-result search cannot prove absence by itself.
 
 Commit records with:
 
@@ -27,7 +33,15 @@ python3 scripts/storm_research.py ingest "$RUN_DIR" \
   --input-jsonl adapter-output.jsonl
 ```
 
-The ingest stage writes generation-scoped `source-register.jsonl` and `retrieval-manifest.jsonl`, then commits `20-retrieval.json`. Malformed provenance, placeholder domains, missing snapshots, destructive ledger replacement, absolute public file paths, mode mismatches, invalid timestamps, secondary-as-primary classification, and blanket Tier A reliability are hard failures.
+The ingest stage writes generation-scoped `source-register.jsonl`, `retrieval-manifest.jsonl`, and internal `retrieval-audit.jsonl`, then commits `20-retrieval.json`. The receipt binds every search, resolver, and capture snapshot. Malformed provenance, placeholder domains, missing snapshots, destructive ledger replacement, absolute public file paths, mode mismatches, invalid timestamps, secondary-as-primary classification, blanket Tier A reliability, and unverified academic candidates are hard failures.
+
+## Academic baseline and gap filling
+
+Every external full dossier performs an academic baseline across at least two scholarly discovery surfaces. A briefing may use one surface, but every academic source it cites still requires bibliographic verification. `closed_corpus` records only local corpus runs and skipped resolvers.
+
+Corpus material supplies corpus-seeded aliases and claims; it does not suppress baseline or counterevidence search. Findings marked `needs_more_evidence` require a later `gap_fill` run before evidence closure. Search pass timestamps must preserve the order `corpus -> baseline/counterevidence -> gap_fill`.
+
+DOI, PMID, arXiv, Semantic Scholar, and OpenAlex identities are normalized when available. Preprint, conference, and journal siblings enter one version family and count as one independent source for depth. Claim locators must bind the exact captured version, not a sibling version with similar metadata.
 
 `scripts/normalize_retrieval.py` remains an internal worker. New automation should call `storm_research.py ingest`.
 

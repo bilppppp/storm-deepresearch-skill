@@ -1,7 +1,7 @@
 interface:
   display_name: "STORM DeepResearch"
-  short_description: "Governed STORM research with evidence ceilings and external review provenance"
-  default_prompt: "Use $storm-deepresearch-skill. Ask research_profile when vague; recommend default_full_dossier and offer briefing only when explicit. Record profile_selection; stop on missing evidence."
+  short_description: "STORM research with evidence and review provenance"
+  default_prompt: "Use $storm-deepresearch-skill. Ask research_profile; recommend default_full_dossier. Record it; require academic baseline and retrieval-audit.jsonl; stop on missing evidence."
 compatibility:
   canonical_format: "agent-skills"
   adapter_targets: ["openai", "claude", "agent-skills", "vscode", "generic"]
@@ -18,10 +18,10 @@ compatibility:
     release_policy: "validation-trust-human-approval"
     trust_report_required: true
   degradation:
-    openai: "Preserve governed contracts."
-    claude: "Preserve governed contracts."
+    openai: "Keep contracts."
+    claude: "Keep contracts."
     agent-skills: "Use SKILL.md."
-    vscode: "Preserve governed contracts."
+    vscode: "Keep contracts."
     generic: "Require adapter."
 contract:
   inputs:
@@ -33,7 +33,7 @@ contract:
     primary_research_profile_options: ["default_full_dossier", "briefing"]
     legacy_research_profile_aliases: {strict_storm_lens: "default_full_dossier"}
     profile_selection_modes: ["user_selected", "user_requested_default", "defaulted_after_prompt"]
-    profile_selection_policy: "init fails without profile_selection mode and evidence"
+    profile_selection_policy: "init requires mode and evidence"
     retrieval_mode: "host"
     output_mode: "full"
     depth_level: "full_dossier"
@@ -44,10 +44,11 @@ contract:
     storm_lens_mode: "strict"
     ledger_update_policy: "monotonic-merge"
     state_model: "generation artifacts plus immutable receipt chain"
-    research_pool_policy: "storm-tasklets require usable findings before evidence"
+    research_pool_policy: "tasklets need usable findings before evidence"
     release_policy: "validation-plus-trust-plus-human-approval"
-    review_policy: "full dossiers require frozen candidate plus captured external_model or human provenance"
-    absence_claim_policy: "material absence claims require multi-surface search audit"
-  permissions: ["read approved inputs", "write inside resolved output root", "use host network when brief allows", "run validation/rendering"]
-  stop_conditions: ["scope, permission, evidence, review provenance, or receipt chain missing evidence", "P2 retrieval or P4 repair remains open", "Claim support, absence audit, depth, format, or path gate fails", "release lacks Trust or human approval"]
+    review_policy: "full dossiers require frozen candidate and external/human provenance"
+    absence_claim_policy: "material absence needs multi-surface audit"
+    academic_retrieval_policy: "full dossiers require verified academic baseline, screening, version families, and gap-fill"
+  permissions: ["read approved inputs", "write inside output root", "use approved host network", "run validators"]
+  stop_conditions: ["required evidence or provenance missing", "P2 retrieval or P4 repair open", "a gate fails", "release lacks Trust or human approval"]
   non_goals: ["quick lookup", "unsupported role-play", "personalized professional advice"]

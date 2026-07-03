@@ -18,6 +18,8 @@ Every source must be registered with:
 | Used for | Claims or sections supported |
 | Caveats | Bias, age, method limits, geography limits |
 
+Academic source records also contain a nested `bibliographic` object with identifiers, verification status, version-family ID, and version role. Nonacademic sources use `bibliographic: null`. `verified` requires matching resolver evidence; an unreachable resolver cannot be treated as a successful match.
+
 ## Reliability tiers
 - **A**: primary/official source, law/regulation, audited filing, dataset, standards body, peer-reviewed paper with directly relevant method.
 - **B**: reputable secondary source, recognized research institution, high-quality expert analysis.
@@ -29,6 +31,8 @@ Tier A is not a default. A secondary synthesis cannot be marked `primary`, and s
 Wikipedia and comparable encyclopedias are background sources: classify them as `encyclopedia`, `secondary`, and not Tier A. Placeholder or reserved domains, including `example.com` and `.internal`, cannot enter the source register as public URLs. Local or supplied corpus material must use a corpus-relative `file_ref`.
 
 For full dossiers with external research allowed, user material, transcripts, local files, search snippets, community posts, and encyclopedias do not count toward the required six deep external sources. Claims about named theories, thinkers, scholarly debates, or interpretive frameworks require academic, book, expert, peer-reviewed, or reputable synthesis support beyond the user's own text.
+
+External full dossiers additionally require an academic baseline across two scholarly discovery surfaces. Briefings may use one academic surface. Corpus-first means the supplied corpus seeds queries and screening priorities; search-fills-gap means baseline, counterevidence, and gap-fill searches still close questions the corpus cannot answer.
 
 ## Citation discipline
 - A citation supports only the exact sentence it is attached to.
@@ -42,6 +46,8 @@ For full dossiers with external research allowed, user material, transcripts, lo
 - A fact Claim cannot be stronger than the exact retrieval manifest bound by its locator. `strong` requires at least one strong full-text or official-data capture; several medium abstracts do not automatically become strong.
 - Inference and recommendation strength cannot exceed the weakest premise Claim.
 - One canonical source may serve multiple query IDs. Source identity is deduplicated, while each query/capture binding remains in the retrieval manifest.
+- Multiple versions of one scholarly work share a version-family ID and count as one independent source. A Claim locator must match the exact captured candidate version and snapshot.
+- Candidate exclusion is preserved in the internal retrieval audit. Excluded, zero-result, unmatched, or unreachable records cannot become evidence.
 - Material “not found” claims use `evidence_mode=absence_search` and a matching absence-search record. Full dossiers require two discovery surfaces; high-stakes medical searches require a trial registry, bibliographic database, and at least three aliases.
 - Closed-corpus searches may only conclude that evidence is absent from the supplied corpus.
 

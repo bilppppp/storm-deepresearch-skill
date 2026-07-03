@@ -54,13 +54,13 @@ class LibraryContractTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_manifest_declares_governed_2_0(self) -> None:
+    def test_manifest_declares_governed_3_0(self) -> None:
         manifest = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
         expected = {
             "name": "storm-deepresearch-skill",
-            "version": "2.0.0",
+            "version": "3.0.0",
             "owner": "陈旭",
-            "updated_at": "2026-06-29",
+            "updated_at": "2026-07-03",
             "review_cadence": "per-release",
             "status": "active",
             "maturity_tier": "governed",
@@ -117,6 +117,25 @@ class LibraryContractTests(unittest.TestCase):
         self.assertEqual(defaults["output_collision_policy"], "fail")
         self.assertEqual(defaults["ledger_update_policy"], "monotonic-merge")
         self.assertEqual(defaults["release_policy"], "validation-plus-trust-plus-human-approval")
+
+    def test_docs_name_academic_retrieval_contract(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        interface = (ROOT / "agents" / "interface.yaml").read_text(encoding="utf-8")
+        for token in (
+            "retrieval-audit.jsonl",
+            "academic baseline",
+            "bibliographic",
+            "corpus-seeded",
+            "gap-fill",
+        ):
+            self.assertIn(token, readme)
+        self.assertIn("academic baseline", skill)
+        self.assertIn("retrieval-audit.jsonl", interface)
+
+    def test_readme_declares_current_version(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("当前版本：`3.0.0`", readme)
 
     def test_packaging_expectations_cover_distributed_adapters(self) -> None:
         expectations = json.loads(

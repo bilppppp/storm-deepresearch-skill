@@ -21,6 +21,10 @@ Run `python3 scripts/storm_research.py validate "$RUN_DIR"` or `python3 scripts/
 - No unsupported material claim reaches the report.
 - Every perspective question has a disposition; every answered question is used by `report_outline`.
 - Full external dossiers require `storm-tasklets`, `storm-findings-pool`, and `finding-coverage` before evidence; every material Claim must link to a usable finding that shares its supporting source.
+- External full dossiers pass an academic baseline across at least two scholarly surfaces; briefings verify every academic source they cite.
+- `retrieval-audit.jsonl` closes search runs, candidate screening, resolver snapshots, version families, and exact captures. Unverified academic candidates and version-mismatched Claim locators fail.
+- Corpus-seeded questions still run the baseline; `needs_more_evidence` findings require gap-fill or an explicit uncertainty disposition.
+- Zero-result, unmatched, and unreachable records remain distinct and cannot directly close questions or prove absence.
 - `critique_deepresearch` source plans must cover user claim extraction, supporting evidence, counterevidence or contradiction, theory/framework, reception or criticism, and historical comparison or blind spot before `plan` can commit.
 - Full dossiers use at least five researched perspectives, ten questions, six evidence-planned sections, and twelve material claims unless the run is explicitly bounded and unreleased.
 - Material absence claims require a bound search audit; high-stakes medical absence claims cover aliases, a trial registry, and a bibliographic database.
