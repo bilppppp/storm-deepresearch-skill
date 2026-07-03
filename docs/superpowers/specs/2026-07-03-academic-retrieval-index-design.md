@@ -157,7 +157,9 @@ adds:
 
 - `candidate_id`;
 - `search_run_ids`;
-- the exact scholarly version identity used by the capture.
+
+The candidate ID binds the capture to the exact scholarly version recorded in the
+retrieval audit.
 
 ### 6.4 `source-register.jsonl`
 
@@ -165,22 +167,25 @@ Accepted sources add one nested bibliographic object:
 
 ```json
 {
-  "identifiers": {
-    "doi": null,
-    "pmid": null,
-    "arxiv_id": null,
-    "semantic_scholar_id": null,
-    "openalex_id": null
-  },
-  "bibliographic_status": "verified",
-  "version_family_id": "W001",
-  "version_role": "journal"
+  "bibliographic": {
+    "identifiers": {
+      "doi": null,
+      "pmid": null,
+      "arxiv_id": null,
+      "semantic_scholar_id": null,
+      "openalex_id": null
+    },
+    "status": "verified",
+    "version_family_id": "W001",
+    "version_role": "journal"
+  }
 }
 ```
 
-The object is required for accepted academic sources in new full dossiers and for
-academic sources cited by briefing runs. Non-academic sources may omit identifiers
-but retain the existing source provenance contract.
+The field is required on new source records. It contains the object above for
+accepted academic sources in full dossiers and for academic sources cited by
+briefing runs; non-academic sources use `"bibliographic": null` and retain the
+existing source provenance contract.
 
 ### 6.5 `finding-coverage.json`
 
