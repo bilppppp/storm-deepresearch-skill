@@ -8,7 +8,7 @@
     "source_id", "title", "author_or_org", "canonical_url", "file_ref",
     "published_at", "publication_date_status", "retrieved_at", "source_type",
     "primary_class", "reliability_tier", "freshness_status", "reliability_notes",
-    "content_hash"
+    "content_hash", "bibliographic"
   ],
   "properties": {
     "source_id": {"type": "string", "pattern": "^S[0-9]{3}$"},
@@ -24,7 +24,34 @@
     "reliability_tier": {"enum": ["A", "B", "C", "D"]},
     "freshness_status": {"enum": ["current", "stale", "historical", "unknown"]},
     "reliability_notes": {"type": "string"},
-    "content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    "content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "bibliographic": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["identifiers", "status", "version_family_id", "version_role"],
+          "properties": {
+            "identifiers": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["doi", "pmid", "arxiv_id", "semantic_scholar_id", "openalex_id"],
+              "properties": {
+                "doi": {"type": ["string", "null"]},
+                "pmid": {"type": ["string", "null"]},
+                "arxiv_id": {"type": ["string", "null"]},
+                "semantic_scholar_id": {"type": ["string", "null"]},
+                "openalex_id": {"type": ["string", "null"]}
+              }
+            },
+            "status": {"enum": ["verified", "conflicted", "unverified"]},
+            "version_family_id": {"type": ["string", "null"], "pattern": "^W[0-9]{3}$"},
+            "version_role": {"enum": ["preprint", "conference", "journal", "book", "chapter", "report", "other"]}
+          }
+        }
+      ]
+    }
   },
   "oneOf": [
     {

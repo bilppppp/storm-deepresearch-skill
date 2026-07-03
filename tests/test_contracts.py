@@ -19,12 +19,15 @@ from scripts.contract_io import (
 from tests.governed_fixtures import (
     valid_amendment,
     valid_brief_v2,
+    valid_candidate_record,
+    valid_capture_input,
     valid_governed_trust_evidence,
     valid_human_approval,
     valid_paragraph_map_record,
     valid_receipt,
     valid_release_manifest,
     valid_retrieval_evidence,
+    valid_search_run_record,
     valid_reverification_record,
     valid_semantic_review_record,
     valid_source_plan,
@@ -35,6 +38,46 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ContractTests(unittest.TestCase):
+    def test_retrieval_input_union_accepts_all_record_kinds(self) -> None:
+        for record in (
+            valid_search_run_record(),
+            valid_candidate_record(),
+            valid_capture_input(),
+        ):
+            self.assertEqual(contract_io.validate_retrieval_input_record(record), [])
+
+    def test_unreachable_resolver_cannot_claim_metadata_match(self) -> None:
+        candidate = valid_candidate_record()
+        outcome = candidate["resolver_outcomes"][0]
+        outcome["status"] = "unreachable"
+        outcome["metadata_match"] = True
+        self.assertIn(
+            "unreachable resolver cannot claim a metadata match",
+            contract_io.validate_candidate_record(candidate),
+        )
+
+    def test_excluded_candidate_requires_screening_reason(self) -> None:
+        candidate = valid_candidate_record()
+        candidate["disposition"] = "exclude"
+        candidate["screening_reason"] = ""
+        self.assertIn(
+            "candidate disposition requires screening_reason",
+            contract_io.validate_candidate_record(candidate),
+        )
+
+    def test_resolver_identifier_must_match_candidate_identifier(self) -> None:
+        candidate = valid_candidate_record()
+        candidate["resolver_outcomes"][0]["matched_identifier"] = "10.5555/other"
+        self.assertIn(
+            "resolver matched_identifier conflicts with candidate doi",
+            contract_io.validate_candidate_record(candidate),
+        )
+
+    def test_source_plan_requires_search_requirements(self) -> None:
+        plan = valid_source_plan()
+        del plan["questions"][0]["search_requirements"]
+        self.assertIn("source question 1 has invalid fields", contract_io.validate_source_plan(plan))
+
     def test_governed_schema_inventory_is_strict(self) -> None:
         names = {
             "receipt", "amendment", "source-plan", "retrieval-evidence",

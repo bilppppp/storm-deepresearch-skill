@@ -122,25 +122,42 @@ def valid_source_plan(question_count: int = 10) -> dict[str, object]:
                 "query_id": f"Q{index:03d}",
                 "question": f"What evidence is needed for research question {index}?",
                 "evidence_need": "Directly inspectable primary or authoritative evidence",
-                "required_source_classes": ["official-record"],
+                "required_source_classes": ["official-record", "academic"],
+                "search_requirements": {
+                    "aliases": [f"governed research question {index}"],
+                    "required_surfaces": ["scholarly_index", "publisher_or_registry"],
+                    "academic_required": True,
+                    "corpus_seeded": False,
+                    "inclusion_criteria": ["Directly relevant, inspectable evidence"],
+                    "exclusion_criteria": ["Search snippets without an inspectable source"],
+                },
             }
             for index in range(1, question_count + 1)
         ],
-        "source_classes": [{
-            "class_id": "official-record",
-            "name": "Official record",
-            "can_prove": ["The issuing body's recorded position"],
-            "cannot_prove": ["Independent causal validity"],
-            "priority": 1,
-        }],
+        "source_classes": [
+            {
+                "class_id": "official-record",
+                "name": "Official record",
+                "can_prove": ["The issuing body's recorded position"],
+                "cannot_prove": ["Independent causal validity"],
+                "priority": 1,
+            },
+            {
+                "class_id": "academic",
+                "name": "Academic literature",
+                "can_prove": ["Published theory, method, and study findings"],
+                "cannot_prove": ["Universal applicability outside the studied scope"],
+                "priority": 2,
+            },
+        ],
         "stopping_conditions": ["Every material question has inspectable evidence"],
         "exclusions": ["Search snippets as strong evidence"],
     }
 
 
-def valid_source_v2(index: int = 1) -> dict[str, object]:
+def valid_source_v2(index: int = 1, *, academic: bool = False) -> dict[str, object]:
     digit = format(index % 16, "x")
-    return {
+    source: dict[str, object] = {
         "source_id": f"S{index:03d}",
         "title": f"Official source {index}",
         "author_or_org": "NIST",
@@ -155,7 +172,29 @@ def valid_source_v2(index: int = 1) -> dict[str, object]:
         "freshness_status": "current",
         "reliability_notes": "First-party source with inspectable full text.",
         "content_hash": digit * 64,
+        "bibliographic": None,
     }
+    if academic:
+        source.update({
+            "title": f"Governed Research Source {index}",
+            "author_or_org": "A. Researcher",
+            "canonical_url": f"https://doi.org/10.5555/storm.{index}",
+            "source_type": "peer_reviewed_paper",
+            "reliability_notes": "Peer-reviewed article with verified bibliographic identity.",
+            "bibliographic": {
+                "identifiers": {
+                    "doi": f"10.5555/storm.{index}",
+                    "pmid": None,
+                    "arxiv_id": None,
+                    "semantic_scholar_id": f"s2-{index}",
+                    "openalex_id": f"W{index}",
+                },
+                "status": "verified",
+                "version_family_id": f"W{index:03d}",
+                "version_role": "journal",
+            },
+        })
+    return source
 
 
 def valid_retrieval_manifest_v2(index: int = 1) -> dict[str, object]:
@@ -171,6 +210,8 @@ def valid_retrieval_manifest_v2(index: int = 1) -> dict[str, object]:
         "normalized_text_sha256": "a" * 64,
         "excerpt_sha256": "b" * 64,
         "excerpt": f"Directly inspectable evidence excerpt {index}.",
+        "candidate_id": f"K{index:03d}",
+        "search_run_ids": [f"SR{index:03d}"],
     })
     return manifest
 
@@ -341,11 +382,76 @@ def valid_retrieval_evidence() -> dict[str, object]:
         "primary_class": "primary",
         "reliability_tier": "A",
         "reliability_notes": "First-party publication; scope is limited to recorded facts.",
+        "candidate_id": "K001",
+        "search_run_ids": ["SR001"],
+    }
+
+
+def valid_search_run_record(index: int = 1, *, pass_kind: str = "baseline") -> dict[str, object]:
+    return {
+        "record_kind": "search_run",
+        "search_run_id": f"SR{index:03d}",
+        "query_id": f"Q{index:03d}",
+        "adapter": "host",
+        "pass_kind": pass_kind,
+        "surface": "OpenAlex",
+        "surface_class": "scholarly_index",
+        "query": f'"governed research" question {index}',
+        "aliases": ["governed research", "auditable research"],
+        "searched_at": _now(),
+        "result_count": 2,
+        "execution_status": "completed",
+        "raw_artifact": f"search-{index}.json",
+        "snapshot_sha256": "a" * 64,
+        "limitations": [],
+    }
+
+
+def valid_candidate_record(index: int = 1) -> dict[str, object]:
+    return {
+        "record_kind": "candidate",
+        "candidate_id": f"K{index:03d}",
+        "adapter": "host",
+        "search_run_ids": [f"SR{index:03d}"],
+        "title": f"Governed Research Source {index}",
+        "authors": ["A. Researcher"],
+        "year": 2026,
+        "venue": "Journal of Auditable Research",
+        "url": f"https://doi.org/10.5555/storm.{index}",
+        "identifiers": {
+            "doi": f"10.5555/storm.{index}",
+            "pmid": None,
+            "arxiv_id": None,
+            "semantic_scholar_id": f"s2-{index}",
+            "openalex_id": f"W{index}",
+        },
+        "resolver_outcomes": [{
+            "resolver": "crossref",
+            "status": "matched",
+            "query_basis": "doi",
+            "matched_identifier": f"10.5555/storm.{index}",
+            "returned_title": f"Governed Research Source {index}",
+            "returned_authors": ["A. Researcher"],
+            "returned_year": 2026,
+            "metadata_match": True,
+            "checked_at": _now(),
+            "raw_artifact": f"crossref-{index}.json",
+            "snapshot_sha256": "b" * 64,
+            "reason": "Exact DOI and normalized title match.",
+        }],
+        "disposition": "include",
+        "screening_reason": "Meets the declared inclusion criteria.",
+        "version_family_id": f"W{index:03d}",
+        "version_role": "journal",
+        "relationship_basis": "exact_identifier",
     }
 
 
 def valid_adapter_record(index: int = 1) -> dict[str, object]:
     return {
+        "record_kind": "capture",
+        "candidate_id": f"K{index:03d}",
+        "search_run_ids": [f"SR{index:03d}"],
         "query_id": f"Q{index:03d}",
         "url": f"https://www.nist.gov/test-fixtures/research-report-{index}",
         "final_url": f"https://www.nist.gov/test-fixtures/research-report-{index}",
@@ -371,6 +477,21 @@ def valid_adapter_record(index: int = 1) -> dict[str, object]:
         "freshness_status": "current",
         "reliability_notes": "First-party source with inspectable full text.",
     }
+
+
+def valid_capture_input(index: int = 1) -> dict[str, object]:
+    record = valid_adapter_record(index)
+    record.update({
+        "url": f"https://doi.org/10.5555/storm.{index}",
+        "final_url": f"https://doi.org/10.5555/storm.{index}",
+        "title": f"Governed Research Source {index}",
+        "publisher": "Journal of Auditable Research",
+        "source_type": "peer_reviewed_paper",
+        "primary_class": "primary",
+        "reliability_tier": "A",
+        "reliability_notes": "Peer-reviewed article with verified bibliographic identity and inspectable text.",
+    })
+    return record
 
 
 def valid_paragraph_map_record(

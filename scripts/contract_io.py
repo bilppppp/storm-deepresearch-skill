@@ -50,6 +50,7 @@ SOURCE_FIELDS = {
     "source_id", "title", "author_or_org", "canonical_url", "file_ref", "published_at",
     "publication_date_status", "retrieved_at", "source_type", "primary_class",
     "reliability_tier", "freshness_status", "reliability_notes", "content_hash",
+    "bibliographic",
 }
 CLAIM_FIELDS = {
     "schema_version", "claim_id", "claim_text", "claim_type", "material", "premise_claim_ids", "supporting_source_ids",
@@ -75,8 +76,43 @@ RETRIEVAL_EVIDENCE_FIELDS = {
     "capture_level", "evidence_strength_ceiling", "snapshot_ref", "snapshot_sha256", "normalized_text_sha256",
     "locator_type", "locator", "excerpt", "excerpt_sha256", "published_at",
     "publication_date_status", "source_type", "primary_class", "reliability_tier",
-    "reliability_notes",
+    "reliability_notes", "candidate_id", "search_run_ids",
 }
+IDENTIFIER_FIELDS = {"doi", "pmid", "arxiv_id", "semantic_scholar_id", "openalex_id"}
+BIBLIOGRAPHIC_FIELDS = {"identifiers", "status", "version_family_id", "version_role"}
+SEARCH_RUN_FIELDS = {
+    "record_kind", "search_run_id", "query_id", "adapter", "pass_kind",
+    "surface", "surface_class", "query", "aliases", "searched_at",
+    "result_count", "execution_status", "raw_artifact", "snapshot_sha256",
+    "limitations",
+}
+RESOLVER_OUTCOME_FIELDS = {
+    "resolver", "status", "query_basis", "matched_identifier",
+    "returned_title", "returned_authors", "returned_year", "metadata_match",
+    "checked_at", "raw_artifact", "snapshot_sha256", "reason",
+}
+CANDIDATE_FIELDS = {
+    "record_kind", "candidate_id", "adapter", "search_run_ids", "title",
+    "authors", "year", "venue", "url", "identifiers", "resolver_outcomes",
+    "disposition", "screening_reason", "version_family_id", "version_role",
+    "relationship_basis",
+}
+CAPTURE_INPUT_FIELDS = {
+    "record_kind", "candidate_id", "search_run_ids", "query_id", "url",
+    "final_url", "file_ref", "title", "publisher", "published_at",
+    "publication_date_status", "retrieved_at", "content_excerpt",
+    "content_locator", "locator_type", "adapter", "adapter_run_id",
+    "capture_level", "evidence_strength_ceiling", "raw_artifact",
+    "observed_status", "content_type", "source_type", "primary_class",
+    "reliability_tier", "freshness_status", "reliability_notes",
+}
+PASS_KINDS = {"corpus", "baseline", "counterevidence", "gap_fill"}
+EXECUTION_STATUSES = {"completed", "zero_results", "unreachable"}
+RESOLVER_STATUSES = {"matched", "unmatched", "unreachable", "skipped"}
+DISPOSITIONS = {"include", "exclude", "needs_review"}
+BIBLIOGRAPHIC_STATUSES = {"verified", "conflicted", "unverified"}
+VERSION_ROLES = {"preprint", "conference", "journal", "book", "chapter", "report", "other"}
+RELATIONSHIP_BASES = {"exact_identifier", "explicit_metadata", "manual_confirmed", "unresolved"}
 PARAGRAPH_MAP_FIELDS = {
     "schema_version", "paragraph_sha256", "paragraph_type", "claim_ids", "source_ids",
     "citation_keys", "text_locator",
@@ -178,6 +214,261 @@ def _valid_iso_datetime(value: object) -> bool:
 
 def _is_sha256(value: object, *, allow_empty: bool = False) -> bool:
     return bool((allow_empty and value == "") or SHA256_RE.fullmatch(str(value)))
+
+
+def _validate_identifier_object(value: object) -> list[str]:
+    if not isinstance(value, dict):
+        return ["identifiers must be an object"]
+    errors = _unknown_fields(value, IDENTIFIER_FIELDS) + _missing_fields(value, IDENTIFIER_FIELDS)
+    doi = value.get("doi")
+    if doi is not None and (
+        not isinstance(doi, str)
+        or doi != doi.casefold()
+        or not re.fullmatch(r"10\.\d{4,9}/\S+", doi)
+    ):
+        errors.append("doi must be a canonical lower-case bare DOI")
+    pmid = value.get("pmid")
+    if pmid is not None and (not isinstance(pmid, str) or not re.fullmatch(r"\d+", pmid)):
+        errors.append("pmid must contain digits only")
+    arxiv_id = value.get("arxiv_id")
+    arxiv_pattern = r"(?:\d{4}\.\d{4,5}|[a-z.-]+/\d{7})(?:v\d+)?"
+    if arxiv_id is not None and (
+        not isinstance(arxiv_id, str) or not re.fullmatch(arxiv_pattern, arxiv_id, re.IGNORECASE)
+    ):
+        errors.append("arxiv_id must be a canonical modern or legacy arXiv identifier")
+    semantic = value.get("semantic_scholar_id")
+    if semantic is not None and (not isinstance(semantic, str) or not semantic.strip()):
+        errors.append("semantic_scholar_id must be a non-empty string")
+    openalex = value.get("openalex_id")
+    if openalex is not None and (not isinstance(openalex, str) or not re.fullmatch(r"W\d+", openalex)):
+        errors.append("openalex_id must start with W followed by digits")
+    return errors
+
+
+def validate_bibliographic_object(value: object) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, dict):
+        return ["bibliographic must be null or an object"]
+    errors = _unknown_fields(value, BIBLIOGRAPHIC_FIELDS) + _missing_fields(value, BIBLIOGRAPHIC_FIELDS)
+    errors.extend(_validate_identifier_object(value.get("identifiers")))
+    if value.get("status") not in BIBLIOGRAPHIC_STATUSES:
+        errors.append("bibliographic status is invalid")
+    family_id = value.get("version_family_id")
+    if family_id is not None and not re.fullmatch(r"W\d{3}", str(family_id)):
+        errors.append("version_family_id must match W followed by three digits")
+    if value.get("version_role") not in VERSION_ROLES:
+        errors.append("version_role is invalid")
+    return errors
+
+
+def validate_search_run_record(data: dict[str, Any]) -> list[str]:
+    errors = _unknown_fields(data, SEARCH_RUN_FIELDS) + _missing_fields(data, SEARCH_RUN_FIELDS)
+    if data.get("record_kind") != "search_run":
+        errors.append("record_kind must be search_run")
+    if not re.fullmatch(r"SR\d{3}", str(data.get("search_run_id", ""))):
+        errors.append("search_run_id must match SR followed by three digits")
+    if not re.fullmatch(r"Q\d{3}", str(data.get("query_id", ""))):
+        errors.append("query_id must match Q followed by three digits")
+    if data.get("adapter") not in {"host", "provider", "closed_corpus"}:
+        errors.append("adapter is invalid")
+    if data.get("pass_kind") not in PASS_KINDS:
+        errors.append("pass_kind is invalid")
+    for field in ("surface", "surface_class", "query"):
+        if not isinstance(data.get(field), str) or not str(data.get(field)).strip():
+            errors.append(f"{field} must be a non-empty string")
+    aliases = data.get("aliases")
+    if not isinstance(aliases, list) or not aliases or not all(isinstance(item, str) and item.strip() for item in aliases):
+        errors.append("aliases must be a non-empty string array")
+    if not _valid_iso_datetime(data.get("searched_at")):
+        errors.append("searched_at must be an ISO datetime")
+    status = data.get("execution_status")
+    count = data.get("result_count")
+    if status not in EXECUTION_STATUSES:
+        errors.append("execution_status is invalid")
+    elif status == "completed" and (not isinstance(count, int) or isinstance(count, bool) or count < 1):
+        errors.append("completed search requires a positive result_count")
+    elif status == "zero_results" and count != 0:
+        errors.append("zero_results search requires result_count 0")
+    elif status == "unreachable" and count is not None:
+        errors.append("unreachable search requires null result_count")
+    if not isinstance(data.get("raw_artifact"), str) or not data.get("raw_artifact"):
+        errors.append("raw_artifact must be a non-empty string")
+    if not _is_sha256(data.get("snapshot_sha256")):
+        errors.append("snapshot_sha256 must be a SHA-256 value")
+    limitations = data.get("limitations")
+    if not isinstance(limitations, list) or not all(isinstance(item, str) and item.strip() for item in limitations):
+        errors.append("limitations must be a string array")
+    return errors
+
+
+def _validate_resolver_outcome(
+    outcome: object, identifiers: dict[str, Any], index: int
+) -> list[str]:
+    if not isinstance(outcome, dict):
+        return [f"resolver outcome {index} must be an object"]
+    field_errors = _unknown_fields(outcome, RESOLVER_OUTCOME_FIELDS) + _missing_fields(
+        outcome, RESOLVER_OUTCOME_FIELDS
+    )
+    errors = [f"resolver outcome {index}: {item}" for item in field_errors]
+    status = outcome.get("status")
+    if status not in RESOLVER_STATUSES:
+        errors.append(f"resolver outcome {index}: status is invalid")
+    if not isinstance(outcome.get("resolver"), str) or not str(outcome.get("resolver")).strip():
+        errors.append(f"resolver outcome {index}: resolver is required")
+    query_basis = outcome.get("query_basis")
+    if query_basis not in {"doi", "pmid", "arxiv_id", "metadata", "publisher", "library"}:
+        errors.append(f"resolver outcome {index}: query_basis is invalid")
+    if not isinstance(outcome.get("metadata_match"), bool):
+        errors.append(f"resolver outcome {index}: metadata_match must be boolean")
+    if not _valid_iso_datetime(outcome.get("checked_at")):
+        errors.append(f"resolver outcome {index}: checked_at must be an ISO datetime")
+    if not isinstance(outcome.get("reason"), str) or not str(outcome.get("reason")).strip():
+        errors.append(f"resolver outcome {index}: reason is required")
+
+    if status == "skipped":
+        nullable = (
+            "matched_identifier", "returned_title", "returned_year", "raw_artifact",
+            "snapshot_sha256",
+        )
+        if any(outcome.get(field) is not None for field in nullable) or outcome.get("returned_authors") != []:
+            errors.append(f"resolver outcome {index}: skipped resolver must not report returned metadata")
+        if outcome.get("metadata_match") is not False:
+            errors.append(f"resolver outcome {index}: skipped resolver cannot claim a metadata match")
+        return errors
+
+    if not isinstance(outcome.get("raw_artifact"), str) or not outcome.get("raw_artifact"):
+        errors.append(f"resolver outcome {index}: raw_artifact is required")
+    if not _is_sha256(outcome.get("snapshot_sha256")):
+        errors.append(f"resolver outcome {index}: snapshot_sha256 must be a SHA-256 value")
+    if status != "matched" and outcome.get("metadata_match") is True:
+        errors.append(f"{status} resolver cannot claim a metadata match")
+    if status == "matched":
+        if not isinstance(outcome.get("returned_title"), str) or not outcome.get("returned_title"):
+            errors.append(f"resolver outcome {index}: matched resolver requires returned_title")
+        authors = outcome.get("returned_authors")
+        if not isinstance(authors, list) or not all(isinstance(item, str) and item.strip() for item in authors):
+            errors.append(f"resolver outcome {index}: returned_authors must be a string array")
+        if outcome.get("returned_year") is not None and not isinstance(outcome.get("returned_year"), int):
+            errors.append(f"resolver outcome {index}: returned_year must be an integer or null")
+        if query_basis in {"doi", "pmid", "arxiv_id"}:
+            expected = identifiers.get(str(query_basis))
+            if outcome.get("matched_identifier") != expected:
+                errors.append(f"resolver matched_identifier conflicts with candidate {query_basis}")
+    return errors
+
+
+def validate_candidate_record(data: dict[str, Any]) -> list[str]:
+    errors = _unknown_fields(data, CANDIDATE_FIELDS) + _missing_fields(data, CANDIDATE_FIELDS)
+    if data.get("record_kind") != "candidate":
+        errors.append("record_kind must be candidate")
+    if not re.fullmatch(r"K\d{3}", str(data.get("candidate_id", ""))):
+        errors.append("candidate_id must match K followed by three digits")
+    if data.get("adapter") not in {"host", "provider", "closed_corpus"}:
+        errors.append("adapter is invalid")
+    run_ids = data.get("search_run_ids")
+    if not isinstance(run_ids, list) or not run_ids or not all(re.fullmatch(r"SR\d{3}", str(item)) for item in run_ids):
+        errors.append("search_run_ids must contain stable search-run IDs")
+    for field in ("title", "screening_reason"):
+        if not isinstance(data.get(field), str) or not str(data.get(field)).strip():
+            errors.append(f"{field} must be a non-empty string")
+    authors = data.get("authors")
+    if not isinstance(authors, list) or not authors or not all(isinstance(item, str) and item.strip() for item in authors):
+        errors.append("authors must be a non-empty string array")
+    if data.get("year") is not None and not isinstance(data.get("year"), int):
+        errors.append("year must be an integer or null")
+    if data.get("venue") is not None and (not isinstance(data.get("venue"), str) or not data.get("venue")):
+        errors.append("venue must be a non-empty string or null")
+    if data.get("url") is not None and (not isinstance(data.get("url"), str) or not data.get("url")):
+        errors.append("url must be a non-empty string or null")
+    identifiers = data.get("identifiers")
+    errors.extend(_validate_identifier_object(identifiers))
+    resolver_outcomes = data.get("resolver_outcomes")
+    if not isinstance(resolver_outcomes, list) or not resolver_outcomes:
+        errors.append("resolver_outcomes must be a non-empty array")
+    else:
+        identifier_map = identifiers if isinstance(identifiers, dict) else {}
+        for index, outcome in enumerate(resolver_outcomes, start=1):
+            errors.extend(_validate_resolver_outcome(outcome, identifier_map, index))
+    if data.get("disposition") not in DISPOSITIONS:
+        errors.append("candidate disposition is invalid")
+    if not isinstance(data.get("screening_reason"), str) or not data.get("screening_reason"):
+        errors.append("candidate disposition requires screening_reason")
+    family_id = data.get("version_family_id")
+    role = data.get("version_role")
+    basis = data.get("relationship_basis")
+    if family_id is None:
+        if role is not None or basis is not None:
+            errors.append("version metadata requires version_family_id")
+    else:
+        if not re.fullmatch(r"W\d{3}", str(family_id)):
+            errors.append("version_family_id must match W followed by three digits")
+        if role not in VERSION_ROLES:
+            errors.append("version_role is invalid")
+        if basis not in RELATIONSHIP_BASES:
+            errors.append("relationship_basis is invalid")
+    return errors
+
+
+def validate_adapter_capture_record(data: dict[str, Any]) -> list[str]:
+    required = CAPTURE_INPUT_FIELDS - {"url"}
+    errors = _unknown_fields(data, CAPTURE_INPUT_FIELDS) + _missing_fields(data, required)
+    if data.get("record_kind") != "capture":
+        errors.append("record_kind must be capture")
+    if not re.fullmatch(r"K\d{3}", str(data.get("candidate_id", ""))):
+        errors.append("candidate_id must match K followed by three digits")
+    run_ids = data.get("search_run_ids")
+    if not isinstance(run_ids, list) or not run_ids or not all(re.fullmatch(r"SR\d{3}", str(item)) for item in run_ids):
+        errors.append("search_run_ids must contain stable search-run IDs")
+    if not re.fullmatch(r"Q\d{3}", str(data.get("query_id", ""))):
+        errors.append("query_id must match Q followed by three digits")
+    url, file_ref = data.get("url"), data.get("file_ref")
+    if bool(url) == bool(file_ref):
+        errors.append("exactly one of url or file_ref is required")
+    if url and not data.get("final_url"):
+        errors.append("URL capture requires final_url")
+    if file_ref and (data.get("final_url") is not None or data.get("observed_status") is not None):
+        errors.append("file capture requires null final_url and observed_status")
+    if data.get("adapter") not in {"host", "provider", "closed_corpus"}:
+        errors.append("adapter is invalid")
+    if data.get("capture_level") not in {"full_text", "official_data", "user_file", "search_snippet"}:
+        errors.append("capture_level is invalid")
+    if data.get("evidence_strength_ceiling") not in {"strong", "medium", "weak", "background"}:
+        errors.append("evidence_strength_ceiling is invalid")
+    for field in (
+        "title", "publisher", "content_excerpt", "content_locator", "locator_type",
+        "adapter_run_id", "raw_artifact", "content_type", "source_type",
+        "freshness_status", "reliability_notes",
+    ):
+        if not isinstance(data.get(field), str) or not str(data.get(field)).strip():
+            errors.append(f"{field} must be a non-empty string")
+    if not _valid_iso_datetime(data.get("retrieved_at")):
+        errors.append("retrieved_at must be an ISO datetime")
+    publication_status, published_at = data.get("publication_date_status"), data.get("published_at")
+    if publication_status == "known" and not _valid_iso_date(published_at):
+        errors.append("known publication date requires an ISO date")
+    elif publication_status == "unknown" and published_at is not None:
+        errors.append("unknown publication date requires null published_at")
+    elif publication_status not in {"known", "unknown"}:
+        errors.append("publication_date_status is invalid")
+    if data.get("primary_class") not in {"primary", "secondary"}:
+        errors.append("primary_class is invalid")
+    if data.get("reliability_tier") not in {"A", "B", "C", "D"}:
+        errors.append("reliability_tier is invalid")
+    if data.get("freshness_status") not in {"current", "stale", "historical", "unknown"}:
+        errors.append("freshness_status is invalid")
+    return errors
+
+
+def validate_retrieval_input_record(data: dict[str, Any]) -> list[str]:
+    kind = data.get("record_kind")
+    if kind == "search_run":
+        return validate_search_run_record(data)
+    if kind == "candidate":
+        return validate_candidate_record(data)
+    if kind == "capture":
+        return validate_adapter_capture_record(data)
+    return ["record_kind must be search_run, candidate, or capture"]
 
 
 def _strict_record(data: dict[str, Any], fields: set[str]) -> list[str]:
@@ -445,6 +736,7 @@ def validate_source_record(data: dict[str, Any]) -> list[str]:
         errors.append("retrieved_at must be an ISO datetime")
     if not _is_sha256(data.get("content_hash")):
         errors.append("content_hash must be a SHA-256 value")
+    errors.extend(validate_bibliographic_object(data.get("bibliographic")))
     return errors
 
 
@@ -507,9 +799,15 @@ def validate_source_plan(data: dict[str, Any]) -> list[str]:
     if not isinstance(questions, list) or not questions:
         errors.append("questions must be a non-empty array")
     else:
-        fields = {"query_id", "question", "evidence_need", "required_source_classes"}
+        fields = {
+            "query_id", "question", "evidence_need", "required_source_classes",
+            "search_requirements",
+        }
         for index, question in enumerate(questions, start=1):
-            if not isinstance(question, dict) or set(question) != fields:
+            if not isinstance(question, dict):
+                errors.append(f"source question {index} has invalid fields")
+                continue
+            if set(question) != fields:
                 errors.append(f"source question {index} has invalid fields")
             elif not re.fullmatch(r"Q\d{3}", str(question.get("query_id", ""))):
                 errors.append(f"source question {index} has invalid query_id")
@@ -517,6 +815,25 @@ def validate_source_plan(data: dict[str, Any]) -> list[str]:
                 errors.append(f"source question {index} requires question and evidence_need")
             elif not isinstance(question.get("required_source_classes"), list) or not question["required_source_classes"]:
                 errors.append(f"source question {index} requires source classes")
+            requirements = question.get("search_requirements")
+            requirement_fields = {
+                "aliases", "required_surfaces", "academic_required", "corpus_seeded",
+                "inclusion_criteria", "exclusion_criteria",
+            }
+            if not isinstance(requirements, dict) or set(requirements) != requirement_fields:
+                errors.append(f"source question {index} has invalid search_requirements")
+                continue
+            for field in (
+                "aliases", "required_surfaces", "inclusion_criteria", "exclusion_criteria",
+            ):
+                values = requirements.get(field)
+                if not isinstance(values, list) or not values or not all(
+                    isinstance(item, str) and item.strip() for item in values
+                ):
+                    errors.append(f"source question {index} search_requirements.{field} must be a non-empty string array")
+            for field in ("academic_required", "corpus_seeded"):
+                if not isinstance(requirements.get(field), bool):
+                    errors.append(f"source question {index} search_requirements.{field} must be boolean")
     classes = data.get("source_classes")
     if not isinstance(classes, list) or not classes:
         errors.append("source_classes must be a non-empty array")
@@ -545,6 +862,13 @@ def validate_retrieval_evidence(data: dict[str, Any]) -> list[str]:
         errors.append("source_id must match S followed by three digits")
     if not re.fullmatch(r"Q\d{3}", str(data.get("query_id", ""))):
         errors.append("query_id must match Q followed by three digits")
+    if not re.fullmatch(r"K\d{3}", str(data.get("candidate_id", ""))):
+        errors.append("candidate_id must match K followed by three digits")
+    search_run_ids = data.get("search_run_ids")
+    if not isinstance(search_run_ids, list) or not search_run_ids or not all(
+        re.fullmatch(r"SR\d{3}", str(item)) for item in search_run_ids
+    ):
+        errors.append("search_run_ids must contain stable search-run IDs")
     url = data.get("canonical_url")
     file_ref = data.get("file_ref")
     if bool(url) == bool(file_ref):
