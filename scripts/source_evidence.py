@@ -112,6 +112,29 @@ def resolve_snapshot(cache_root: Path, relative: str) -> Path:
     return resolved
 
 
+def validate_audit_snapshot(record: dict[str, Any], cache_root: Path) -> list[str]:
+    try:
+        snapshot = resolve_snapshot(cache_root, str(record.get("raw_artifact", "")))
+    except SourceEvidenceError as exc:
+        return [str(exc)]
+    actual = sha256_bytes(snapshot.read_bytes())
+    if actual != record.get("snapshot_sha256"):
+        return ["snapshot_sha256 does not match audit artifact"]
+    return []
+
+
+def validate_candidate_snapshots(record: dict[str, Any], cache_root: Path) -> list[str]:
+    errors: list[str] = []
+    outcomes = record.get("resolver_outcomes", [])
+    if not isinstance(outcomes, list):
+        return ["resolver_outcomes must be an array"]
+    for outcome in outcomes:
+        if not isinstance(outcome, dict) or outcome.get("status") == "skipped":
+            continue
+        errors.extend(validate_audit_snapshot(outcome, cache_root))
+    return _unique(errors)
+
+
 def normalized_snapshot_text(path: Path, content_type: str) -> str:
     media_type = content_type.partition(";")[0].strip().lower()
     if media_type == "application/pdf" or path.suffix.casefold() == ".pdf":
@@ -218,6 +241,8 @@ def capture_retrieval_evidence(
     captured: dict[str, object] = {
         "schema_version": "2.0",
         "source_id": str(record.get("source_id", "S001")),
+        "candidate_id": str(record.get("candidate_id", "")),
+        "search_run_ids": list(record.get("search_run_ids", [])),
         "query_id": str(record.get("query_id", "")),
         "canonical_url": canonical_url,
         "final_url": final_url,

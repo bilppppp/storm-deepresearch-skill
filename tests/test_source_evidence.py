@@ -7,12 +7,30 @@ from pathlib import Path
 from scripts.source_evidence import (
     SourceEvidenceError,
     capture_retrieval_evidence,
+    validate_audit_snapshot,
+    validate_candidate_snapshots,
     validate_public_url,
     validate_retrieval_evidence,
 )
+from tests.governed_fixtures import valid_candidate_record, valid_search_run_record
 
 
 class SourceEvidenceTests(unittest.TestCase):
+    def test_audit_snapshot_hash_must_match(self) -> None:
+        record = valid_search_run_record()
+        record["raw_artifact"] = "source.txt"
+        record["snapshot_sha256"] = "0" * 64
+        self.assertIn(
+            "snapshot_sha256 does not match audit artifact",
+            validate_audit_snapshot(record, self.cache),
+        )
+
+    def test_candidate_resolver_snapshot_must_exist(self) -> None:
+        candidate = valid_candidate_record()
+        candidate["resolver_outcomes"][0]["raw_artifact"] = "missing.json"
+        errors = validate_candidate_snapshots(candidate, self.cache)
+        self.assertTrue(any("snapshot file is missing" in item for item in errors))
+
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.cache = Path(self.temporary.name)
@@ -86,6 +104,9 @@ class SourceEvidenceTests(unittest.TestCase):
 
     def valid_input(self) -> dict[str, object]:
         return {
+            "record_kind": "capture",
+            "candidate_id": "K001",
+            "search_run_ids": ["SR001"],
             "query_id": "Q001",
             "url": "https://www.nist.gov/test-fixtures/research-report",
             "final_url": "https://www.nist.gov/test-fixtures/research-report",
