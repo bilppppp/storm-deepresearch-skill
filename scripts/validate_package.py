@@ -108,6 +108,10 @@ OPTIONAL_ARTIFACTS = {
     "research/storm-lens-outline.json",
     "research/storm-lens-red-team.json",
 }
+VALIDATION_ARTIFACTS = {
+    "validation/validation-report.json",
+    "validation/validation-report.md",
+}
 STORM_LENS_ARTIFACTS = {
     "P1": ("research/storm-lens-perspectives.json", "before_retrieval"),
     "P2": ("research/storm-lens-conflicts.json", "after_findings"),
@@ -194,7 +198,9 @@ def _parse_artifacts(root: Path) -> list[str]:
     return errors
 
 
-def _structural_checks(artifacts: Path, *, pdf_required: bool) -> tuple[list[Check], int]:
+def _structural_checks(
+    artifacts: Path, *, pdf_required: bool, validation_committed: bool = False
+) -> tuple[list[Check], int]:
     checks: list[Check] = []
     files, unsafe = _files_under(artifacts)
     add_check(
@@ -204,7 +210,10 @@ def _structural_checks(artifacts: Path, *, pdf_required: bool) -> tuple[list[Che
     if unsafe:
         return checks, EXIT_SAFETY
     missing = sorted(RENDER_ARTIFACTS - files)
-    unexpected = sorted(files - RENDER_ARTIFACTS - OPTIONAL_ARTIFACTS)
+    optional_artifacts = set(OPTIONAL_ARTIFACTS)
+    if validation_committed:
+        optional_artifacts.update(VALIDATION_ARTIFACTS)
+    unexpected = sorted(files - RENDER_ARTIFACTS - optional_artifacts)
     missing_non_pdf = [item for item in missing if item != "exports/report.pdf"]
     add_check(
         checks, "artifact-inventory", [
@@ -1001,6 +1010,7 @@ def validate_governed_run(
 ) -> tuple[list[Check], int]:
     artifacts = layout.artifact(generation, ".")
     brief_path = layout.generation_input(generation, "brief.json")
+    validation_committed = layout.receipt(generation, Stage.VALIDATION).is_file()
     try:
         brief = load_json(brief_path)
     except ContractError as exc:
@@ -1011,7 +1021,9 @@ def validate_governed_run(
         )
         return checks, EXIT_CONTRACT
     pdf_required = brief.get("output_mode") == "full"
-    checks, code = _structural_checks(artifacts, pdf_required=pdf_required)
+    checks, code = _structural_checks(
+        artifacts, pdf_required=pdf_required, validation_committed=validation_committed
+    )
     if code:
         return checks, code
     safety_checks, code = _public_safety_checks(artifacts)
@@ -1146,7 +1158,20 @@ def validate_and_commit(run_dir: Path) -> tuple[list[Check], int]:
     package_hash = compute_skill_package_hash(ROOT)
     checks, exit_code = validate_governed_run(layout, generation, package_hash)
     if exit_code == 0:
-        commit_validation(layout, generation, package_hash, checks)
+        validation_receipt = layout.receipt(generation, Stage.VALIDATION)
+        if validation_receipt.is_file():
+            try:
+                verify_receipt_chain(layout, generation, Stage.VALIDATION, package_hash)
+            except ReceiptError as exc:
+                add_check(
+                    checks, "validation-receipt", [f"validation receipt verification failed: {exc}"],
+                    "state/generations/*/receipts/70-validation.json",
+                    "validation receipt recomputes",
+                    "restore authoritative artifacts or create a new generation", EXIT_STAGE,
+                )
+                return checks, EXIT_STAGE
+        else:
+            commit_validation(layout, generation, package_hash, checks)
     return checks, exit_code
 
 

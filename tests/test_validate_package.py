@@ -63,6 +63,14 @@ class ValidatePackageTests(unittest.TestCase):
             self.assertTrue((artifacts / "validation/validation-report.md").is_file())
             self.assertTrue((run / "state/generations/g0001/receipts/70-validation.json").is_file())
 
+    def test_validate_is_idempotent_after_validation_receipt_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run = build_valid_governed_run(Path(tmp))
+            first = self.validate(run)
+            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+            second = self.validate(run)
+            self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+
     def test_strict_lens_run_validates_phase_order(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             run = build_valid_governed_run(Path(tmp), strict_lens=True)
