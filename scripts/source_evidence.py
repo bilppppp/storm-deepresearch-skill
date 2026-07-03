@@ -29,6 +29,9 @@ TIER_A_SOURCE_TYPES = {
     "audited_filing", "dataset", "law", "official", "peer_reviewed_paper", "regulation",
     "standard", "user_provided_file",
 }
+ACADEMIC_SOURCE_TYPES = {
+    "academic", "book", "peer_reviewed_paper", "secondary_synthesis",
+}
 
 
 class SourceEvidenceError(ValueError):
