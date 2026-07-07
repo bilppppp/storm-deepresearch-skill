@@ -175,6 +175,17 @@ def citation_keys_in_body(markdown: str) -> list[str]:
     return list(dict.fromkeys(CITATION_RE.findall(body)))
 
 
+def cited_sources_in_body(
+    markdown: str, sources: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    index = citation_index(sources)
+    return [
+        index[key]
+        for key in citation_keys_in_body(markdown)
+        if key in index
+    ]
+
+
 def generate_references(draft: str, sources: list[dict[str, Any]]) -> str:
     body, _ = _split_references(strip_mapping_comments(draft))
     index = citation_index(sources)

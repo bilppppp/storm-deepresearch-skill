@@ -22,6 +22,56 @@
     "output": {"type": "object"},
     "created_at": {"type": "string", "format": "date-time"}
   },
+  "allOf": [
+    {
+      "if": {"properties": {"prompt_id": {"const": "P4"}}, "required": ["prompt_id"]},
+      "then": {
+        "properties": {
+          "phase": {"const": "after_draft"},
+          "output": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "target_kind", "target_sha256", "weakest_claim_ids",
+              "overstated_paragraphs", "missing_perspectives",
+              "citation_support_issues", "repair_actions"
+            ],
+            "properties": {
+              "target_kind": {"const": "draft"},
+              "target_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "weakest_claim_ids": {
+                "type": "array", "uniqueItems": true,
+                "items": {"type": "string", "pattern": "^C[0-9]{3}$"}
+              },
+              "overstated_paragraphs": {"type": "array", "items": {"type": "string"}},
+              "missing_perspectives": {"type": "array", "items": {"type": "string"}},
+              "citation_support_issues": {"type": "array", "items": {"type": "string"}},
+              "repair_actions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "action_id", "target_kind", "target_id", "before_sha256",
+                    "action", "disposition", "reason"
+                  ],
+                  "properties": {
+                    "action_id": {"type": "string", "pattern": "^RA[0-9]{3}$"},
+                    "target_kind": {"enum": ["draft", "paragraph", "claim"]},
+                    "target_id": {"type": "string", "minLength": 1},
+                    "before_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                    "action": {"type": "string", "minLength": 1},
+                    "disposition": {"enum": ["required", "waived"]},
+                    "reason": {"type": "string", "minLength": 1}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "hashMap": {
       "type": "object",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+import json
 import re
 from html.parser import HTMLParser
 from pathlib import Path
@@ -126,6 +127,35 @@ def validate_audit_snapshot(record: dict[str, Any], cache_root: Path) -> list[st
     return []
 
 
+def validate_search_request_snapshot(
+    record: dict[str, Any], cache_root: Path
+) -> list[str]:
+    request_record = {
+        "raw_artifact": record.get("request_artifact"),
+        "snapshot_sha256": record.get("request_sha256"),
+    }
+    errors = validate_audit_snapshot(request_record, cache_root)
+    if errors:
+        return errors
+    request_path = resolve_snapshot(cache_root, str(record.get("request_artifact", "")))
+    try:
+        payload = json.loads(request_path.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return [f"search request artifact must be UTF-8 JSON: {exc}"]
+    if not isinstance(payload, dict):
+        return ["search request artifact must be a JSON object"]
+    expected = {
+        "query_id": record.get("query_id"),
+        "surface": record.get("surface"),
+        "query": record.get("query"),
+        "aliases": record.get("aliases"),
+    }
+    for field, value in expected.items():
+        if payload.get(field) != value:
+            errors.append(f"search request artifact {field} does not match search_run")
+    return _unique(errors)
+
+
 def validate_candidate_snapshots(record: dict[str, Any], cache_root: Path) -> list[str]:
     errors: list[str] = []
     outcomes = record.get("resolver_outcomes", [])
@@ -174,6 +204,28 @@ def _classification_errors(record: dict[str, Any]) -> list[str]:
         errors.append("search snippet cannot be strong evidence")
     if capture_level == "search_snippet" and tier == "A":
         errors.append("search snippet cannot be Tier A")
+    if capture_level == "abstract" and ceiling not in {"medium", "weak", "background"}:
+        errors.append("abstract capture cannot exceed medium evidence")
+    if capture_level == "metadata" and ceiling != "background":
+        errors.append("metadata capture must use background evidence ceiling")
+    locator_kind = " ".join((
+        str(record.get("locator_type", "")),
+        str(record.get("locator", record.get("content_locator", ""))),
+    )).casefold()
+    weak_locator = any(
+        marker in locator_kind
+        for marker in ("abstract", "metadata", "title", "题名", "摘要")
+    )
+    if capture_level == "full_text" and weak_locator:
+        errors.append("full_text capture cannot use an abstract or metadata locator")
+    if capture_level == "abstract" and not any(
+        marker in locator_kind for marker in ("abstract", "摘要")
+    ):
+        errors.append("abstract capture requires an abstract locator")
+    if capture_level == "metadata" and not any(
+        marker in locator_kind for marker in ("metadata", "title", "题名")
+    ):
+        errors.append("metadata capture requires a title or metadata locator")
     if source_type in SECONDARY_SOURCE_TYPES and primary_class == "primary":
         errors.append("secondary synthesis cannot be classified as primary")
     if tier == "A":

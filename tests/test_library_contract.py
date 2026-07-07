@@ -33,11 +33,16 @@ class LibraryContractTests(unittest.TestCase):
         self.assertIn("scripts/run_checks.py", body)
         self.assertIn("evals/", body)
         self.assertIn("8000–10000", body)
+        self.assertIn("maximal_full_dossier", body)
         self.assertIn("research_profile", body)
         self.assertIn("default_full_dossier", body)
         self.assertIn("report_outline", body)
         self.assertIn("output-path-policy.md", body)
         self.assertIn("Never reinitialize", body)
+        self.assertIn("starts with `scripts/storm_research.py init`", body)
+        self.assertIn("never handwrite", body)
+        self.assertIn("not research validation", body)
+        self.assertIn("no topic findings", body)
 
     def test_skill_initial_load_stays_within_library_budget(self) -> None:
         text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
@@ -54,13 +59,13 @@ class LibraryContractTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_manifest_declares_governed_3_0(self) -> None:
+    def test_manifest_declares_governed_4_0(self) -> None:
         manifest = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
         expected = {
             "name": "storm-deepresearch-skill",
-            "version": "3.0.0",
+            "version": "4.0.0",
             "owner": "陈旭",
-            "updated_at": "2026-07-03",
+            "updated_at": "2026-07-05",
             "review_cadence": "per-release",
             "status": "active",
             "maturity_tier": "governed",
@@ -87,11 +92,21 @@ class LibraryContractTests(unittest.TestCase):
         self.assertIn("evidence", interface["interface"]["short_description"].lower())
         self.assertIn("research_profile", interface["interface"]["default_prompt"])
         self.assertIn("default_full_dossier", interface["interface"]["default_prompt"])
+        self.assertIn("maximal_full_dossier", interface["interface"]["default_prompt"])
+        self.assertIn("profile-selection evidence file", interface["interface"]["default_prompt"])
+        self.assertIn("storm_research.py init", interface["interface"]["default_prompt"])
+        self.assertIn("never handwrite", interface["interface"]["default_prompt"])
+        self.assertIn("stop blocked", interface["interface"]["default_prompt"])
+        self.assertIn("status/explain only", interface["interface"]["default_prompt"])
+        self.assertIn("no topic findings", interface["interface"]["default_prompt"])
         compatibility = interface["compatibility"]
         self.assertEqual(compatibility["canonical_format"], "agent-skills")
         self.assertEqual(compatibility["execution"]["context"], "inline")
         self.assertEqual(compatibility["execution"]["shell"], "bash")
         self.assertEqual(compatibility["trust"]["remote_inline_execution"], "forbid")
+        self.assertIn(
+            "captured-host-execution", compatibility["trust"]["release_policy"]
+        )
         expected_targets = {"openai", "claude", "agent-skills", "vscode", "generic"}
         self.assertEqual(set(compatibility["adapter_targets"]), expected_targets)
         self.assertEqual(set(compatibility["degradation"]), expected_targets)
@@ -100,6 +115,7 @@ class LibraryContractTests(unittest.TestCase):
         visible_profiles = set(defaults["research_profile_options"])
         self.assertTrue({
             "default_full_dossier",
+            "maximal_full_dossier",
             "critique_deepresearch",
             "closed_corpus",
             "briefing",
@@ -116,7 +132,42 @@ class LibraryContractTests(unittest.TestCase):
         )
         self.assertEqual(defaults["output_collision_policy"], "fail")
         self.assertEqual(defaults["ledger_update_policy"], "monotonic-merge")
-        self.assertEqual(defaults["release_policy"], "validation-plus-trust-plus-human-approval")
+        self.assertEqual(
+            defaults["release_policy"],
+            "captured-host-execution-plus-validation-plus-trust-plus-human-approval",
+        )
+        self.assertEqual(
+            defaults["assurance_target_options"],
+            ["artifact_contract", "captured_host_execution"],
+        )
+        self.assertIn(
+            "profile_selection_evidence_file",
+            interface["contract"]["inputs"]["optional"],
+        )
+        self.assertIn(
+            "profile_selection_evidence_file",
+            defaults["assurance_policy"],
+        )
+        self.assertEqual(
+            defaults["user_facing_run_policy"],
+            "must begin with storm_research.py init; manual report or evidence dossier is not a valid skill run; blocked final answers are status/explain only, no topic findings",
+        )
+
+    def test_docs_forbid_manual_dossier_fallback(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        gates = (ROOT / "references" / "quality-gates.md").read_text(encoding="utf-8")
+        combined = "\n".join((readme, skill, gates))
+        for token in (
+            "manual report",
+            "evidence dossier",
+            "not a valid skill run",
+            "run_checks.py is not research validation",
+            "blocked final answer",
+            "no topic findings",
+            "provisional report",
+        ):
+            self.assertIn(token, combined)
 
     def test_docs_name_academic_retrieval_contract(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -133,9 +184,38 @@ class LibraryContractTests(unittest.TestCase):
         self.assertIn("academic baseline", skill)
         self.assertIn("retrieval-audit.jsonl", interface)
 
+    def test_max_docs_define_saturation_not_numeric_stopping_targets(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        prompts = (ROOT / "references/storm-lens-prompt-pack.md").read_text(encoding="utf-8")
+        protocol = (ROOT / "references/research-protocol.md").read_text(encoding="utf-8")
+        for token in (
+            "material-novelty saturation", "bounded-corpus exhaustion",
+            "concern-driven", "final integrity",
+        ):
+            self.assertIn(token, "\n".join((readme, skill, prompts, protocol)))
+        self.assertIn("no source-count stopping target", skill)
+        self.assertIn("do not stop when a source or candidate count", prompts)
+        self.assertNotIn("Max requires 88 body-cited sources", skill)
+
+    def test_docs_use_gap_assessment_not_saturation_assessment(self) -> None:
+        docs = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in [
+                ROOT / "README.md",
+                ROOT / "references/research-protocol.md",
+                ROOT / "references/quality-gates.md",
+                ROOT / "docs/superpowers/plans/2026-07-06-max-mode-repair.md",
+                ROOT / "docs/superpowers/plans/2026-07-07-max-retrieval-execution-repair.md",
+            ]
+            if path.exists()
+        )
+        self.assertIn("gap_assessment", docs)
+        self.assertNotIn('"record_kind": "saturation_assessment"', docs)
+
     def test_readme_declares_current_version(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("当前版本：`3.0.0`", readme)
+        self.assertIn("当前版本：`4.0.0`", readme)
 
     def test_packaging_expectations_cover_distributed_adapters(self) -> None:
         expectations = json.loads(

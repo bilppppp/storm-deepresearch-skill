@@ -459,6 +459,13 @@ def release_run(
     )
     validation_receipt = load_receipt(layout.receipt(generation, Stage.VALIDATION))
     validation_digest = str(validation_receipt["receipt_sha256"])
+    validation_report = load_json(
+        layout.artifact(generation, "validation/validation-report.json")
+    )
+    if validation_report.get("assurance_level") != "validated_captured_host_execution":
+        raise ReleaseGateError(
+            "public release requires validated_captured_host_execution assurance"
+        )
     if approval_path is None:
         raise ReleaseGateError("human approval is required for public release")
     now = _utc_now()

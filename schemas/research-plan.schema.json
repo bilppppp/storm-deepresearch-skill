@@ -28,13 +28,31 @@
     "source_priorities": {"type": "array", "items": {"type": "string"}},
     "stopping_conditions": {"type": "array", "items": {"type": "string"}},
     "retrieval_budget": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["max_queries", "max_sources"],
-      "properties": {
-        "max_queries": {"type": "integer", "minimum": 1},
-        "max_sources": {"type": "integer", "minimum": 1}
-      }
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["max_queries", "max_sources"],
+          "properties": {
+            "max_queries": {"type": "integer", "minimum": 1},
+            "max_sources": {"type": "integer", "minimum": 1}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["policy", "max_queries", "max_sources", "stop_conditions"],
+          "properties": {
+            "policy": {"const": "open_ended_until_saturation"},
+            "max_queries": {"type": "null"},
+            "max_sources": {"type": "null"},
+            "stop_conditions": {
+              "type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true,
+              "items": {"enum": ["tasklet_closure", "storm_gap_closure", "material_novelty_saturation", "reviewer_no_material_omission"]}
+            }
+          }
+        }
+      ]
     }
   }
 }

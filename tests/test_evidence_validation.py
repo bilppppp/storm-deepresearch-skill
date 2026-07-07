@@ -3,7 +3,12 @@ from __future__ import annotations
 import unittest
 
 from scripts.contract_io import validate_claim_record
-from scripts.validate_evidence import compute_coverage, validate_absence_searches, validate_claim_closure
+from scripts.validate_evidence import (
+    compute_coverage,
+    validate_absence_searches,
+    validate_claim_closure,
+    validate_material_capture_depth,
+)
 from tests.governed_fixtures import (
     valid_claim_v2,
     valid_report_outline_v2,
@@ -13,6 +18,20 @@ from tests.governed_fixtures import (
 
 
 class EvidenceValidationTests(unittest.TestCase):
+    def test_maximal_material_claim_rejects_metadata_only_capture(self) -> None:
+        claim = valid_claim_v2()
+        manifest = valid_retrieval_manifest_v2()
+        manifest.update({
+            "capture_level": "metadata",
+            "evidence_strength_ceiling": "background",
+            "locator_type": "title",
+            "locator": "title metadata",
+        })
+        self.assertIn(
+            "maximal material claim C001 requires at least abstract-level or full-text evidence",
+            validate_material_capture_depth([claim], [manifest]),
+        )
+
     def test_claim_locator_cannot_use_another_candidate_version(self) -> None:
         claim = valid_claim_v2()
         source = valid_source_v2()

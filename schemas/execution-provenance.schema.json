@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "execution-provenance.schema.json",
+  "title": "Captured Host Execution Provenance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "provenance_id", "stage", "execution_kind",
+    "context_id", "provider", "model", "runner", "execution_id",
+    "started_at", "completed_at", "transcript_ref", "transcript_sha256",
+    "input_artifacts", "output_artifacts", "record_ids", "provider_signed"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "provenance_id": {"type": "string", "pattern": "^EPROV-[A-Za-z0-9._-]+$"},
+    "stage": {"enum": ["retrieval", "draft"]},
+    "execution_kind": {"const": "host_execution"},
+    "context_id": {"type": "string", "minLength": 1},
+    "provider": {"type": "string", "minLength": 1},
+    "model": {"type": "string", "minLength": 1},
+    "runner": {"type": "string", "minLength": 1},
+    "execution_id": {"type": "string", "minLength": 1},
+    "started_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "transcript_ref": {"type": "string", "pattern": "^artifacts/research/execution/(retrieval|draft)-transcript\\.txt$"},
+    "transcript_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "input_artifacts": {"$ref": "#/$defs/hashMap"},
+    "output_artifacts": {"$ref": "#/$defs/hashMap"},
+    "record_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "provider_signed": {"const": false}
+  },
+  "$defs": {
+    "hashMap": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    }
+  }
+}

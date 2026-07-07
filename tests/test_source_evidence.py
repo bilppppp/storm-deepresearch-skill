@@ -11,7 +11,9 @@ from scripts.source_evidence import (
     validate_candidate_snapshots,
     validate_public_url,
     validate_retrieval_evidence,
+    validate_search_request_snapshot,
 )
+from scripts.harness_io import sha256_file
 from tests.governed_fixtures import valid_candidate_record, valid_search_run_record
 
 
@@ -30,6 +32,20 @@ class SourceEvidenceTests(unittest.TestCase):
         candidate["resolver_outcomes"][0]["raw_artifact"] = "missing.json"
         errors = validate_candidate_snapshots(candidate, self.cache)
         self.assertTrue(any("snapshot file is missing" in item for item in errors))
+
+    def test_search_request_snapshot_must_match_declared_query(self) -> None:
+        record = valid_search_run_record()
+        request = self.cache / str(record["request_artifact"])
+        request.write_text(
+            '{"query_id":"Q001","surface":"OpenAlex","query":"different",'
+            '"aliases":["governed research","auditable research"]}\n',
+            encoding="utf-8",
+        )
+        record["request_sha256"] = sha256_file(request)
+        self.assertIn(
+            "search request artifact query does not match search_run",
+            validate_search_request_snapshot(record, self.cache),
+        )
 
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()

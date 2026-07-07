@@ -8,6 +8,10 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _semantic_scholar_id(index: int) -> str:
+    return f"{index:040x}"
+
+
 def valid_brief_v2() -> dict[str, object]:
     return {
         "schema_version": "2.0",
@@ -26,13 +30,16 @@ def valid_brief_v2() -> dict[str, object]:
                 "critique_deepresearch",
                 "custom",
                 "default_full_dossier",
+                "maximal_full_dossier",
                 "strict_storm_lens",
             ],
         },
+        "assurance_target": "artifact_contract",
         "depth_level": "full_dossier",
         "report_language": "en",
         "length_contract": {
             "unit": "words",
+            "policy": "bounded",
             "minimum": 3500,
             "target": 5000,
             "maximum": 7000,
@@ -90,7 +97,10 @@ def valid_amendment() -> dict[str, object]:
     }
 
 
-def valid_research_plan_v2() -> dict[str, object]:
+def valid_research_plan_v2(
+    *, question_count: int = 10, max_queries: int = 30, max_sources: int = 50,
+    open_ended: bool = False,
+) -> dict[str, object]:
     perspectives = ["historian", "domain_expert", "skeptic", "practitioner", "affected_party"]
     questions = [
         {
@@ -101,7 +111,7 @@ def valid_research_plan_v2() -> dict[str, object]:
             "claim_ids": [],
             "disposition_note": "Planned for governed retrieval.",
         }
-        for index in range(1, 11)
+        for index in range(1, question_count + 1)
     ]
     return {
         "schema_version": "2.0",
@@ -110,11 +120,30 @@ def valid_research_plan_v2() -> dict[str, object]:
         "questions": questions,
         "source_priorities": ["primary official evidence", "independent scholarship"],
         "stopping_conditions": ["Every material question has an evidence disposition"],
-        "retrieval_budget": {"max_queries": 30, "max_sources": 50},
+        "retrieval_budget": (
+            {
+                "policy": "open_ended_until_saturation",
+                "max_queries": None,
+                "max_sources": None,
+                "stop_conditions": [
+                    "tasklet_closure", "storm_gap_closure",
+                    "material_novelty_saturation", "reviewer_no_material_omission",
+                ],
+            }
+            if open_ended else
+            {"max_queries": max_queries, "max_sources": max_sources}
+        ),
     }
 
 
-def valid_source_plan(question_count: int = 10) -> dict[str, object]:
+def valid_source_plan(question_count: int = 10, *, maximal: bool = False) -> dict[str, object]:
+    surface_cycle = [
+        "scholarly_index",
+        "official_registry",
+        "publisher_full_text",
+        "secondary_synthesis",
+        "counterevidence",
+    ]
     return {
         "schema_version": "2.0",
         "questions": [
@@ -125,7 +154,10 @@ def valid_source_plan(question_count: int = 10) -> dict[str, object]:
                 "required_source_classes": ["official-record", "academic"],
                 "search_requirements": {
                     "aliases": [f"governed research question {index}"],
-                    "required_surfaces": ["scholarly_index", "publisher_or_registry"],
+                    "required_surfaces": (
+                        ["scholarly_index", surface_cycle[(index - 1) % len(surface_cycle)]]
+                        if maximal else ["scholarly_index", "publisher_or_registry"]
+                    ),
                     "academic_required": True,
                     "corpus_seeded": False,
                     "inclusion_criteria": ["Directly relevant, inspectable evidence"],
@@ -152,6 +184,17 @@ def valid_source_plan(question_count: int = 10) -> dict[str, object]:
         ],
         "stopping_conditions": ["Every material question has inspectable evidence"],
         "exclusions": ["Search snippets as strong evidence"],
+        "surface_applicability": [
+            {
+                "surface": surface,
+                "applicability": "required",
+                "reason": "This discovery surface is required by at least one planned research question.",
+            }
+            for surface in (
+                "scholarly_index", "publisher_or_registry", "official_registry",
+                "publisher_full_text", "secondary_synthesis", "counterevidence",
+            )
+        ],
     }
 
 
@@ -186,7 +229,7 @@ def valid_source_v2(index: int = 1, *, academic: bool = False) -> dict[str, obje
                     "doi": f"10.5555/storm.{index}",
                     "pmid": None,
                     "arxiv_id": None,
-                    "semantic_scholar_id": f"s2-{index}",
+                    "semantic_scholar_id": _semantic_scholar_id(index),
                     "openalex_id": f"W{index}",
                 },
                 "status": "verified",
@@ -255,13 +298,25 @@ def valid_claim_v2(
     }
 
 
-def valid_report_outline_v2() -> dict[str, object]:
+def valid_report_outline_v2(
+    *, claim_count: int = 12, section_count: int = 6, question_count: int = 10
+) -> dict[str, object]:
     sections = []
-    for index in range(1, 7):
-        claim_ids = [f"C{index * 2 - 1:03d}", f"C{index * 2:03d}"]
-        question_ids = [f"Q{index:03d}"]
-        if index == 6:
-            question_ids.extend(["Q007", "Q008", "Q009", "Q010"])
+    for index in range(1, section_count + 1):
+        first_claim = ((index - 1) * 3) + 1
+        claim_ids = [
+            f"C{claim_index:03d}"
+            for claim_index in range(first_claim, min(first_claim + 3, claim_count + 1))
+        ]
+        if not claim_ids:
+            claim_ids = [f"C{claim_count:03d}"]
+        question_ids = [f"Q{((index - 1) % question_count) + 1:03d}"]
+        if index == section_count:
+            question_ids.extend(
+                f"Q{question_index:03d}"
+                for question_index in range(1, question_count + 1)
+                if f"Q{question_index:03d}" not in question_ids
+            )
         sections.append({
             "section_id": f"SEC{index:02d}",
             "title": f"Evidence section {index}",
@@ -275,6 +330,7 @@ def valid_report_outline_v2() -> dict[str, object]:
         "schema_version": "2.0",
         "status": "complete",
         "unit": "words",
+        "policy": "bounded",
         "minimum": 3500,
         "target": 5000,
         "maximum": 7000,
@@ -296,6 +352,10 @@ def valid_storm_lens_artifact(
     input_artifacts: dict[str, str],
     *,
     target_sha256: str | None = None,
+    question_count: int = 10,
+    finding_count: int = 10,
+    claim_count: int = 12,
+    section_count: int = 6,
 ) -> dict[str, object]:
     phases = {
         "P1": "before_retrieval",
@@ -306,12 +366,12 @@ def valid_storm_lens_artifact(
     outputs: dict[str, dict[str, object]] = {
         "P1": {
             "perspectives": ["historian", "domain_expert", "skeptic", "practitioner", "affected_party"],
-            "question_ids": [f"Q{index:03d}" for index in range(1, 11)],
+            "question_ids": [f"Q{index:03d}" for index in range(1, question_count + 1)],
             "source_class_ids": ["official-record", "academic"],
             "notes": "Prompt 1 created perspective questions and source needs before retrieval.",
         },
         "P2": {
-            "finding_ids": [f"F{index:03d}" for index in range(1, 11)],
+            "finding_ids": [f"F{index:03d}" for index in range(1, finding_count + 1)],
             "conflict_claim_ids": [],
             "consensus_candidates": ["Fixture findings agree inside their limited scope."],
             "blind_spots": ["No external blind spot is material in this fixture."],
@@ -326,9 +386,9 @@ def valid_storm_lens_artifact(
             }],
         },
         "P3": {
-            "section_ids": [f"SEC{index:02d}" for index in range(1, 7)],
-            "claim_ids": [f"C{index:03d}" for index in range(1, 13)],
-            "finding_ids": [f"F{index:03d}" for index in range(1, 11)],
+            "section_ids": [f"SEC{index:02d}" for index in range(1, section_count + 1)],
+            "claim_ids": [f"C{index:03d}" for index in range(1, claim_count + 1)],
+            "finding_ids": [f"F{index:03d}" for index in range(1, finding_count + 1)],
             "contradiction_ids": [],
             "uncertainty_ids": [],
             "length_budget_note": "Each section receives evidence-led expansion from findings and Claims.",
@@ -399,12 +459,84 @@ def valid_search_run_record(index: int = 1, *, pass_kind: str = "baseline") -> d
         "query": f'"governed research" question {index}',
         "aliases": ["governed research", "auditable research"],
         "searched_at": _now(),
-        "result_count": 2,
+        "result_count": 1,
         "execution_status": "completed",
+        "request_artifact": f"request-{index}.json",
+        "request_sha256": "f" * 64,
         "raw_artifact": f"search-{index}.json",
         "snapshot_sha256": "a" * 64,
         "limitations": [],
     }
+
+
+def valid_search_wave_record(
+    index: int = 1,
+    *,
+    gap_id: str = "G001",
+    search_run_ids: list[str] | None = None,
+    new_candidate_ids: list[str] | None = None,
+    new_source_ids: list[str] | None = None,
+    new_finding_ids: list[str] | None = None,
+    new_contradiction_ids: list[str] | None = None,
+    new_uncertainty_ids: list[str] | None = None,
+    changed_claim_ids: list[str] | None = None,
+    material_delta: int | None = None,
+) -> dict[str, object]:
+    candidate_ids = new_candidate_ids or []
+    derived_sources = [item.replace("K", "S", 1) for item in candidate_ids]
+    derived_findings = [item.replace("K", "F", 1) for item in candidate_ids]
+    derived_claims = [item.replace("K", "C", 1) for item in candidate_ids]
+    return {
+        "record_kind": "search_wave",
+        "wave_id": f"WAVE{index:03d}",
+        "adapter": "host",
+        "gap_id": gap_id,
+        "question_ids": ["Q001"],
+        "search_run_ids": search_run_ids or [f"SR{index:03d}"],
+        "new_candidate_ids": candidate_ids,
+        "new_source_ids": derived_sources if new_source_ids is None else new_source_ids,
+        "new_finding_ids": derived_findings if new_finding_ids is None else new_finding_ids,
+        "new_contradiction_ids": new_contradiction_ids or [],
+        "new_uncertainty_ids": new_uncertainty_ids or [],
+        "changed_claim_ids": derived_claims if changed_claim_ids is None else changed_claim_ids,
+        "material_delta": len(derived_findings) if material_delta is None else material_delta,
+        "created_at": _now(),
+    }
+
+
+def valid_gap_assessment_record(
+    index: int = 1,
+    *,
+    gap_id: str = "G001",
+    terminal_state: str = "saturated",
+    supporting_wave_ids: list[str] | None = None,
+    supporting_search_run_ids: list[str] | None = None,
+    screened_candidate_ids: list[str] | None = None,
+) -> dict[str, object]:
+    record: dict[str, object] = {
+        "record_kind": "gap_assessment",
+        "assessment_id": f"GA{index:03d}",
+        "adapter": "host",
+        "gap_id": gap_id,
+        "terminal_state": terminal_state,
+        "supporting_wave_ids": supporting_wave_ids or ["WAVE001", "WAVE002"],
+        "supporting_search_run_ids": supporting_search_run_ids or ["SR001", "SR002"],
+        "screened_candidate_ids": screened_candidate_ids or [],
+        "raw_result_count": len(screened_candidate_ids or []),
+        "deduplicated_candidate_count": len(screened_candidate_ids or []),
+        "uncertainty_id": "U001" if terminal_state == "access_limited_uncertainty" else None,
+        "review_concern_id": "RC001",
+        "reason": "The recorded search evidence supports this explicit terminal disposition for the gap.",
+        "created_at": _now(),
+    }
+    if terminal_state == "bounded_corpus_exhausted":
+        record.update({
+            "result_windows_retrieved": 1,
+            "total_result_windows": 1,
+            "enumeration_complete": True,
+            "access_limitations": [],
+        })
+    return record
 
 
 def valid_candidate_record(index: int = 1) -> dict[str, object]:
@@ -422,28 +554,59 @@ def valid_candidate_record(index: int = 1) -> dict[str, object]:
             "doi": f"10.5555/storm.{index}",
             "pmid": None,
             "arxiv_id": None,
-            "semantic_scholar_id": f"s2-{index}",
+            "semantic_scholar_id": _semantic_scholar_id(index),
             "openalex_id": f"W{index}",
         },
-        "resolver_outcomes": [{
-            "resolver": "crossref",
-            "status": "matched",
-            "query_basis": "doi",
-            "matched_identifier": f"10.5555/storm.{index}",
-            "returned_title": f"Governed Research Source {index}",
-            "returned_authors": ["A. Researcher"],
-            "returned_year": 2026,
-            "metadata_match": True,
-            "checked_at": _now(),
-            "raw_artifact": f"crossref-{index}.json",
-            "snapshot_sha256": "b" * 64,
-            "reason": "Exact DOI and normalized title match.",
-        }],
+        "resolver_outcomes": [
+            {
+                "resolver": "crossref",
+                "status": "matched",
+                "query_basis": "doi",
+                "matched_identifier": f"10.5555/storm.{index}",
+                "returned_title": f"Governed Research Source {index}",
+                "returned_authors": ["A. Researcher"],
+                "returned_year": 2026,
+                "metadata_match": True,
+                "checked_at": _now(),
+                "raw_artifact": f"crossref-{index}.json",
+                "snapshot_sha256": "b" * 64,
+                "reason": "Exact DOI and normalized title match.",
+            },
+            {
+                "resolver": "openalex",
+                "status": "matched",
+                "query_basis": "openalex_id",
+                "matched_identifier": f"W{index}",
+                "returned_title": f"Governed Research Source {index}",
+                "returned_authors": ["A. Researcher"],
+                "returned_year": 2026,
+                "metadata_match": True,
+                "checked_at": _now(),
+                "raw_artifact": f"openalex-{index}.json",
+                "snapshot_sha256": "c" * 64,
+                "reason": "OpenAlex work ID and normalized title match.",
+            },
+            {
+                "resolver": "semantic_scholar",
+                "status": "matched",
+                "query_basis": "semantic_scholar_id",
+                "matched_identifier": _semantic_scholar_id(index),
+                "returned_title": f"Governed Research Source {index}",
+                "returned_authors": ["A. Researcher"],
+                "returned_year": 2026,
+                "metadata_match": True,
+                "checked_at": _now(),
+                "raw_artifact": f"semantic-scholar-{index}.json",
+                "snapshot_sha256": "d" * 64,
+                "reason": "Semantic Scholar paper ID and normalized title match.",
+            },
+        ],
         "disposition": "include",
         "screening_reason": "Meets the declared inclusion criteria.",
         "version_family_id": f"W{index:03d}",
         "version_role": "journal",
         "relationship_basis": "exact_identifier",
+        "canonical_version": True,
     }
 
 
@@ -526,8 +689,10 @@ def valid_semantic_review_record() -> dict[str, object]:
         "material": True,
         "verdict": "supported",
         "reason": "The scoped claim is directly entailed by the captured excerpt.",
+        "evidence_or_locator": "claim:C001; source:S001; locator:section 1",
         "allowable_scope": None,
         "required_action": "none",
+        "acceptance_test": "The target remains within the scope of the cited evidence.",
         "findings": [],
         "reviewed_at": "2026-06-23T00:00:00Z",
     }

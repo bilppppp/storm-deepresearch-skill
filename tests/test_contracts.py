@@ -22,12 +22,15 @@ from tests.governed_fixtures import (
     valid_candidate_record,
     valid_capture_input,
     valid_governed_trust_evidence,
+    valid_gap_assessment_record,
     valid_human_approval,
     valid_paragraph_map_record,
     valid_receipt,
     valid_release_manifest,
+    valid_research_plan_v2,
     valid_retrieval_evidence,
     valid_search_run_record,
+    valid_search_wave_record,
     valid_reverification_record,
     valid_semantic_review_record,
     valid_source_plan,
@@ -38,13 +41,129 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ContractTests(unittest.TestCase):
+    def test_storm_lens_schema_rejects_unstructured_p4_output(self) -> None:
+        schema = json.loads(
+            (ROOT / "schemas/storm-lens-artifact.schema.json").read_text(encoding="utf-8")
+        )
+        p4_rules = schema.get("allOf")
+        self.assertIsInstance(p4_rules, list)
+        encoded = json.dumps(p4_rules, ensure_ascii=False)
+        for field in (
+            "target_sha256", "weakest_claim_ids", "missing_perspectives",
+            "citation_support_issues", "repair_actions",
+        ):
+            self.assertIn(field, encoded)
+
     def test_retrieval_input_union_accepts_all_record_kinds(self) -> None:
         for record in (
             valid_search_run_record(),
             valid_candidate_record(),
             valid_capture_input(),
+            valid_search_wave_record(),
+            valid_gap_assessment_record(),
         ):
             self.assertEqual(contract_io.validate_retrieval_input_record(record), [])
+
+    def test_terminal_gap_assessment_can_defer_independent_review_binding(self) -> None:
+        for terminal_state in (
+            "saturated", "bounded_corpus_exhausted",
+            "access_limited_uncertainty", "out_of_scope",
+        ):
+            with self.subTest(terminal_state=terminal_state):
+                record = valid_gap_assessment_record(
+                    terminal_state=terminal_state,
+                    supporting_wave_ids=["WAVE001"],
+                    supporting_search_run_ids=["SR001"],
+                )
+                self.assertEqual(contract_io.validate_retrieval_input_record(record), [])
+                record["review_concern_id"] = None
+                self.assertEqual(contract_io.validate_retrieval_input_record(record), [])
+                record["review_concern_id"] = "not-a-review-concern"
+                self.assertIn(
+                    "review_concern_id must match RC followed by three digits",
+                    contract_io.validate_retrieval_input_record(record),
+                )
+
+    def test_maximal_brief_uses_saturation_contract_without_numeric_quotas(self) -> None:
+        brief = valid_brief_v2()
+        brief.update({
+            "research_profile": "maximal_full_dossier",
+            "length_contract": {
+                "unit": "words",
+                "policy": "open_ended",
+                "content_standard": "evidence_led",
+            },
+            "maximal_completeness_contract": {
+                "completion_policy": "coverage_and_saturation",
+                "discovery_surface_policy": "domain_adaptive_with_mandatory_counterevidence",
+                "surface_applicability_required": True,
+                "tasklet_closure_required": True,
+                "storm_gap_closure_required": True,
+                "material_novelty_window": 2,
+                "final_integrity_required": True,
+                "review_policy": "concern_driven_until_clear",
+            },
+        })
+        brief["profile_selection"]["selected_profile"] = "maximal_full_dossier"
+        self.assertEqual(validate_brief(brief), [])
+        self.assertFalse(any(
+            key.startswith("min_") for key in brief["maximal_completeness_contract"]
+        ))
+
+    def test_maximal_research_plan_accepts_open_ended_retrieval_budget(self) -> None:
+        brief = valid_brief_v2()
+        brief.update({
+            "research_profile": "maximal_full_dossier",
+            "length_contract": {
+                "unit": "words", "policy": "open_ended", "content_standard": "evidence_led",
+            },
+            "maximal_completeness_contract": {
+                "completion_policy": "coverage_and_saturation",
+                "discovery_surface_policy": "domain_adaptive_with_mandatory_counterevidence",
+                "surface_applicability_required": True,
+                "tasklet_closure_required": True,
+                "storm_gap_closure_required": True,
+                "material_novelty_window": 2,
+                "final_integrity_required": True,
+                "review_policy": "concern_driven_until_clear",
+            },
+        })
+        brief["profile_selection"]["selected_profile"] = "maximal_full_dossier"
+        plan = contract_io.validate_research_plan
+        payload = valid_research_plan_v2()
+        payload["retrieval_budget"] = {
+            "policy": "open_ended_until_saturation",
+            "max_queries": None,
+            "max_sources": None,
+            "stop_conditions": [
+                "tasklet_closure", "storm_gap_closure",
+                "material_novelty_saturation", "reviewer_no_material_omission",
+            ],
+        }
+        self.assertEqual(plan(payload, brief, set()), [])
+
+    def test_abstract_capture_is_explicit_and_cannot_claim_strong_evidence(self) -> None:
+        capture = valid_capture_input()
+        capture.update({
+            "capture_level": "abstract",
+            "locator_type": "abstract",
+            "content_locator": "abstract",
+            "evidence_strength_ceiling": "medium",
+        })
+        self.assertEqual(contract_io.validate_adapter_capture_record(capture), [])
+        capture["evidence_strength_ceiling"] = "strong"
+        self.assertIn(
+            "abstract capture cannot exceed medium evidence",
+            contract_io.validate_adapter_capture_record(capture),
+        )
+
+    def test_full_text_capture_rejects_abstract_locator(self) -> None:
+        capture = valid_capture_input()
+        capture.update({"locator_type": "abstract", "content_locator": "abstract"})
+        self.assertIn(
+            "full_text capture cannot use an abstract or metadata locator",
+            contract_io.validate_adapter_capture_record(capture),
+        )
 
     def test_unreachable_resolver_cannot_claim_metadata_match(self) -> None:
         candidate = valid_candidate_record()
@@ -85,6 +204,7 @@ class ContractTests(unittest.TestCase):
             "reverification-record", "release-manifest",
             "governed-trust-evidence",
             "review-request", "review-provenance", "absence-search-record",
+            "execution-provenance",
         }
         for name in names:
             path = ROOT / "schemas" / f"{name}.schema.json"
@@ -97,6 +217,34 @@ class ContractTests(unittest.TestCase):
         brief = valid_brief_v2()
         brief["output_mode"] = "reduced"
         self.assertIn("full_dossier requires full output", validate_brief(brief))
+
+    def test_brief_requires_explicit_assurance_target(self) -> None:
+        brief = valid_brief_v2()
+        del brief["assurance_target"]
+        self.assertIn("missing fields: assurance_target", validate_brief(brief))
+        brief["assurance_target"] = "real_host_execution"
+        self.assertIn("assurance_target is invalid", validate_brief(brief))
+
+    def test_brief_accepts_diagnostic_rehearsal_intent(self) -> None:
+        brief = valid_brief_v2()
+        brief["run_intent"] = "diagnostic_rehearsal"
+        self.assertEqual(validate_brief(brief), [])
+        brief["run_intent"] = "release_anyway"
+        self.assertIn("run_intent is invalid", validate_brief(brief))
+
+    def test_captured_host_brief_requires_bound_profile_selection_evidence(self) -> None:
+        brief = valid_brief_v2()
+        brief["assurance_target"] = "captured_host_execution"
+        self.assertIn(
+            "profile_selection.evidence_ref is required for captured_host_execution",
+            validate_brief(brief),
+        )
+        brief["profile_selection"]["evidence_ref"] = "inputs/profile-selection-evidence.txt"
+        brief["profile_selection"]["evidence_sha256"] = "a" * 64
+        self.assertNotIn(
+            "profile_selection.evidence_ref is required for captured_host_execution",
+            validate_brief(brief),
+        )
 
     def test_briefing_requires_explicit_reason(self) -> None:
         brief = valid_brief_v2()
@@ -131,6 +279,17 @@ class ContractTests(unittest.TestCase):
             validate_brief(brief),
         )
 
+        brief = valid_brief_v2()
+        brief["research_profile"] = "maximal_full_dossier"
+        brief["profile_selection"]["selected_profile"] = "maximal_full_dossier"
+        self.assertIn("maximal_full_dossier profile requires open_ended length", validate_brief(brief))
+        brief["length_contract"] = {
+            "unit": "words",
+            "policy": "open_ended",
+            "content_standard": "evidence_led",
+        }
+        self.assertNotIn("maximal_full_dossier profile requires open_ended length", validate_brief(brief))
+
     def test_profile_selection_is_required_and_matches_profile(self) -> None:
         brief = valid_brief_v2()
         del brief["profile_selection"]
@@ -143,6 +302,24 @@ class ContractTests(unittest.TestCase):
         brief = valid_brief_v2()
         brief["profile_selection"]["evidence"] = ""
         self.assertIn("profile_selection.evidence must be a non-empty string", validate_brief(brief))
+
+        brief = valid_brief_v2()
+        brief["profile_selection"]["mode"] = "defaulted_after_prompt"
+        self.assertIn(
+            "profile_selection.prompt_ref is required for defaulted_after_prompt",
+            validate_brief(brief),
+        )
+        brief["profile_selection"]["prompt_ref"] = "inputs/profile-selection-prompt.txt"
+        brief["profile_selection"]["prompt_sha256"] = "a" * 64
+        self.assertNotIn(
+            "profile_selection.prompt_ref is required for defaulted_after_prompt",
+            validate_brief(brief),
+        )
+        brief["profile_selection"]["mode"] = "user_requested_default"
+        self.assertIn(
+            "profile_selection prompt fields are only valid for defaulted_after_prompt",
+            validate_brief(brief),
+        )
 
     def test_governed_record_validators_are_strict(self) -> None:
         cases = {
@@ -165,6 +342,15 @@ class ContractTests(unittest.TestCase):
                 self.assertEqual(validator(payload), [])
                 payload["unexpected"] = True
                 self.assertIn("unknown fields: unexpected", validator(payload))
+
+    def test_semantic_review_requires_evidence_locator_and_acceptance_test(self) -> None:
+        review = valid_semantic_review_record()
+        del review["evidence_or_locator"]
+        del review["acceptance_test"]
+        errors = contract_io.validate_semantic_review_record(review)
+        self.assertIn("missing fields: acceptance_test, evidence_or_locator", errors)
+        self.assertIn("evidence_or_locator must be a non-empty string", errors)
+        self.assertIn("acceptance_test must be a non-empty string", errors)
 
     def test_schema_files_are_strict_draft_2020_contracts(self) -> None:
         names = (
@@ -206,12 +392,22 @@ class ContractTests(unittest.TestCase):
         brief = valid_brief()
         brief["length_contract"] = {
             "unit": "characters",
+            "policy": "bounded",
             "minimum": 10000,
             "target": 9000,
             "maximum": 8000,
             "content_standard": "evidence_led",
         }
         self.assertIn("length_contract must satisfy minimum <= target <= maximum", validate_brief(brief))
+
+        brief = valid_brief_v2()
+        brief["length_contract"] = {
+            "unit": "words",
+            "policy": "open_ended",
+            "minimum": 1,
+            "content_standard": "evidence_led",
+        }
+        self.assertIn("length_contract has invalid fields", validate_brief(brief))
 
     def test_research_plan_rejects_answered_question_without_claims(self) -> None:
         brief = valid_brief()

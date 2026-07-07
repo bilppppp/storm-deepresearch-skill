@@ -15,13 +15,16 @@
       "critique_deepresearch",
       "custom",
       "default_full_dossier",
+      "maximal_full_dossier",
       "strict_storm_lens"
     ]
   },
+  "assurance_target": "artifact_contract",
   "depth_level": "full_dossier",
   "report_language": "zh-CN",
   "length_contract": {
     "unit": "characters",
+    "policy": "bounded",
     "minimum": 8000,
     "target": 9000,
     "maximum": 10000,

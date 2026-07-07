@@ -2,7 +2,7 @@
 
 ## Length and depth contract
 
-Input size does not determine output depth. A one-sentence topic triggers more discovery; a rich packet supplies more of the spine. Unless the user explicitly requests a briefing, use the full-dossier contract in `brief.json`:
+Input size does not determine output depth. A one-sentence topic triggers more discovery; a rich packet supplies more of the spine. Unless the user explicitly requests a briefing or the advanced maximal profile, use the bounded full-dossier contract in `brief.json`:
 
 - Chinese net body: `8000-10000` non-whitespace characters.
 - English net body: `3500-7000` words.
@@ -11,6 +11,8 @@ Input size does not determine output depth. A one-sentence topic triggers more d
 - Never satisfy the contract with repeated conclusions, generic background, oversized quotations, source lists, or fabricated examples.
 
 If credible evidence cannot support the minimum, stop as `bounded_partial`, name the missing evidence, and do not mark the package releasable.
+
+When the user explicitly selects `maximal_full_dossier`, `brief.length_contract.policy` is `open_ended`: there is no minimum, target, maximum, source quota, or candidate quota. Plan section depth and evidence needs before drafting. Continue only while a recomputed search wave changes a material Claim, contradiction, uncertainty, locator, mechanism, or section; stop only after every tasklet and P2 gap has a terminal disposition and review finds no material omission. Open-ended does not relax quote limits, paragraph mapping, Claim-Evidence closure, PDF/HTML parity, P4 repairs, external review provenance, or release gates. A review concern routed to draft must visibly change the bound report/paragraph/revision hashes; `preserved_as_uncertainty` must appear at its bound paragraph or Claim. Synthesize by mechanism, controversy, chronology, and implication. Repeated phrases such as "这条可审计来源是..." or "this source record..." belong in ledgers, not public prose; citation accumulation that does not change the argument is not research depth.
 
 Before drafting, complete `research-plan.report_outline` and `storm-findings-pool.jsonl`. Give each section a distinct purpose, a length budget, the STORM question IDs it resolves, the finding IDs it uses, the Claim-Evidence IDs it uses, and at least three expansion elements.
 
@@ -43,7 +45,7 @@ Not every section needs all eight, but each planned section needs at least three
 | Implications and recommendations | 900-1200 | supported premises, tradeoffs, audience context |
 | Change conditions and limitations | 500-800 | peer review, weakest links, frontier questions |
 
-Adjust section sizes to the topic, but keep the total within the brief contract.
+Adjust section sizes to the topic, but keep the total within the bounded brief contract unless `maximal_full_dossier` explicitly selected open-ended depth.
 
 ## Default report structure
 

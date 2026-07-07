@@ -25,6 +25,7 @@ def initialize(
     depth_level: str = "full_dossier",
     minimum_units: int | None = None,
     maximum_units: int | None = None,
+    assurance_target: str | None = None,
 ) -> None:
     initialize_at_output(
         topic,
@@ -34,6 +35,7 @@ def initialize(
         depth_level=depth_level,
         minimum_units=minimum_units,
         maximum_units=maximum_units,
+        assurance_target=assurance_target,
     )
 
 

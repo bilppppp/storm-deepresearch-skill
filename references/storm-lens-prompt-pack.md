@@ -21,6 +21,8 @@ In `storm_lens_mode=strict`, each prompt must also produce a `schemas/storm-lens
 
 The helper artifacts are not final research evidence. They prove phase order and bind prompt outputs to later receipts.
 
+For Max, do not stop when a source or candidate count reaches a round number. P1 opens the question space; retrieval answers it; P2 creates explicit gap IDs; gap-fill continues until each gap has a recomputable terminal assessment; P3 then plans evidence-led depth. Review may route work back to retrieval, evidence, outline, or draft.
+
 ## Prompt 1 — Perspective Discovery
 
 Run before search. Output perspective briefs, research questions, evidence needs, likely sources, and blind spots. Do not answer factual questions from memory.
@@ -167,7 +169,7 @@ Route each problem to one repair path:
 - draft
 - render/validation
 
-Each repair action must include `action_id`, target kind/ID, the target's before SHA-256, action, `required` or `waived` disposition, and reason. Do not mark an action applied inside Prompt 4; application is proven later by `revision-map.json` before `review-prepare` freezes the candidate.
+Each repair action must include `action_id`, target kind/ID, the target's before SHA-256, action, `required` or `waived` disposition, and reason. Do not mark an action applied inside Prompt 4; application is proven later by `revision-map.json` before `review-prepare` freezes the candidate. In Max, every material P4 action must be referenced by `origin_action_ids` in the academic/STORM panel concern matrix. The STORM synthesis reviewer must explicitly disposition direct conflicts, consensus, blind spots, resolver questions, missing perspectives, and historical patterns; an empty array is not an answer, so use a reasoned `not_applicable` item when appropriate. Re-review binds the new generation and subject, then checks both whether prior concerns closed and whether the revision created a new contradiction, erased a perspective, weakened evidence, or overstated consensus. Copying the prior STORM audit fails.
 ```
 
 Output target:

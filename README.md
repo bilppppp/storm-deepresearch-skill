@@ -4,7 +4,7 @@
 
 `storm-academic` 分支相对主分支的重点差异，是把“检索到了来源”升级为“索引过程本身可审计”。主分支已经能约束 STORM 阶段、证据账本、外部审查和多格式输出；本分支进一步要求外部 full dossier 先完成 academic baseline，记录 `search_run`、候选文献筛选、DOI/PMID/arXiv/OpenAlex/Semantic Scholar 等书目身份核验、同一论文多版本归并、精确 capture 和 gap-fill。这样它能做主分支做不到的事：证明哪些学术检索面被查过、哪些候选被排除、引用的是哪一个具体版本、用户语料是否只是 seed 而没有替代外部检索，以及最终 Claim 是否绑定到可复查的学术索引和正文快照。
 
-当前版本：`3.0.0`
+当前版本：`4.0.0`
 
 ## 能做什么
 
@@ -15,7 +15,10 @@
 - 通过 `storm_research.py` 的 init、plan、ingest、findings、evidence、draft、review、render、validate、release 阶段推进，关键阶段由 receipt chain 约束，findings 作为 evidence 的必要前提被绑定进 evidence receipt。
 - 以 `report.md` 为唯一内容真源，导出一致的 HTML/PDF。
 - 默认中文完整研究为 `8000–10000` 净正文字符；参考文献、脚注键、链接地址、图片标记和 Markdown 控制符不计入字数；输入长度只改变检索量，不会自动把成品压缩成摘要。
+- 显式选择 `maximal_full_dossier` 时，报告不设净正文最小值、目标值或最大值。Max 也没有 80、88、120 或其他来源/候选计数停止线：数量只进入 validation metrics。它要求所有 STORM tasklet、P2 blind spot 和 resolver question 闭合，并用 `search_wave` + `gap_assessment` 证明材料新颖性饱和、有限语料穷尽、访问受限不确定性或明确出界；随后由 STORM + 学术 panel、独立 editor、必要的修订复审和 final integrity 闭合 `research/review-loop.json`。
 - full dossier 必须先冻结 review candidate，再由外部模型会话或人工 reviewer 提交可重算 provenance；`independent: true` 或两个不同字符串不再足以通过。
+- 研究深度和验证保障是两个独立维度。`artifact_contract` 只验证结构合同；正式用户交付使用 `captured_host_execution`，并绑定 retrieval、draft、review 的宿主执行证据。耗时和 token 消耗不作为执行证明。
+- 诊断演练是第三个、独立于深度和保障的运行意图：`--run-intent diagnostic_rehearsal` 允许宿主在显式测试时用 `ingest --allow-diagnostic-debt` 记录失败门禁并继续观察后续流程。它会写入 `research/blocking-debt-ledger.json`，最终 validation、collect 和 release 都不能把它当正式交付。
 - 同一来源可以回答多个 query；Source 去重与问题覆盖分离，Claim 强度不能超过精确 locator 对应的 capture ceiling。
 - 外部 full dossier 强制完成 academic baseline：先记录搜索运行，再筛选候选文献、核验 bibliographic 身份、归并论文版本，最后捕获可引用正文。
 - 用户语料采用 corpus-seeded 检索，不会替代学术基线；未闭合问题必须进入 gap-fill 或不确定性账本。
@@ -81,10 +84,18 @@ pandoc --version
 
 所有新自动化都应调用 `scripts/storm_research.py`。旧的 `init_research_package.py`、`normalize_retrieval.py`、`merge_claim_ledger.py`、`export_report.py` 保留为兼容或内部 worker，不再是推荐入口。
 
+面向用户的研究运行必须从 `storm_research.py init` 开始；manual report 或 evidence dossier is not a valid skill run。`run_checks.py is not research validation`：它只验证技能代码和合同，不能替代 `storm_research.py validate "$RUN_DIR"`。如果依赖、网络、snapshot、provenance 或外部审查证据不足以完成 `captured_host_execution`，宿主必须停在 blocked/status/explain，不能手写 `report.md`、HTML 或 PDF 冒充 governed 成品。blocked final answer 只能报告当前 `status`、失败阶段、`explain` 给出的原因和下一条修复命令；不能包含主题发现、结论、引用清单或临时报告。
+
 ```bash
 SKILL_ROOT=/path/to/storm-deepresearch-skill
 PY="$SKILL_ROOT/.venv/bin/python"
 WORKSPACE=/path/to/user-workspace
+```
+
+正式 `captured_host_execution` 运行必须先把用户的 profile 选择证据写入 UTF-8 文本文件，例如宿主对话片段或用户明确选择的原文：
+
+```bash
+PROFILE_SELECTION_EVIDENCE=/path/to/profile-selection-evidence.txt
 ```
 
 宿主 agent 不应生成包含大段转录文本、报告正文或 JSON 块的单体 Python runner。大文本必须先写入 UTF-8 文件、JSON 或 JSONL，再由下面的分阶段命令读取。若宿主确实生成了临时 runner，必须先用 guard 运行；guard 会在执行前编译检查、实时输出，并在超时后终止子进程：
@@ -105,10 +116,12 @@ WORKSPACE=/path/to/user-workspace
   --output research-run \
   --research-profile default_full_dossier \
   --profile-selection-mode user_requested_default \
-  --profile-selection-evidence "用户明确要求按默认 full_dossier 运行"
+  --profile-selection-evidence "用户明确要求按默认 full_dossier 运行" \
+  --profile-selection-evidence-file "$PROFILE_SELECTION_EVIDENCE" \
+  --assurance-target captured_host_execution
 ```
 
-该命令创建 `$WORKSPACE/output/storm-deepresearch/research-run/`、`work/generations/g0001/inputs/brief.json` 和 `state/generations/g0001/receipts/00-init.json`。目标一旦存在会以退出码 `4` 停止。`init` 现在要求 profile intake 证据；缺少 `--profile-selection-mode` 或 `--profile-selection-evidence` 会以退出码 `4` 停止，避免宿主跳过用户确认。
+该命令创建 `$WORKSPACE/output/storm-deepresearch/research-run/`、`work/generations/g0001/inputs/brief.json` 和 `state/generations/g0001/receipts/00-init.json`。目标一旦存在会以退出码 `4` 停止。`init` 要求 profile intake 证据和显式 `--assurance-target`；缺任一项都会停止。
 
 ```bash
 RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
@@ -118,31 +131,69 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 
 默认 `storm_lens_mode` 是 `strict`：`default_full_dossier` 和 `critique_deepresearch` 都必须让四个 STORM prompt 产生 `storm-lens-*.json` helper artifact，并把它们绑定进后续 receipts。`advisory` 只用于显式兼容或短 briefing，不再是完整研究默认值。
 
+`assurance_target` 不改变研究深度：
+
+| 保障目标 | 用途 | 可交付性 |
+| --- | --- | --- |
+| `artifact_contract` | 单元测试、fixture、harness acceptance | 标记 `validated_artifact_contract_only`；普通 collect 和 public release 被阻止。 |
+| `captured_host_execution` | 正式用户研究和交付 | init 绑定 `--profile-selection-evidence-file`；retrieval、draft、review 提交可重算 provenance/transcript；通过后标记 `validated_captured_host_execution`。 |
+
+测试需要收集 artifact-only 成品时必须显式使用 `collect --allow-artifact-contract`，且保障等级不会升级。
+
+`run_intent` 控制运行目的，不控制研究深度：
+
+| 运行意图 | CLI | 语义 |
+| --- | --- | --- |
+| 正式交付 | `--run-intent user_delivery` | 默认值。任何门禁失败都停止，只有完整 validation 通过后才能 collect/release。 |
+| 诊断演练 | `--run-intent diagnostic_rehearsal` | 只用于真实流程测试和故障观察。可在 retrieval 阶段显式使用 `--allow-diagnostic-debt` 记录失败并继续，但 validation 不能通过，产物不得作为正式研究结论发布。 |
+
+诊断演练不能把 `unreachable` 改写成 `zero_results`，也不能把访问受限写成 `saturated`。这些状态必须保留在 `retrieval-audit.jsonl` 和 `blocking-debt-ledger.json` 中，让后续 review 明确看到“缺证据”而不是“证据不存在”。
+
 ### 可选运行方式
 
-宿主必须把 `research_profile` 作为用户选项展示，或从用户原话中提取明确选择。若用户只说“运行这个 skill 研究 xxx”，主菜单只展示两个选项：**完整深度研究（推荐）**和**短简报**。完整深度研究映射到 `default_full_dossier`，并强制 strict STORM P1-P4；不再把 `strict_storm_lens` 作为第二个重复选项。如果用户不选、说默认、或已经明确“按默认 full_dossier”，使用 `default_full_dossier` 继续执行，不要降级到 `briefing`。无论哪种情况，都必须在 `init` 写入 `profile_selection`：
+宿主必须把 `research_profile` 作为用户选项展示，或从用户原话中提取明确选择。若用户只说“运行这个 skill 研究 xxx”，主菜单只展示两个选项：**完整深度研究（推荐）**和**短简报**。完整深度研究映射到 `default_full_dossier`，并强制 strict STORM P1-P4；不再把 `strict_storm_lens` 作为第二个重复选项。如果用户不选、说默认、或已经明确“按默认 full_dossier”，使用 `default_full_dossier` 继续执行，不要降级到 `briefing`。`maximal_full_dossier` 只在用户明确要求“不计代价”“不设字数上限”“写多少算多少”或穷尽式研究时作为高级选项展示。无论哪种情况，都必须在 `init` 写入 `profile_selection`：
 
 | mode | 使用条件 |
 | --- | --- |
 | `user_selected` | 用户从菜单或文字中选择了具体 profile，例如 `briefing` 或场景化高级 profile。 |
 | `user_requested_default` | 用户明确说“默认”“full_dossier”或等价表达。 |
-| `defaulted_after_prompt` | 宿主已经展示选择菜单，用户没有选择或要求按默认继续。 |
+| `defaulted_after_prompt` | 宿主已经展示选择菜单，用户没有选择或要求按默认继续；必须额外传 `--profile-prompt-file`，文件内容就是展示给用户的菜单，harness 会复制到 generation inputs 并在 `brief.profile_selection.prompt_sha256` 里绑定哈希。正式 `captured_host_execution` 还必须传 `--profile-selection-evidence-file`，绑定用户接受默认的对话证据。 |
+
+不要把技能目录名当成 profile 选择：`storm-deepresearch-skill-maximal-dossier` 表示这个开发分支包含 Max 能力，不等于用户选择了 `maximal_full_dossier`。但如果路径、会话或用户措辞让 `default_full_dossier` 与 `maximal_full_dossier` 发生歧义，宿主必须先询问；不能静默写入 `defaulted_after_prompt`。没有真实 prompt artifact 的 `defaulted_after_prompt` 会在 `init` 或最终 validation 失败。
 
 | 选项 | CLI 映射 | 使用场景 |
 | --- | --- | --- |
-| `default_full_dossier` | `--research-profile default_full_dossier --profile-selection-mode user_requested_default --profile-selection-evidence "用户明确要求默认完整研究"` | **推荐选项。**完整研究、strict STORM P1-P4、host retrieval、外部审查和完整格式输出。 |
+| `default_full_dossier` | `--research-profile default_full_dossier --profile-selection-mode user_requested_default --profile-selection-evidence "用户明确要求默认完整研究" --profile-selection-evidence-file "$PROFILE_SELECTION_EVIDENCE" --assurance-target captured_host_execution` | **推荐选项。**完整研究、strict STORM P1-P4、host retrieval、外部审查和完整格式输出。 |
+| `maximal_full_dossier` | `--research-profile maximal_full_dossier --profile-selection-mode user_selected --profile-selection-evidence "用户明确选择不设字数上限的 maximal_full_dossier" --profile-selection-evidence-file "$PROFILE_SELECTION_EVIDENCE" --assurance-target captured_host_execution` | 高级选项。默认中文；strict STORM P1-P4、domain-adaptive academic retrieval、open-ended 正文和 concern-driven review loop。来源数只作观察值；必须以任务覆盖、gap terminal assessment、材料新颖性饱和、domain reviewer 对每个 terminal gap concern 的关闭及 final integrity 证明完成。 |
 | `critique_deepresearch` | `--research-profile critique_deepresearch --profile-selection-mode user_selected --profile-selection-evidence "用户选择 critique_deepresearch"` | 电影、书、文章观后感或评论；先抽取用户观点，再检索支持、反驳、理论、评论接受史和历史比较。source plan 缺任一维度会在 plan 阶段失败。 |
 | `closed_corpus` | `--research-profile closed_corpus --profile-selection-mode user_selected --profile-selection-evidence "用户选择 closed_corpus"` | 只使用用户提供的文件或封闭语料，不联网，不用模型记忆补事实。 |
 | `briefing` | `--research-profile briefing --profile-selection-mode user_selected --profile-selection-evidence "用户明确选择 briefing" --briefing-reason "用户明确要求简报"` | 用户明确只要短简报。 |
 | `repair_existing_run` | 不调用 `init`；先运行 `status` / `explain` | 修复已有 run，禁止重新初始化或覆盖账本。 |
 
+表中未展开的 profile 也必须追加保障目标：正式用户交付使用 `--assurance-target captured_host_execution` 且传入 `--profile-selection-evidence-file "$PROFILE_SELECTION_EVIDENCE"`；仅 fixture/harness acceptance 使用 `--assurance-target artifact_contract`。
+
 `critique_deepresearch`、`closed_corpus` 和 `repair_existing_run` 是根据输入形态出现的高级选项，不与主菜单的深度/简报选择并列。旧命令 `--research-profile strict_storm_lens` 仍可调用，但新 run 会把它归一化为 `default_full_dossier`；生成的 brief 和用户可见 options 都只记录规范名称。
+
+`maximal_full_dossier` 是高级选项，不替代默认完整研究。它不设报告字数范围，也不把任何整数当作完成条件。`plan` 使用 open-ended retrieval budget；每个 `search_wave` 声明新增 candidate/source/finding/contradiction/uncertainty、变化的 Claim 和 `material_delta`，harness 会从 captures、findings 与最终账本重算，错误的零增量不能制造饱和。`review` 要求六类独立 reviewer（含 STORM synthesis reviewer）、独立 editor、package-bound role rubric、精确 concern、revision map、必要的 re-review 和 final integrity。STORM 的冲突、共识、盲点、resolver、缺失视角和历史类比都必须给出显式 disposition，不能用空数组跳过。
+
+开放 concern 会写入不可覆盖的 `state/generations/gNNNN/review-blocked.json` 并非零退出。使用下面的命令创建下一代；新一轮必须绑定上一轮 blocker、各自的 draft receipt、review request、subject manifest 和独立 transcript session：
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" amend "$RUN_DIR" \
+  --resume-blocked-review \
+  --initiator human-reviewer \
+  --approval-evidence "approval:<conversation-or-ticket>" \
+  --reason "Address the blocking review concerns"
+```
+
+`status` 和 `explain` 会返回 `blocked_with_unresolved_issues`、`blocking_issue_ids` 与确定的返回阶段。最终 `validation-report.json.review_outcomes` 从 generations、ledgers 和 revision maps 重算 review 实际增加、降级、删除或改写了什么；这些审计信息不进入文章正文。
 
 等价提示词示例：
 
 ```text
 运行 $SKILL_ROOT，按默认 full_dossier 做研究。
 如果需要选择运行方式，请默认使用 default_full_dossier；不要使用 briefing，除非我明确要求简报。
+这是正式交付，使用 captured_host_execution；不要用 artifact_contract 冒充真实宿主执行。
 我的研究内容是：xxx
 ```
 
@@ -156,6 +207,15 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 运行 $SKILL_ROOT，使用 critique_deepresearch。
 不要只查背景；先从我的观点中抽取可研究问题，再检索支持、反驳、理论、争议和同类比较。
 我的观后感/评论是：xxx
+```
+
+```text
+运行 $SKILL_ROOT，使用 maximal_full_dossier。
+默认中文；不设字数上限；不要用 briefing。
+使用 captured_host_execution，绑定检索、写作和隔离审查的执行证据。
+按 STORM -> 索引 -> 写作 -> panel/editor review -> 修订 -> re-review 循环推进。
+不要把 80、88、120 或任何整数字段当作停止目标。持续扩展检索面并运行 gap-fill，直到所有任务与 STORM 缺口有可重算终态，且审查确认没有材料性遗漏；只有 concern loop 与 final integrity 闭合后输出唯一最终 report。
+我的研究内容是：xxx
 ```
 
 ### 2. Plan
@@ -174,7 +234,7 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
   --source-plan-json source-plan.json
 ```
 
-`plan` 必须覆盖 STORM 多视角问题、source classes、停止条件和 `report_outline` 所需的问题闭环。full dossier 且非 `closed_corpus` 时，source plan 不能只依赖用户转录、封闭语料或本地材料：至少一半问题要要求外部 source classes，且 `retrieval_budget.max_sources` 不得低于 `6`。成功后会自动生成 `research/storm-tasklets.jsonl`，每个 STORM 问题变成后续 findings 的最小执行单元。
+`plan` 必须覆盖 STORM 多视角问题、source classes、停止条件和 `report_outline` 所需的问题闭环。full dossier 且非 `closed_corpus` 时，source plan 不能只依赖用户转录、封闭语料或本地材料：至少一半问题要要求外部 source classes，且 bounded profile 的 `retrieval_budget.max_sources` 不得低于 `6`。`maximal_full_dossier` 使用 `open_ended_until_saturation`，不允许 max query/source ceiling；发现面按领域适用性规划，并强制反证检索。成功后会自动生成 `research/storm-tasklets.jsonl`，每个 STORM 问题变成后续 findings 的最小执行单元。
 
 每个问题还要声明 `search_requirements`：别名、检索面、是否需要学术证据、是否由用户语料提供 corpus-seeded 查询，以及纳入/排除标准。外部 full dossier 至少有一个问题要求 academic source class，并完成跨两个学术发现面的 academic baseline；briefing 可只用一个学术面，但引用的学术来源仍必须完成书目核验。
 
@@ -182,11 +242,12 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 
 ### 3. Ingest
 
-内置脚本不会主动联网，网络调用始终由宿主工具或用户批准的 provider 执行。宿主把一次检索的三类记录写入同一个、符合 `schemas/retrieval-record.schema.json` 的 JSONL，再交给现有 `ingest` 命令：
+内置脚本不会主动联网，网络调用始终由宿主工具或用户批准的 provider 执行。宿主把一次检索的 typed records 写入同一个、符合 `schemas/retrieval-record.schema.json` 的 JSONL，再交给现有 `ingest` 命令：
 
-- `search_run`：查询、别名、检索面、pass kind、结果数和原始结果快照。
-- `candidate`：候选文献、纳入/排除决定、DOI/PMID/arXiv/OpenAlex/Semantic Scholar 身份、resolver 结果和版本家族。
+- `search_run`：查询、别名、检索面、pass kind、结果数，以及相互绑定的请求 JSON 快照和原始响应快照。
+- `candidate`：候选文献、纳入/排除决定、DOI/PMID/arXiv/OpenAlex/Semantic Scholar 身份、resolver 结果、版本家族和 canonical version 选择。
 - `capture`：真实 URL 或语料文件、精确 snapshot、locator、excerpt 和证据强度上限。
+- `search_wave` / `gap_assessment`：Max gap-fill 的材料新颖性、有限语料穷尽、访问受限或 out-of-scope 处置。`material_delta` 可在 retrieval 输入中写 `null`，后续 findings 和最终 validation 会重算；`review_concern_id` 也可留空，最终必须由 review-loop 用 concern ID 或 `gap_assessment:GAxxx` / `gap:Gxxx` target 关闭。
 
 ```bash
 # single source helper; copies the snapshot into evidence-cache and writes retrieval-inputs.jsonl
@@ -208,16 +269,39 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
   --to retrieval-inputs.jsonl
 ```
 
-`capture-source` 和 `ingest-dir` 不写 receipt；它们只生成并预检后续 `ingest` 要吃的 JSONL。常见坏抓取页，例如 `Checking if the site connection is secure`、`Access denied`、`载入中`、过短正文，会默认失败；确实要保留时必须显式加 `--allow-warning`。
+`capture-source` 和 `ingest-dir` 是 simple captures 与 fixture-like 批量来源的 convenience builders，不写 receipt；它们只生成并预检后续 `ingest` 要吃的 JSONL。它们本身不足以完成 `maximal_full_dossier` + `captured_host_execution`，因为 Max 还需要 executed search runs、candidate screening、resolver snapshots、full-text/publisher coverage、search waves、gap assessments 和 execution provenance。Max 下只能把它们当作部分 capture builder，之后必须补全 JSONL 并先跑 `retrieval-preflight`。
+
+```bash
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" retrieval-preflight "$RUN_DIR" \
+  --input-jsonl retrieval-records.jsonl
+
+"$PY" "$SKILL_ROOT/scripts/storm_research.py" retrieval-prepare "$RUN_DIR" \
+  --input-jsonl retrieval-records.jsonl \
+  --transcript retrieval-transcript.txt \
+  --context-id "$HOST_CONTEXT_ID" \
+  --provider "$PROVIDER" \
+  --model "$MODEL" \
+  --runner "$RUNNER" \
+  --execution-id "$EXECUTION_ID" \
+  --started-at "$STARTED_AT" \
+  --completed-at "$COMPLETED_AT" \
+  --to retrieval-execution.json
+```
+
+常见坏抓取页，例如 `Checking if the site connection is secure`、`Access denied`、`载入中`、过短正文，会默认失败；确实要保留时必须显式加 `--allow-warning`。
 
 ```bash
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" ingest "$RUN_DIR" \
-  --input-jsonl retrieval-records.jsonl
+  --input-jsonl retrieval-records.jsonl \
+  --execution-provenance retrieval-execution.json \
+  --execution-transcript retrieval-transcript.txt
 ```
 
 `host` 是默认检索模式；`provider` 只在用户明确配置凭证时使用；`closed_corpus` 只使用指定文件或 URL。占位符域名、`.internal` 伪来源、无快照、secondary-as-primary、Wikipedia 伪装成 primary/Tier A 和 blanket Tier A 会在 ingest 阶段失败。full dossier 的外部研究至少需要 `6` 个非用户、非百科的外部来源；Wikipedia 可作背景线索，但不能替代 deep research。
 
-成功 ingest 会生成内部、receipt-bound 的 `research/retrieval-audit.jsonl`，保留 search run、候选筛选、resolver、版本家族和快照哈希；它不会进入公开 release。`unreachable` 表示检索面不可达，不等于 `unmatched`。同一论文的预印本、会议版和期刊版会合并进一个 version family，不能冒充多个独立来源。零结果只证明该次查询没有返回候选，不能直接证明某事实不存在。
+成功 ingest 会生成内部、receipt-bound 的 `research/retrieval-audit.jsonl`，保留 search run、候选筛选、resolver、版本家族和快照哈希；它不会进入公开 release。full dossier 会把 `source-plan.questions[].search_requirements.required_surfaces` 与实际 `search_run.surface/surface_class` 按 query 对账，缺 planned surface 会失败；不同 query 复用同一响应快照也会失败，不能把一次宽检索改写成多次逐问题检索。候选池不能全是 `include`，必须记录至少一个 `exclude` 或 `needs_review` 及理由。Max 学术候选至少需要两个独立 resolver 的一致匹配，其中包含 OpenAlex 或 Semantic Scholar 交叉索引；每个声明的 DOI/PMID/arXiv/OpenAlex/Semantic Scholar 身份还必须由其原生 resolver 核验。候选必须标记唯一 canonical version；同一书目身份即使被分配到不同 family 也会失败，预印本、会议版和期刊版会归并为一个 source identity。`abstract`、`metadata` 和 `full_text` 是不同 capture level：摘要最高为 medium，题名元数据只能作为 background，二者不能冒充全文。`search_run.execution_status` 必须反映实际宿主检索尝试：`unreachable` 不等于 `unmatched`，也不能为了通过门禁改写成 `zero_results`；零结果不能直接证明某事实不存在。
+
+上述 execution 参数只在 `captured_host_execution` 下使用且必须同时提供。provenance 声明执行身份、上下文、时间、提交输入、search/candidate IDs 和 transcript hash；harness 补入实际输出哈希并绑定 retrieval receipt。`artifact_contract` 不接受这两个参数。
 
 ### 4. Findings
 
@@ -273,7 +357,9 @@ Prompt 2 的每个 blind spot 和 resolver question 都必须写入 `resolution_
 ```bash
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" draft "$RUN_DIR" \
   --draft-md draft.md \
-  --paragraph-map-jsonl paragraph-map.jsonl
+  --paragraph-map-jsonl paragraph-map.jsonl \
+  --execution-provenance draft-execution.json \
+  --execution-transcript draft-transcript.txt
 ```
 
 `draft.md` 不能手写 References、参考文献、参考资料、资料来源或 Sources。每个 factual paragraph 必须映射到 Claim、source 和 citation key；脚本会从 source register 生成 References。字数门禁只统计这些参考文献区之前的净正文，不能用来源清单撑过最低字数。
@@ -336,6 +422,8 @@ sidecar 最小格式是一行一个段落映射，例如 `{"text_locator":"parag
 
 full dossier 不接受 `self_review`。当前保证等级称为 `captured external review`；没有供应商签名时不宣称 provider-signed。
 
+在 `captured_host_execution` 下，`review-prepare --author-context-id` 必须等于 draft provenance 的 context ID；reviewer context 必须不同。Max 还要求 retrieval、draft、review 使用三个不同 execution/context，且候选筛选不能全部标成 `include`。
+
 ### 8. Render
 
 ```bash
@@ -361,12 +449,14 @@ full dossier 不接受 `self_review`。当前保证等级称为 `captured extern
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" repair-plan "$RUN_DIR"
 ```
 
-本地使用可把已验证成品收集到浅层目录；`collect` 需要通过 validation，只复制 `report.md`、HTML、PDF 和 validation report，不替代 public `release`：
+本地使用可把已验证成品收集到浅层目录；普通 `collect` 要求 `validated_captured_host_execution`，会复制 `report.md`、HTML、PDF、validation report，并在 `audit/` 下附带可复核的 source plan、retrieval audit、source register、findings、Claim ledger、review loop 和 execution provenance/transcripts。它不替代 public `release`：
 
 ```bash
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" collect "$RUN_DIR" \
   --to "$WORKSPACE/output/storm-deepresearch/final-report"
 ```
+
+仅 fixture/harness acceptance 可追加 `--allow-artifact-contract`；artifact-only collect 不会升级保障等级，也不会证明真实宿主执行。validation report 和 collect manifest 会继续明确记录 artifact-only。
 
 ### 10. Release
 
@@ -380,7 +470,7 @@ full dossier 不接受 `self_review`。当前保证等级称为 `captured extern
   --reverification /path/to/reverification-records.jsonl
 ```
 
-`release/` 只包含 allowlist 成品文件；`work/`、`state/`、retrieval inputs、claim updates 和 amendment inputs 不会进入发布包。
+`release/` 要求 `validated_captured_host_execution`、Trust 和 human approval，只包含 allowlist 成品文件；`work/`、`state/`、retrieval inputs、claim updates 和 amendment inputs 不会进入发布包。
 
 退出码：
 
@@ -410,11 +500,12 @@ full dossier 不接受 `self_review`。当前保证等级称为 `captured extern
 - `work/generations/g0001/artifacts/research/finding-coverage.json`：tasklet 与 finding 覆盖摘要。
 - `work/generations/g0001/artifacts/research/report-outline.json`：问题/Claim 到章节及篇幅预算的闭环。
 - `work/generations/g0001/artifacts/research/source-register.jsonl`：来源权威账本。
-- `work/generations/g0001/artifacts/research/retrieval-audit.jsonl`：内部检索、筛选、书目解析与版本归并审计；绑定 retrieval receipt，不进入 release。
+- `work/generations/g0001/artifacts/research/retrieval-audit.jsonl`：内部检索、筛选、书目解析与版本归并审计；绑定 retrieval receipt，不进入 release；正式 captured collect 会复制到 `audit/research/retrieval-audit.jsonl` 供本地复查。
 - `work/generations/g0001/artifacts/research/claim-evidence-ledger.jsonl`：事实、推断、建议和证据状态。
 - `work/generations/g0001/artifacts/research/reviewed-paragraph-map.jsonl`：公共报告段落到内部 claim/source/citation 的映射。
 - `work/generations/g0001/artifacts/research/review-request.json`：冻结候选报告、输入哈希和 author context 的外部审查 handoff。
 - `work/generations/g0001/artifacts/research/reviewer-provenance.json`：外部 reviewer 执行与 transcript 的可重算证明。
+- `work/generations/g0001/artifacts/research/execution/`：captured 模式下 retrieval/draft 的输入副本、执行 provenance 与 transcript；绑定 stage receipt，不进入公开 release。
 - `work/generations/g0001/artifacts/report.md`：唯一内容真源。
 - `work/generations/g0001/artifacts/exports/report.html`、`report.pdf`：确定性派生物。
 - `work/generations/g0001/artifacts/validation/render-manifest.json`：跨格式哈希和章节指纹。
@@ -423,7 +514,7 @@ full dossier 不接受 `self_review`。当前保证等级称为 `captured extern
 - `current/repair-plan.json`：失败后可选生成的结构化修复计划，不是权威 receipt。
 - `release/`：通过 Trust 和 human approval 后生成的严格 allowlist 发布投影。
 
-可查看 [历史格式示例](examples/validated-output/) 和 [PDF](examples/validated-output/exports/report.pdf)。该目录只用于说明旧版交付物布局，不代表 3.0.0 的 academic retrieval、bibliographic、screening、version-family 和 gap-fill 合同；3.0.0 成品必须以本次运行的 `validation-report.json` 为准。
+可查看 [历史格式示例](examples/validated-output/) 和 [PDF](examples/validated-output/exports/report.pdf)。该目录只用于说明旧版交付物布局，不代表 4.0.0 的 academic retrieval、bibliographic、screening、version-family、gap-fill 和 Max completeness 合同；4.0.0 成品必须以本次运行的 `validation-report.json` 为准。
 
 ## 开发与发布门禁
 
@@ -449,7 +540,7 @@ full dossier 不接受 `self_review`。当前保证等级称为 `captured extern
 
 ## 版本迁移与回滚
 
-2.x 到 3.0.0 的检索输入、academic baseline 和内部审计变化见 [3.0 迁移指南](docs/migration-v2-to-v3.md)。1.1.0 到 2.0.0 的外部审查、净正文、absence-search 和时间因果变化见 [2.0 迁移指南](docs/migration-v1.1-to-v2.0.md)。旧 run 不会静默迁移；必须由创建该 run 的版本解释。
+3.x 到 4.0.0 的开放长度合同和 maximal profile 变化见 [4.0 迁移指南](docs/migration-v3-to-v4.md)。2.x 到 3.0.0 的检索输入、academic baseline 和内部审计变化见 [3.0 迁移指南](docs/migration-v2-to-v3.md)。1.1.0 到 2.0.0 的外部审查、净正文、absence-search 和时间因果变化见 [2.0 迁移指南](docs/migration-v1.1-to-v2.0.md)。旧 run 不会静默迁移；必须由创建该 run 的版本解释。
 
 ## 设计来源
 

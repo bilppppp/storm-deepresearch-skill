@@ -4,12 +4,31 @@
   "title": "Validation Report",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "ok", "generation", "validated_through", "checks", "measurements", "summary"],
+  "required": [
+    "schema_version", "ok", "generation", "validated_through",
+    "assurance_target", "assurance_level", "provider_signed",
+    "not_valid_for", "limitations", "checks", "measurements", "summary"
+  ],
   "properties": {
     "schema_version": {"const": "2.0"},
     "ok": {"const": true},
     "generation": {"type": "integer", "minimum": 1},
     "validated_through": {"const": "render"},
+    "assurance_target": {"enum": ["artifact_contract", "captured_host_execution"]},
+    "assurance_level": {
+      "enum": ["validated_artifact_contract_only", "validated_captured_host_execution"]
+    },
+    "provider_signed": {"const": false},
+    "not_valid_for": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
     "checks": {
       "type": "array",
       "items": {
@@ -34,14 +53,79 @@
         "report_depth": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["unit", "raw_body", "citation_markers", "net_body"],
+          "required": ["unit", "policy", "raw_body", "citation_markers", "net_body"],
           "properties": {
             "unit": {"enum": ["characters", "words"]},
+            "policy": {"enum": ["bounded", "open_ended"]},
             "raw_body": {"type": "integer", "minimum": 0},
             "citation_markers": {"type": "integer", "minimum": 0},
             "net_body": {"type": "integer", "minimum": 0}
           }
+        },
+        "max_review_loop": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_count", "candidate_count", "tasklet_count", "usable_finding_count",
+            "material_claim_count", "section_count", "search_waves", "saturated_gaps",
+            "round_count", "decision_path",
+            "concerns_opened", "concerns_addressed", "concerns_waived",
+            "concerns_preserved_as_uncertainty", "concerns_unresolved",
+            "final_integrity_status"
+          ],
+          "properties": {
+            "source_count": {"type": "integer", "minimum": 0},
+            "candidate_count": {"type": "integer", "minimum": 0},
+            "tasklet_count": {"type": "integer", "minimum": 0},
+            "usable_finding_count": {"type": "integer", "minimum": 0},
+            "material_claim_count": {"type": "integer", "minimum": 0},
+            "section_count": {"type": "integer", "minimum": 0},
+            "search_waves": {"type": "integer", "minimum": 0},
+            "saturated_gaps": {"type": "integer", "minimum": 0},
+            "round_count": {"type": "integer", "minimum": 1},
+            "decision_path": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"enum": ["accept", "minor_revision", "major_revision", "reject"]}
+            },
+            "concerns_opened": {"type": "integer", "minimum": 0},
+            "concerns_addressed": {"type": "integer", "minimum": 0},
+            "concerns_waived": {"type": "integer", "minimum": 0},
+            "concerns_preserved_as_uncertainty": {"type": "integer", "minimum": 0},
+            "concerns_unresolved": {"const": 0},
+            "final_integrity_status": {"const": "pass"}
+          }
         }
+      }
+    },
+    "review_outcomes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_path", "concerns_opened", "concerns_addressed",
+        "concerns_preserved_as_uncertainty", "concerns_waived",
+        "retrieval_cycles_triggered", "sources_added", "claims_added",
+        "claims_downgraded", "claims_removed", "sections_revised",
+        "storm_conflicts_closed", "storm_blind_spots_disclosed", "final_integrity"
+      ],
+      "properties": {
+        "decision_path": {
+          "type": "array", "minItems": 1,
+          "items": {"enum": ["accept", "minor_revision", "major_revision", "reject"]}
+        },
+        "concerns_opened": {"type": "integer", "minimum": 0},
+        "concerns_addressed": {"type": "integer", "minimum": 0},
+        "concerns_preserved_as_uncertainty": {"type": "integer", "minimum": 0},
+        "concerns_waived": {"type": "integer", "minimum": 0},
+        "retrieval_cycles_triggered": {"type": "integer", "minimum": 0},
+        "sources_added": {"type": "integer", "minimum": 0},
+        "claims_added": {"type": "integer", "minimum": 0},
+        "claims_downgraded": {"type": "integer", "minimum": 0},
+        "claims_removed": {"type": "integer", "minimum": 0},
+        "sections_revised": {"type": "integer", "minimum": 0},
+        "storm_conflicts_closed": {"type": "integer", "minimum": 0},
+        "storm_blind_spots_disclosed": {"type": "integer", "minimum": 0},
+        "final_integrity": {"const": "pass"}
       }
     },
     "summary": {

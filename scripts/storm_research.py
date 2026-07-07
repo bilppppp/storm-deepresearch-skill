@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import mimetypes
 import re
@@ -18,8 +19,11 @@ if __package__ in {None, ""}:
 
 from scripts.contract_io import (
     ContractError,
+    MAX_REVIEW_ROLES,
+    REVIEW_ISSUE_STAGE,
     load_json,
     load_jsonl,
+    max_review_rubric_binding,
     validate_amendment,
     validate_brief,
     validate_conflict_review_record,
@@ -27,6 +31,7 @@ from scripts.contract_io import (
     validate_report_outline,
     validate_research_plan,
     validate_tasklet_record,
+    validate_storm_review_analysis,
     validate_source_plan,
 )
 from scripts.harness_io import (
@@ -44,6 +49,7 @@ from scripts.governed_release import ReleaseGateError, release_run
 from scripts.normalize_retrieval import (
     independent_source_identity,
     normalize_retrieval_records,
+    validate_captured_retrieval_artifacts,
     validate_retrieval_audit as validate_retrieval_audit_contract,
 )
 from scripts.merge_claim_ledger import merge_claim_records
@@ -53,6 +59,7 @@ from scripts.run_state import (
     RunLayout,
     Stage,
     StagePreconditionError,
+    append_journal_event,
     commit_stage_receipt,
     create_generation,
     latest_generation,
@@ -61,6 +68,7 @@ from scripts.run_state import (
 )
 from scripts.report_traceability import (
     body_length,
+    cited_sources_in_body,
     citation_index,
     extract_paragraphs,
     generate_references,
@@ -79,7 +87,11 @@ from scripts.source_evidence import (
     normalized_snapshot_text,
     resolve_snapshot,
 )
-from scripts.validate_evidence import validate_absence_searches, validate_claim_closure
+from scripts.validate_evidence import (
+    validate_absence_searches,
+    validate_claim_closure,
+    validate_material_capture_depth,
+)
 from scripts.validate_package import _public_safety_checks, validate_and_commit, validate_governed_run
 
 
@@ -93,6 +105,24 @@ EXIT_EXPORT = 6
 EXIT_STAGE = 8
 EXIT_RELEASE = 9
 MIN_FULL_DOSSIER_DEEP_EXTERNAL_SOURCES = 6
+ASSURANCE_TARGETS = {"artifact_contract", "captured_host_execution"}
+RUN_INTENTS = {"user_delivery", "diagnostic_rehearsal"}
+MAXIMAL_COMPLETENESS_CONTRACT = {
+    "completion_policy": "coverage_and_saturation",
+    "discovery_surface_policy": "domain_adaptive_with_mandatory_counterevidence",
+    "surface_applicability_required": True,
+    "tasklet_closure_required": True,
+    "storm_gap_closure_required": True,
+    "material_novelty_window": 2,
+    "final_integrity_required": True,
+    "review_policy": "concern_driven_until_clear",
+}
+AUDIT_BOILERPLATE_PATTERNS = (
+    re.compile(r"这条可审计来源"),
+    re.compile(r"该段把这条公开引用定位为证据图谱"),
+    re.compile(r"this auditable source", re.IGNORECASE),
+    re.compile(r"this source record", re.IGNORECASE),
+)
 USER_MATERIAL_SOURCE_CLASS_MARKERS = {
     "attachment", "closed", "corpus", "file", "input", "local", "provided",
     "supplied", "transcript", "user", "转录", "用户", "口述", "语料",
@@ -129,6 +159,7 @@ STORM_LENS_OUTPUT_FIELDS = {
 INIT_RESEARCH_PROFILES = {
     "auto",
     "default_full_dossier",
+    "maximal_full_dossier",
     "strict_storm_lens",
     "critique_deepresearch",
     "closed_corpus",
@@ -137,6 +168,7 @@ INIT_RESEARCH_PROFILES = {
 }
 BRIEF_RESEARCH_PROFILES = {
     "default_full_dossier",
+    "maximal_full_dossier",
     "critique_deepresearch",
     "closed_corpus",
     "briefing",
@@ -197,6 +229,13 @@ PROFILE_DEFAULTS = {
         "output_mode": "full",
         "storm_lens_mode": "strict",
     },
+    "maximal_full_dossier": {
+        "depth_level": "full_dossier",
+        "source_policy": "external_allowed",
+        "retrieval_mode": "host",
+        "output_mode": "full",
+        "storm_lens_mode": "strict",
+    },
     "critique_deepresearch": {
         "depth_level": "full_dossier",
         "source_policy": "external_allowed",
@@ -245,13 +284,19 @@ class RenderStageError(ValueError):
     """Raised when canonical formats cannot be rendered without downgrade."""
 
 
-def infer_language(topic: str, question: str, requested: str) -> str:
+def infer_language(
+    topic: str, question: str, requested: str, *, research_profile: str = "auto"
+) -> str:
     if requested != "auto":
         return requested
+    if research_profile == "maximal_full_dossier":
+        return "zh-CN"
     return "zh-CN" if re.search(r"[\u3400-\u9fff]", topic + question) else "en"
 
 
-def default_length_contract(language: str, depth_level: str) -> dict[str, object]:
+def default_length_contract(
+    language: str, depth_level: str, *, policy: str = "bounded"
+) -> dict[str, object]:
     if language == "zh-CN":
         ranges = {
             "briefing": (1500, 2000, 2500),
@@ -266,9 +311,16 @@ def default_length_contract(language: str, depth_level: str) -> dict[str, object
             "full_dossier": (3500, 5000, 7000),
         }
         unit = "words"
+    if policy == "open_ended":
+        return {
+            "unit": unit,
+            "policy": "open_ended",
+            "content_standard": "evidence_led",
+        }
     minimum, target, maximum = ranges[depth_level]
     return {
         "unit": unit,
+        "policy": "bounded",
         "minimum": minimum,
         "target": target,
         "maximum": maximum,
@@ -303,10 +355,33 @@ def _derived_research_profile(values: dict[str, str]) -> str:
     return "custom"
 
 
+def _profile_prompt_file(args: argparse.Namespace) -> Path | None:
+    prompt_file = getattr(args, "profile_prompt_file", None)
+    if prompt_file is None:
+        return None
+    path = Path(prompt_file).expanduser()
+    if path.is_symlink() or not path.is_file():
+        raise CLIContractError("--profile-prompt-file must be a regular file")
+    if not path.read_text(encoding="utf-8").strip():
+        raise CLIContractError("--profile-prompt-file must not be empty")
+    return path
+
+
+def _profile_selection_evidence_file(args: argparse.Namespace) -> Path | None:
+    evidence_file = getattr(args, "profile_selection_evidence_file", None)
+    if evidence_file is None:
+        return None
+    path = Path(evidence_file).expanduser()
+    if path.is_symlink() or not path.is_file():
+        raise CLIContractError("--profile-selection-evidence-file must be a regular file")
+    if not path.read_text(encoding="utf-8").strip():
+        raise CLIContractError("--profile-selection-evidence-file must not be empty")
+    return path
+
+
 def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
     topic = args.topic.strip()
     question = args.question.strip()
-    language = infer_language(topic, question, args.language)
     requested_profile = str(getattr(args, "research_profile", "auto") or "auto")
     if requested_profile not in INIT_RESEARCH_PROFILES:
         raise CLIContractError("research_profile is invalid")
@@ -323,6 +398,9 @@ def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
         "storm_lens_mode": _profile_value(args, "storm_lens_mode", profile),
     }
     effective_profile = _derived_research_profile(values) if profile == "auto" else profile
+    language = infer_language(
+        topic, question, args.language, research_profile=effective_profile
+    )
     briefing_reason = str(getattr(args, "briefing_reason", "") or "").strip()
     if values["depth_level"] == "briefing" and not briefing_reason:
         raise CLIContractError("briefing depth requires --briefing-reason with explicit user request evidence")
@@ -337,18 +415,58 @@ def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
         )
     if not profile_selection_evidence:
         raise CLIContractError("profile selection requires --profile-selection-evidence")
-    length_contract = default_length_contract(language, values["depth_level"])
+    prompt_file = _profile_prompt_file(args)
+    if profile_selection_mode == "defaulted_after_prompt" and prompt_file is None:
+        raise CLIContractError(
+            "defaulted_after_prompt requires --profile-prompt-file with the actual menu shown to the user"
+        )
+    if profile_selection_mode != "defaulted_after_prompt" and prompt_file is not None:
+        raise CLIContractError("--profile-prompt-file is only valid with defaulted_after_prompt")
+    assurance_target = str(getattr(args, "assurance_target", "") or "").strip()
+    if assurance_target not in ASSURANCE_TARGETS:
+        raise CLIContractError(
+            "init requires --assurance-target artifact_contract or captured_host_execution"
+        )
+    run_intent = str(getattr(args, "run_intent", "user_delivery") or "user_delivery").strip()
+    if run_intent not in RUN_INTENTS:
+        raise CLIContractError("run_intent is invalid")
+    evidence_file = _profile_selection_evidence_file(args)
+    if assurance_target == "captured_host_execution" and evidence_file is None:
+        raise CLIContractError(
+            "captured_host_execution profile selection requires --profile-selection-evidence-file"
+        )
+    length_policy = "open_ended" if effective_profile == "maximal_full_dossier" else "bounded"
+    if length_policy == "open_ended" and (args.min_units is not None or args.max_units is not None):
+        raise CLIContractError("maximal_full_dossier uses open-ended length; do not pass --min-units or --max-units")
+    length_contract = default_length_contract(language, values["depth_level"], policy=length_policy)
     length_overridden = args.min_units is not None or args.max_units is not None
-    if args.min_units is not None:
-        length_contract["minimum"] = args.min_units
-    if args.max_units is not None:
-        length_contract["maximum"] = args.max_units
-    minimum = int(length_contract["minimum"])
-    maximum = int(length_contract["maximum"])
-    if minimum > maximum:
-        raise CLIContractError("min-units cannot exceed max-units")
-    if length_overridden:
-        length_contract["target"] = (minimum + maximum) // 2
+    if length_policy == "bounded":
+        if args.min_units is not None:
+            length_contract["minimum"] = args.min_units
+        if args.max_units is not None:
+            length_contract["maximum"] = args.max_units
+        minimum = int(length_contract["minimum"])
+        maximum = int(length_contract["maximum"])
+        if minimum > maximum:
+            raise CLIContractError("min-units cannot exceed max-units")
+        if length_overridden:
+            length_contract["target"] = (minimum + maximum) // 2
+    profile_selection: dict[str, object] = {
+        "mode": profile_selection_mode,
+        "selected_profile": effective_profile,
+        "evidence": profile_selection_evidence,
+        "available_profiles": sorted(BRIEF_RESEARCH_PROFILES),
+    }
+    if prompt_file is not None:
+        profile_selection.update({
+            "prompt_ref": "inputs/profile-selection-prompt.txt",
+            "prompt_sha256": sha256_file(prompt_file),
+        })
+    if evidence_file is not None:
+        profile_selection.update({
+            "evidence_ref": "inputs/profile-selection-evidence.txt",
+            "evidence_sha256": sha256_file(evidence_file),
+        })
     brief = {
         "schema_version": "2.0",
         "topic": topic,
@@ -356,12 +474,9 @@ def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
         "user_goal": args.user_goal,
         "audience": args.audience,
         "research_profile": effective_profile,
-        "profile_selection": {
-            "mode": profile_selection_mode,
-            "selected_profile": effective_profile,
-            "evidence": profile_selection_evidence,
-            "available_profiles": sorted(BRIEF_RESEARCH_PROFILES),
-        },
+        "profile_selection": profile_selection,
+        "assurance_target": assurance_target,
+        "run_intent": run_intent,
         "depth_level": values["depth_level"],
         "report_language": language,
         "length_contract": length_contract,
@@ -386,6 +501,8 @@ def build_brief_v2(args: argparse.Namespace) -> dict[str, object]:
         brief["assumptions"].append(
             "critique_deepresearch profile: extract researchable claims from the user's interpretation before background lookup."
         )
+    if effective_profile == "maximal_full_dossier":
+        brief["maximal_completeness_contract"] = dict(MAXIMAL_COMPLETENESS_CONTRACT)
     if briefing_reason:
         brief["briefing_reason"] = briefing_reason
     return brief
@@ -563,6 +680,14 @@ def write_generation_input(
     return path
 
 
+def write_generation_text_input(
+    layout: RunLayout, generation: int, name: str, value: str
+) -> Path:
+    path = layout.generation_input(generation, name)
+    atomic_write_text(path, value)
+    return path
+
+
 def refresh_current_brief_view(layout: RunLayout, generation: int) -> None:
     authoritative = load_json(layout.generation_input(generation, "brief.json"))
     atomic_write_json(package_child(layout.root, "brief.json"), authoritative)
@@ -605,6 +730,10 @@ def initialize_at_output(
     assumption: Sequence[str] = (),
     profile_selection_mode: str | None = None,
     profile_selection_evidence: str = "",
+    profile_selection_evidence_file: Path | None = None,
+    profile_prompt_file: Path | None = None,
+    assurance_target: str | None = None,
+    run_intent: str = "user_delivery",
 ) -> RunLayout:
     args = argparse.Namespace(
         topic=topic,
@@ -631,13 +760,36 @@ def initialize_at_output(
         assumption=list(assumption),
         profile_selection_mode=profile_selection_mode,
         profile_selection_evidence=profile_selection_evidence,
+        profile_selection_evidence_file=profile_selection_evidence_file,
+        profile_prompt_file=profile_prompt_file,
+        assurance_target=assurance_target,
+        run_intent=run_intent,
     )
     brief = build_brief_v2(args)
     validate_or_raise(validate_brief(brief))
     package_hash = compute_skill_package_hash(ROOT)
     layout = create_run_layout(output)
+    prompt_path: Path | None = None
+    prompt_source = _profile_prompt_file(args)
+    if prompt_source is not None:
+        prompt_path = write_generation_text_input(
+            layout, 1, "profile-selection-prompt.txt",
+            prompt_source.read_text(encoding="utf-8"),
+        )
+    evidence_path: Path | None = None
+    evidence_source = _profile_selection_evidence_file(args)
+    if evidence_source is not None:
+        evidence_path = write_generation_text_input(
+            layout, 1, "profile-selection-evidence.txt",
+            evidence_source.read_text(encoding="utf-8"),
+        )
     brief_path = write_generation_input(layout, 1, "brief.json", brief)
     refresh_current_brief_view(layout, 1)
+    output_paths = [brief_path]
+    if prompt_path is not None:
+        output_paths.append(prompt_path)
+    if evidence_path is not None:
+        output_paths.append(evidence_path)
     commit_stage_receipt(
         layout,
         generation=1,
@@ -645,7 +797,7 @@ def initialize_at_output(
         package_hash=package_hash,
         validator_hash=sha256_file(Path(__file__)),
         input_artifacts={},
-        output_paths=[brief_path],
+        output_paths=output_paths,
     )
     return layout
 
@@ -683,6 +835,10 @@ def command_init(args: argparse.Namespace) -> int:
         assumption=args.assumption,
         profile_selection_mode=args.profile_selection_mode,
         profile_selection_evidence=args.profile_selection_evidence,
+        profile_selection_evidence_file=args.profile_selection_evidence_file,
+        profile_prompt_file=args.profile_prompt_file,
+        assurance_target=args.assurance_target,
+        run_intent=args.run_intent,
     )
     print(f"Initialized {output}")
     return EXIT_OK
@@ -980,6 +1136,70 @@ def _is_full_external_dossier(brief: dict[str, object]) -> bool:
     )
 
 
+def _is_maximal_full_dossier(brief: dict[str, object]) -> bool:
+    return brief.get("research_profile") == "maximal_full_dossier"
+
+
+def _run_intent(brief: dict[str, object]) -> str:
+    return str(brief.get("run_intent") or "user_delivery")
+
+
+def _is_diagnostic_rehearsal(brief: dict[str, object]) -> bool:
+    return _run_intent(brief) == "diagnostic_rehearsal"
+
+
+def _surface_bucket(value: object) -> str | None:
+    text = str(value or "").casefold()
+    if not text:
+        return None
+    if "counter" in text or "contradict" in text or "反证" in text:
+        return "counterevidence"
+    if "review" in text or "synthesis" in text or "secondary" in text or "综述" in text:
+        return "secondary_synthesis"
+    if "publisher" in text or "full_text" in text or "full text" in text or "doi" in text:
+        return "publisher_or_full_text"
+    if "registry" in text or "trial" in text or "official" in text or "clinicaltrials" in text or "ictrp" in text:
+        return "official_or_registry"
+    if "scholar" in text or "academic" in text or "openalex" in text or "pubmed" in text or "literature" in text:
+        return "scholarly_index"
+    return None
+
+
+def _source_plan_surface_buckets(source_plan: dict[str, object]) -> set[str]:
+    buckets: set[str] = set()
+    for question in source_plan.get("questions", []):
+        if not isinstance(question, dict):
+            continue
+        requirements = question.get("search_requirements")
+        if isinstance(requirements, dict):
+            for surface in requirements.get("required_surfaces", []):
+                bucket = _surface_bucket(surface)
+                if bucket:
+                    buckets.add(bucket)
+        for field in ("question", "evidence_need"):
+            bucket = _surface_bucket(question.get(field))
+            if bucket:
+                buckets.add(bucket)
+    for source_class in source_plan.get("source_classes", []):
+        if isinstance(source_class, dict):
+            bucket = _surface_bucket(_source_class_text(source_class))
+            if bucket:
+                buckets.add(bucket)
+    return buckets
+
+
+def _audit_surface_buckets(audit: list[dict[str, object]]) -> set[str]:
+    buckets: set[str] = set()
+    for record in audit:
+        if record.get("record_kind") != "search_run":
+            continue
+        for field in ("surface_class", "surface", "pass_kind"):
+            bucket = _surface_bucket(record.get(field))
+            if bucket:
+                buckets.add(bucket)
+    return buckets
+
+
 def _source_class_text(source_class: dict[str, object]) -> str:
     parts: list[str] = []
     for key in ("class_id", "name"):
@@ -1077,6 +1297,40 @@ def validate_source_depth_plan(
         errors.append(
             f"full_dossier external research requires retrieval_budget.max_sources >= {MIN_FULL_DOSSIER_DEEP_EXTERNAL_SOURCES}"
         )
+    if _is_maximal_full_dossier(brief):
+        applicability = source_plan.get("surface_applicability")
+        if not isinstance(applicability, list) or not applicability:
+            errors.append("maximal_full_dossier requires a surface applicability matrix")
+            applicability = []
+        required_matrix = {
+            str(item.get("surface"))
+            for item in applicability
+            if isinstance(item, dict) and item.get("applicability") == "required"
+        }
+        planned_surfaces = {
+            str(surface)
+            for question in source_questions
+            if isinstance(question.get("search_requirements"), dict)
+            for surface in question["search_requirements"].get("required_surfaces", [])
+        }
+        missing_matrix = sorted(planned_surfaces - required_matrix)
+        if missing_matrix:
+            errors.append(
+                "maximal source-plan surfaces are absent from applicability matrix: "
+                + ", ".join(missing_matrix)
+            )
+        if not any(_surface_bucket(item) == "counterevidence" for item in required_matrix):
+            errors.append("maximal_full_dossier requires counterevidence in the surface applicability matrix")
+        if brief.get("high_stakes"):
+            high_stakes_questions = [
+                item for item in source_questions
+                if isinstance(item.get("search_requirements"), dict)
+                and len(item["search_requirements"].get("aliases", [])) >= 3
+            ]
+            if not high_stakes_questions:
+                errors.append("maximal_full_dossier high-stakes source plan requires at least three aliases")
+            if not any("trial" in item.casefold() or "registry" in item.casefold() for item in required_matrix):
+                errors.append("maximal_full_dossier high-stakes applicability matrix requires a trial registry")
     return errors
 
 
@@ -1301,18 +1555,82 @@ def _is_deep_external_source(source: dict[str, object]) -> bool:
 
 
 def validate_retrieval_depth(
-    sources: list[dict[str, object]], brief: dict[str, object]
+    sources: list[dict[str, object]], brief: dict[str, object],
+    audit: list[dict[str, object]] | None = None,
 ) -> list[str]:
     if not _is_full_external_dossier(brief):
         return []
     deep_external = [source for source in sources if _is_deep_external_source(source)]
     independent = {independent_source_identity(source) for source in deep_external}
+    if _is_maximal_full_dossier(brief):
+        errors: list[str] = []
+        if audit is not None:
+            if brief.get("high_stakes"):
+                surfaces = [
+                    str(record.get("surface", "")).casefold()
+                    for record in audit
+                    if record.get("record_kind") == "search_run"
+                ]
+                surface_classes = [
+                    str(record.get("surface_class", "")).casefold()
+                    for record in audit
+                    if record.get("record_kind") == "search_run"
+                ]
+                buckets = _audit_surface_buckets(audit)
+                has_literature = (
+                    any("pubmed" in item for item in surfaces)
+                    or "literature_database" in surface_classes
+                )
+                has_registry = "official_or_registry" in buckets
+                if not has_literature or not has_registry:
+                    errors.append("maximal_full_dossier high-stakes retrieval requires literature database and trial registry surfaces")
+        return errors
     if len(independent) < MIN_FULL_DOSSIER_DEEP_EXTERNAL_SOURCES:
         return [
             "full_dossier independent source depth requires at least "
             f"{MIN_FULL_DOSSIER_DEEP_EXTERNAL_SOURCES} non-user, non-encyclopedia external sources"
         ]
     return []
+
+
+def validate_maximal_report_source_coverage(
+    report: str,
+    sources: list[dict[str, object]],
+    brief: dict[str, object],
+) -> list[str]:
+    if not _is_maximal_full_dossier(brief):
+        return []
+    return []
+
+
+def audit_boilerplate_errors(text: str, label: str) -> list[str]:
+    matches = sum(len(pattern.findall(text)) for pattern in AUDIT_BOILERPLATE_PATTERNS)
+    if matches < 2:
+        return []
+    return [
+        f"{label} uses source-register audit boilerplate as prose; synthesize findings instead"
+    ]
+
+
+def validate_material_claim_prose(
+    claims: list[dict[str, object]], brief: dict[str, object]
+) -> list[str]:
+    if not _is_maximal_full_dossier(brief):
+        return []
+    claim_ids = [
+        str(claim.get("claim_id"))
+        for claim in claims
+        if claim.get("material") and any(
+            pattern.search(str(claim.get("claim_text", "")))
+            for pattern in AUDIT_BOILERPLATE_PATTERNS
+        )
+    ]
+    if not claim_ids:
+        return []
+    return [
+        "maximal_full_dossier material claims cannot be source-register boilerplate: "
+        + ", ".join(claim_ids[:10])
+    ]
 
 
 def _infer_content_type(path: Path, explicit: str | None = None) -> str:
@@ -1449,19 +1767,33 @@ def _manual_audit_records(
     snapshot = resolve_snapshot(cache_root, snapshot_ref)
     adapter = str(capture["adapter"])
     closed = adapter == "closed_corpus"
+    request_payload = {
+        "query_id": str(capture["query_id"]),
+        "surface": "supplied-corpus" if closed else "manual-capture",
+        "query": str(capture.get("title", "manual capture")),
+        "aliases": [str(capture.get("title", "manual capture"))],
+    }
+    request_ref = f"manual-request-{search_run_id}.json"
+    request_path = cache_root / request_ref
+    atomic_write_text(
+        request_path,
+        json.dumps(request_payload, ensure_ascii=False, sort_keys=True) + "\n",
+    )
     search = {
         "record_kind": "search_run",
         "search_run_id": search_run_id,
         "query_id": str(capture["query_id"]),
         "adapter": adapter,
         "pass_kind": "corpus" if closed else "baseline",
-        "surface": "supplied-corpus" if closed else "manual-capture",
+        "surface": request_payload["surface"],
         "surface_class": "local_corpus" if closed else "web",
-        "query": str(capture.get("title", "manual capture")),
-        "aliases": [str(capture.get("title", "manual capture"))],
+        "query": request_payload["query"],
+        "aliases": request_payload["aliases"],
         "searched_at": str(capture["retrieved_at"]),
         "result_count": 1,
         "execution_status": "completed",
+        "request_artifact": request_ref,
+        "request_sha256": sha256_file(request_path),
         "raw_artifact": snapshot_ref,
         "snapshot_sha256": sha256_file(snapshot),
         "limitations": ["Manual capture does not establish exhaustive search coverage."],
@@ -1502,6 +1834,7 @@ def _manual_audit_records(
         "version_family_id": None,
         "version_role": None,
         "relationship_basis": None,
+        "canonical_version": True,
     }
     return [search, candidate, capture]
 
@@ -1512,6 +1845,22 @@ def _write_capture_records(path: Path, records: list[dict[str, object]], *, appe
     existing = path.read_text(encoding="utf-8") if path.exists() else ""
     path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(path, existing + _jsonl_text(records))
+
+
+def _retrieval_helper_warning(layout: RunLayout, generation: int) -> tuple[str, list[str]]:
+    brief = verify_current_brief_view(layout, generation)
+    if (
+        brief.get("research_profile") == "maximal_full_dossier"
+        and brief.get("assurance_target") == "captured_host_execution"
+    ):
+        return (
+            "insufficient_for_max_captured",
+            [
+                "capture-source/ingest-dir only create low-fidelity manual capture records.",
+                "Max captured retrieval still needs typed search_run, candidate screening, resolver outcomes, publisher/full-text capture, search_wave/gap_assessment, retrieval-preflight, and retrieval-prepare.",
+            ],
+        )
+    return "not_checked", []
 
 
 def command_capture_source(args: argparse.Namespace) -> int:
@@ -1558,12 +1907,14 @@ def command_capture_source(args: argparse.Namespace) -> int:
     target = args.to or package_child(layout.root, "current/research/retrieval-inputs.jsonl")
     records = _manual_audit_records(record, layout.evidence_cache(generation, "."))
     _write_capture_records(target, records, append=args.append or target.exists())
+    max_compatibility, helper_warnings = _retrieval_helper_warning(layout, generation)
     _print_json({
         "schema_version": "2.0",
         "mode": "capture-source",
         "record_count": len(records),
         "output_jsonl": str(target),
-        "warnings": warnings,
+        "max_compatibility": max_compatibility,
+        "warnings": [*warnings, *helper_warnings],
     })
     return EXIT_OK
 
@@ -1597,12 +1948,196 @@ def command_ingest_dir(args: argparse.Namespace) -> int:
             warnings.append({"row": index, "query_id": query_id, "warnings": row_warnings})
     target = args.to or package_child(layout.root, "current/research/retrieval-inputs.jsonl")
     _write_capture_records(target, captured, append=args.append or target.exists())
+    max_compatibility, helper_warnings = _retrieval_helper_warning(layout, generation)
     _print_json({
         "schema_version": "2.0",
         "mode": "ingest-dir",
         "record_count": len(captured),
         "output_jsonl": str(target),
-        "warnings": warnings,
+        "max_compatibility": max_compatibility,
+        "warnings": [*warnings, *helper_warnings],
+    })
+    return EXIT_OK
+
+
+def _retrieval_record_id(record: dict[str, object]) -> str:
+    if record.get("record_kind") == "gap_assessment":
+        return str(record.get("assessment_id"))
+    return str(record.get("search_run_id") or record.get("candidate_id") or record.get("wave_id"))
+
+
+def _retrieval_expected_record_ids(audit: list[dict[str, object]]) -> list[str]:
+    return sorted(
+        _retrieval_record_id(record)
+        for record in audit
+        if record.get("record_kind") in {"search_run", "candidate", "search_wave", "gap_assessment"}
+    )
+
+
+def _retrieval_record_counts(audit: list[dict[str, object]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for record in audit:
+        kind = str(record.get("record_kind"))
+        counts[kind] = counts.get(kind, 0) + 1
+    return counts
+
+
+def _blocking_debt_path(layout: RunLayout, generation: int) -> Path:
+    return layout.artifact(generation, "research/blocking-debt-ledger.json")
+
+
+def _write_blocking_debt_ledger(
+    layout: RunLayout,
+    generation: int,
+    *,
+    stage: str,
+    errors: list[str],
+    input_artifacts: dict[str, str],
+    measurements: dict[str, object],
+) -> Path:
+    unique_errors = list(dict.fromkeys(str(item) for item in errors if str(item).strip()))
+    payload = {
+        "schema_version": "2.0",
+        "run_intent": "diagnostic_rehearsal",
+        "status": "completed_with_blockers",
+        "not_valid_for": [
+            "user_delivery",
+            "real_host_execution_claim",
+            "public_release",
+            "validated_captured_host_execution",
+        ],
+        "debts": [{
+            "debt_id": "BD001",
+            "stage": stage,
+            "severity": "blocking",
+            "errors": unique_errors,
+            "input_artifacts": input_artifacts,
+            "measurements": measurements,
+            "disposition": "diagnostic_rehearsal_only",
+            "release_blocking": True,
+            "validation_blocking": True,
+            "created_at": _utc_now(),
+        }],
+    }
+    path = _blocking_debt_path(layout, generation)
+    atomic_write_json(path, payload)
+    atomic_write_json(package_child(layout.root, "current/research/blocking-debt-ledger.json"), payload)
+    append_journal_event(layout, {
+        "event": "diagnostic_debt_recorded",
+        "generation": generation,
+        "stage": stage,
+        "debt_count": len(payload["debts"]),
+        "error_count": len(unique_errors),
+        "recorded_at": payload["debts"][0]["created_at"],
+    })
+    return path
+
+
+def _retrieval_preflight_payload(
+    layout: RunLayout, generation: int, input_jsonl: Path
+) -> dict[str, object]:
+    brief = verify_current_brief_view(layout, generation)
+    errors: list[str] = []
+    sources: list[dict[str, object]] = []
+    manifests: list[dict[str, object]] = []
+    audit: list[dict[str, object]] = []
+    try:
+        records = load_jsonl(input_jsonl)
+        sources, manifests, audit = normalize_retrieval_records(
+            records,
+            mode=str(brief["retrieval_mode"]),
+            cache_root=layout.evidence_cache(generation, "."),
+        )
+    except (ContractError, SourceEvidenceError, ValueError) as exc:
+        errors.append(str(exc))
+    if not errors:
+        source_plan_path = layout.artifact(generation, "research/source-plan.json")
+        source_plan = load_json(source_plan_path)
+        planned_ids = {
+            str(item.get("query_id"))
+            for item in source_plan.get("questions", [])
+            if isinstance(item, dict)
+        }
+        covered_ids = {str(item.get("query_id")) for item in manifests}
+        missing = sorted(planned_ids - covered_ids)
+        if missing:
+            errors.append("retrieval evidence does not cover planned questions: " + ", ".join(missing))
+        errors.extend(validate_retrieval_audit_contract(audit, manifests, sources, source_plan, brief))
+        if (
+            brief.get("research_profile") == "maximal_full_dossier"
+            and brief.get("assurance_target") == "captured_host_execution"
+        ):
+            errors.extend(validate_captured_retrieval_artifacts(
+                audit, layout.evidence_cache(generation, ".")
+            ))
+        errors.extend(validate_retrieval_depth(sources, brief, audit))
+    return {
+        "schema_version": "2.0",
+        "stage": "retrieval",
+        "ok": not errors,
+        "errors": list(dict.fromkeys(errors)),
+        "expected_record_ids": _retrieval_expected_record_ids(audit),
+        "record_counts": _retrieval_record_counts(audit),
+        "assurance_target": brief.get("assurance_target"),
+        "research_profile": brief.get("research_profile"),
+        "receipt_written": False,
+    }
+
+
+def command_retrieval_preflight(args: argparse.Namespace) -> int:
+    layout = RunLayout(args.run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        raise StagePreconditionError("run has no generation")
+    package_hash = compute_skill_package_hash(ROOT)
+    verify_stage_precondition(layout, generation, Stage.RETRIEVAL, package_hash)
+    _print_json(_retrieval_preflight_payload(layout, generation, args.input_jsonl))
+    return EXIT_OK
+
+
+def command_retrieval_prepare(args: argparse.Namespace) -> int:
+    layout = RunLayout(args.run_dir)
+    generation = latest_generation(layout)
+    if generation is None:
+        raise StagePreconditionError("run has no generation")
+    package_hash = compute_skill_package_hash(ROOT)
+    verify_stage_precondition(layout, generation, Stage.RETRIEVAL, package_hash)
+    brief = verify_current_brief_view(layout, generation)
+    if brief.get("assurance_target") != "captured_host_execution":
+        raise CLIContractError("retrieval-prepare is only valid for captured_host_execution")
+    preflight = _retrieval_preflight_payload(layout, generation, args.input_jsonl)
+    if not preflight["ok"]:
+        raise RetrievalGateError("retrieval-preflight failed: " + "; ".join(preflight["errors"]))
+    transcript = args.transcript.read_text(encoding="utf-8")
+    transcript_errors = _execution_transcript_errors(transcript, label="retrieval")
+    if transcript_errors:
+        raise CLIContractError("; ".join(transcript_errors))
+    payload = {
+        "schema_version": "2.0",
+        "provenance_id": "EPROV-" + uuid.uuid4().hex[:12],
+        "stage": "retrieval",
+        "execution_kind": "host_execution",
+        "context_id": args.context_id,
+        "provider": args.provider,
+        "model": args.model,
+        "runner": args.runner,
+        "execution_id": args.execution_id,
+        "started_at": args.started_at,
+        "completed_at": args.completed_at,
+        "transcript_sha256": sha256_file(args.transcript),
+        "input_artifacts": {
+            "artifacts/research/execution/retrieval-input.jsonl": sha256_file(args.input_jsonl)
+        },
+        "record_ids": preflight["expected_record_ids"],
+        "provider_signed": False,
+    }
+    atomic_write_json(args.to, payload)
+    _print_json({
+        "schema_version": "2.0",
+        "ok": True,
+        "provenance": str(args.to),
+        "record_count": len(payload["record_ids"]),
+        "record_ids": payload["record_ids"],
     })
     return EXIT_OK
 
@@ -1615,6 +2150,7 @@ def command_ingest(args: argparse.Namespace) -> int:
     package_hash = compute_skill_package_hash(ROOT)
     verify_stage_precondition(layout, generation, Stage.RETRIEVAL, package_hash)
     brief = verify_current_brief_view(layout, generation)
+    diagnostic_allowed = bool(getattr(args, "allow_diagnostic_debt", False)) and _is_diagnostic_rehearsal(brief)
     try:
         records = load_jsonl(args.input_jsonl)
         sources, manifests, audit = normalize_retrieval_records(
@@ -1633,15 +2169,23 @@ def command_ingest(args: argparse.Namespace) -> int:
     }
     covered_ids = {str(item.get("query_id")) for item in manifests}
     missing = sorted(planned_ids - covered_ids)
+    errors: list[str] = []
     if missing:
-        raise RetrievalGateError(
+        errors.append(
             "retrieval evidence does not cover planned questions: " + ", ".join(missing)
         )
     audit_errors = validate_retrieval_audit_contract(
         audit, manifests, sources, source_plan, brief
     )
-    if audit_errors:
-        raise RetrievalGateError("; ".join(audit_errors))
+    errors.extend(audit_errors)
+    if (
+        brief.get("research_profile") == "maximal_full_dossier"
+        and brief.get("assurance_target") == "captured_host_execution"
+    ):
+        execution_artifact_errors = validate_captured_retrieval_artifacts(
+            audit, layout.evidence_cache(generation, ".")
+        )
+        errors.extend(execution_artifact_errors)
     plan_receipt = load_json(layout.receipt(generation, Stage.PLAN))
     plan_completed = _parse_datetime(plan_receipt.get("completed_at"))
     now = datetime.now(timezone.utc)
@@ -1654,12 +2198,16 @@ def command_ingest(args: argparse.Namespace) -> int:
                 f"retrieval {manifest.get('query_id')} timestamp is outside the plan-ingest window"
             )
     for record in audit:
-        timestamp_field = "searched_at" if record.get("record_kind") == "search_run" else None
+        timestamp_field = {
+            "search_run": "searched_at",
+            "search_wave": "created_at",
+            "gap_assessment": "created_at",
+        }.get(str(record.get("record_kind")))
         if timestamp_field:
             observed = _parse_datetime(record.get(timestamp_field))
             if not observed or not plan_completed or observed < plan_completed - skew or observed > now + skew:
                 timestamp_errors.append(
-                    f"search run {record.get('search_run_id')} timestamp is outside the plan-ingest window"
+                    f"retrieval audit record {record.get('search_run_id') or record.get('wave_id')} timestamp is outside the plan-ingest window"
                 )
         if record.get("record_kind") == "candidate":
             for outcome in record.get("resolver_outcomes", []):
@@ -1671,10 +2219,24 @@ def command_ingest(args: argparse.Namespace) -> int:
                         f"candidate {record.get('candidate_id')} resolver timestamp is outside the plan-ingest window"
                     )
     if timestamp_errors:
-        raise RetrievalGateError("; ".join(timestamp_errors))
-    depth_errors = validate_retrieval_depth(sources, brief)
-    if depth_errors:
-        raise RetrievalGateError("; ".join(depth_errors))
+        errors.extend(timestamp_errors)
+    depth_errors = validate_retrieval_depth(sources, brief, audit)
+    errors.extend(depth_errors)
+    errors = list(dict.fromkeys(errors))
+    if errors and not diagnostic_allowed:
+        raise RetrievalGateError("; ".join(errors))
+    expected_record_ids = _retrieval_expected_record_ids(audit)
+    prepared_execution = _prepare_execution_capture(
+        brief,
+        stage="retrieval",
+        provenance_path=args.execution_provenance,
+        transcript_path=args.execution_transcript,
+        predecessor_completed_at=plan_receipt.get("completed_at"),
+        expected_inputs={
+            "artifacts/research/execution/retrieval-input.jsonl": sha256_file(args.input_jsonl)
+        },
+        expected_record_ids=expected_record_ids,
+    )
     source_path, manifest_path, audit_path = _promote_retrieval_artifacts(
         layout, generation, sources, manifests, audit
     )
@@ -1689,6 +2251,7 @@ def command_ingest(args: argparse.Namespace) -> int:
     for record in audit:
         if record.get("record_kind") == "search_run":
             audit_snapshot_refs.add(str(record["raw_artifact"]))
+            audit_snapshot_refs.add(str(record["request_artifact"]))
         elif record.get("record_kind") == "candidate":
             for outcome in record.get("resolver_outcomes", []):
                 if isinstance(outcome, dict) and outcome.get("status") != "skipped":
@@ -1698,6 +2261,40 @@ def command_ingest(args: argparse.Namespace) -> int:
         for ref in sorted(audit_snapshot_refs)
     )
     snapshot_paths = list(dict.fromkeys(snapshot_paths))
+    stage_outputs = [source_path, manifest_path, audit_path, *snapshot_paths]
+    debt_outputs: list[Path] = []
+    if errors:
+        debt_path = _write_blocking_debt_ledger(
+            layout,
+            generation,
+            stage="retrieval",
+            errors=errors,
+            input_artifacts={
+                "retrieval_input_jsonl": sha256_file(args.input_jsonl),
+            },
+            measurements={
+                "expected_record_ids": expected_record_ids,
+                "record_counts": _retrieval_record_counts(audit),
+                "planned_query_count": len(planned_ids),
+                "covered_query_count": len(covered_ids),
+                "missing_query_ids": missing,
+            },
+        )
+        debt_outputs.append(debt_path)
+    execution_inputs: list[Path] = []
+    if prepared_execution is not None:
+        retrieval_input_copy = layout.artifact(
+            generation, "research/execution/retrieval-input.jsonl"
+        )
+        atomic_copy_file(args.input_jsonl, retrieval_input_copy)
+        execution_inputs.append(retrieval_input_copy)
+    execution_outputs = _write_execution_capture(
+        layout,
+        generation,
+        stage="retrieval",
+        prepared=prepared_execution,
+        output_paths=stage_outputs,
+    )
     commit_stage_receipt(
         layout,
         generation=generation,
@@ -1708,10 +2305,15 @@ def command_ingest(args: argparse.Namespace) -> int:
             "artifacts/research/research-plan.json": sha256_file(plan_path),
             "artifacts/research/source-plan.json": sha256_file(source_plan_path),
         },
-        output_paths=[source_path, manifest_path, audit_path, *snapshot_paths],
+        output_paths=[*stage_outputs, *debt_outputs, *execution_inputs, *execution_outputs],
     )
     _refresh_current_retrieval_view(layout, sources, manifests, audit)
-    print(f"Ingested {len(sources)} sources into {layout.root}")
+    if errors:
+        print(
+            f"Diagnostic ingest recorded {len(errors)} blocking retrieval debts in {layout.root}"
+        )
+    else:
+        print(f"Ingested {len(sources)} sources into {layout.root}")
     return EXIT_OK
 
 
@@ -1822,6 +2424,7 @@ def findings_coverage(
     tasklets: list[dict[str, object]],
     findings: list[dict[str, object]],
     audit: list[dict[str, object]],
+    manifests: list[dict[str, object]],
 ) -> dict[str, object]:
     usable = [finding for finding in findings if finding.get("status") == "usable"]
     covered_tasklets = sorted({str(finding.get("tasklet_id")) for finding in usable})
@@ -1848,6 +2451,143 @@ def findings_coverage(
         and record.get("pass_kind") == "gap_fill"
         and record.get("execution_status") in {"completed", "zero_results"}
     })
+    candidate_ids_by_source: dict[str, set[str]] = {}
+    for manifest in manifests:
+        candidate_ids_by_source.setdefault(
+            str(manifest.get("source_id")), set()
+        ).add(str(manifest.get("candidate_id")))
+    wave_rows: list[dict[str, object]] = []
+    finding_by_id = {
+        str(finding.get("finding_id")): finding for finding in usable
+    }
+    for wave in audit:
+        if wave.get("record_kind") != "search_wave":
+            continue
+        new_candidate_ids = {
+            str(item) for item in wave.get("new_candidate_ids", [])
+        }
+        candidate_finding_ids = {
+            str(finding.get("finding_id"))
+            for finding in usable
+            if any(
+                candidate_ids_by_source.get(str(source_id), set()) & new_candidate_ids
+                for source_id in finding.get("source_ids", [])
+            )
+        }
+        submitted_finding_ids = {
+            str(item) for item in wave.get("new_finding_ids", [])
+        }
+        new_finding_ids = sorted(
+            candidate_finding_ids
+            | (submitted_finding_ids & set(finding_by_id))
+        )
+        new_source_ids = sorted({
+            str(manifest.get("source_id"))
+            for manifest in manifests
+            if str(manifest.get("candidate_id")) in new_candidate_ids
+        })
+        new_contradiction_ids = sorted({
+            str(item) for item in wave.get("new_contradiction_ids", [])
+            if re.fullmatch(r"X\d{3}", str(item))
+        })
+        new_uncertainty_ids = sorted({
+            str(item) for item in wave.get("new_uncertainty_ids", [])
+            if re.fullmatch(r"U\d{3}", str(item))
+        })
+        finding_claim_ids = {
+            str(claim_id)
+            for finding_id in new_finding_ids
+            for claim_id in finding_by_id[finding_id].get("claim_ids", [])
+        }
+        changed_claim_ids = sorted({
+            str(item) for item in wave.get("changed_claim_ids", [])
+            if re.fullmatch(r"C\d{3}", str(item))
+        } | finding_claim_ids)
+        independent_claim_changes = set(changed_claim_ids) - finding_claim_ids
+        material_delta = (
+            len(new_finding_ids)
+            + len(new_contradiction_ids)
+            + len(new_uncertainty_ids)
+            + len(independent_claim_changes)
+        )
+        submitted_delta = wave.get("material_delta")
+        declaration_errors: list[str] = []
+        if submitted_delta is not None and submitted_delta != material_delta:
+            declaration_errors.append(
+                f"{wave.get('wave_id')} submitted material_delta does not recompute"
+            )
+        submitted_sources = {str(item) for item in wave.get("new_source_ids", [])}
+        if submitted_sources and submitted_sources != set(new_source_ids):
+            declaration_errors.append(
+                f"{wave.get('wave_id')} submitted new_source_ids do not recompute"
+            )
+        wave_rows.append({
+            "wave_id": str(wave.get("wave_id")),
+            "gap_id": str(wave.get("gap_id")),
+            "question_ids": list(wave.get("question_ids", [])),
+            "search_run_ids": list(wave.get("search_run_ids", [])),
+            "new_candidate_ids": sorted(new_candidate_ids),
+            "new_source_ids": new_source_ids,
+            "new_usable_finding_ids": new_finding_ids,
+            "new_contradiction_ids": new_contradiction_ids,
+            "new_uncertainty_ids": new_uncertainty_ids,
+            "changed_claim_ids": changed_claim_ids,
+            "submitted_material_delta": submitted_delta,
+            "material_delta": material_delta,
+            "declaration_errors": declaration_errors,
+        })
+    waves_by_gap: dict[str, list[dict[str, object]]] = {}
+    for wave in wave_rows:
+        waves_by_gap.setdefault(str(wave["gap_id"]), []).append(wave)
+    declarations = {
+        str(item.get("gap_id")): item
+        for item in audit
+        if item.get("record_kind") == "gap_assessment"
+    }
+    saturation_assessments: list[dict[str, object]] = []
+    for gap_id in sorted(set(waves_by_gap) | set(declarations)):
+        waves = waves_by_gap.get(gap_id, [])
+        ordered = sorted(waves, key=lambda item: str(item["wave_id"]))
+        declaration = declarations.get(gap_id)
+        declared_state = str((declaration or {}).get("terminal_state", "open"))
+        supporting_ids = [str(item) for item in (declaration or {}).get("supporting_wave_ids", [])]
+        supporting = [item for item in ordered if str(item["wave_id"]) in supporting_ids]
+        saturated = (
+            declared_state == "saturated"
+            and len(supporting) >= 2
+            and all(int(item["material_delta"]) == 0 for item in supporting[-2:])
+        )
+        terminal_state = (
+            "saturated" if saturated else
+            declared_state if declared_state in {
+                "bounded_corpus_exhausted", "access_limited_uncertainty", "out_of_scope"
+            } else "open"
+        )
+        saturation_assessments.append({
+            "gap_id": gap_id,
+            "terminal_state": terminal_state,
+            "supporting_wave_ids": supporting_ids,
+            "material_deltas": [int(item["material_delta"]) for item in supporting],
+            "question_ids": sorted({
+                str(question_id) for item in supporting
+                for question_id in item.get("question_ids", [])
+            }),
+            "uncertainty_id": (declaration or {}).get("uncertainty_id"),
+            "review_concern_id": (declaration or {}).get("review_concern_id"),
+            "raw_result_count": (declaration or {}).get("raw_result_count"),
+            "deduplicated_candidate_count": (declaration or {}).get("deduplicated_candidate_count"),
+            "screened_candidate_ids": list((declaration or {}).get("screened_candidate_ids", [])),
+            "result_windows_retrieved": (declaration or {}).get("result_windows_retrieved"),
+            "total_result_windows": (declaration or {}).get("total_result_windows"),
+            "enumeration_complete": (declaration or {}).get("enumeration_complete"),
+            "access_limitations": list((declaration or {}).get("access_limitations", []))
+            if isinstance((declaration or {}).get("access_limitations"), list)
+            else None,
+            "reason": (
+                str(declaration.get("reason")) if declaration and terminal_state != "open"
+                else "The gap lacks a valid declared terminal assessment."
+            ),
+        })
     return {
         "schema_version": "2.0",
         "tasklets_total": len(tasklets),
@@ -1884,8 +2624,78 @@ def findings_coverage(
             and record.get("execution_status") == "unreachable"
         }),
         "unresolved_tasklet_ids": unresolved_tasklets,
+        "search_waves": wave_rows,
+        "saturation_assessments": saturation_assessments,
         "created_at": _utc_now(),
     }
+
+
+def validate_maximal_saturation(
+    brief: dict[str, object], coverage: dict[str, object]
+) -> list[str]:
+    if not _is_maximal_full_dossier(brief):
+        return []
+    errors: list[str] = []
+    for wave in coverage.get("search_waves", []):
+        if isinstance(wave, dict):
+            errors.extend(str(item) for item in wave.get("declaration_errors", []))
+    if coverage.get("missing_tasklet_ids"):
+        errors.append("maximal_full_dossier requires every STORM tasklet to have a disposition")
+    assessments = coverage.get("saturation_assessments")
+    if not isinstance(assessments, list) or not assessments:
+        return errors + [
+            "maximal_full_dossier requires retrieval saturation assessments; source count cannot close Max"
+        ]
+    for assessment in assessments:
+        if not isinstance(assessment, dict):
+            errors.append("maximal saturation assessment must be an object")
+            continue
+        if assessment.get("terminal_state") not in {
+            "saturated", "bounded_corpus_exhausted",
+            "access_limited_uncertainty", "out_of_scope",
+        }:
+            errors.append(
+                f"{assessment.get('gap_id')} lacks a valid terminal gap disposition"
+            )
+        if assessment.get("terminal_state") == "bounded_corpus_exhausted":
+            total_windows = assessment.get("total_result_windows")
+            retrieved_windows = assessment.get("result_windows_retrieved")
+            if (
+                assessment.get("enumeration_complete") is not True
+                or not isinstance(total_windows, int)
+                or isinstance(total_windows, bool)
+                or total_windows < 1
+                or not isinstance(retrieved_windows, int)
+                or isinstance(retrieved_windows, bool)
+                or retrieved_windows != total_windows
+            ):
+                errors.append(
+                    f"{assessment.get('gap_id')} bounded corpus exhaustion requires complete result-window enumeration"
+                )
+            if not isinstance(assessment.get("access_limitations"), list) or not all(
+                isinstance(item, str) for item in assessment.get("access_limitations", [])
+            ):
+                errors.append(
+                    f"{assessment.get('gap_id')} bounded corpus exhaustion requires access-limit disclosure"
+                )
+        if assessment.get("terminal_state") == "access_limited_uncertainty" and not assessment.get("uncertainty_id"):
+            errors.append(f"{assessment.get('gap_id')} access limitation lacks uncertainty binding")
+    terminal_questions = {
+        str(question_id)
+        for assessment in assessments if isinstance(assessment, dict)
+        for question_id in assessment.get("question_ids", [])
+        if assessment.get("terminal_state") != "open"
+    }
+    unresolved_questions = {
+        str(item) for item in coverage.get("gap_fill_required_query_ids", [])
+    }
+    missing_questions = sorted(unresolved_questions - terminal_questions)
+    if missing_questions:
+        errors.append(
+            "maximal unresolved tasklets lack terminal gap assessments: "
+            + ", ".join(missing_questions)
+        )
+    return list(dict.fromkeys(errors))
 
 
 def _write_findings_artifacts(
@@ -1934,7 +2744,7 @@ def command_findings(args: argparse.Namespace) -> int:
     ))
     if errors:
         raise EvidenceGateError("; ".join(dict.fromkeys(errors)))
-    coverage = findings_coverage(tasklets, findings, audit)
+    coverage = findings_coverage(tasklets, findings, audit, manifests)
     _write_findings_artifacts(layout, generation, findings, coverage)
     print(f"Registered {len(findings)} STORM findings in {layout.root}")
     return EXIT_OK
@@ -2179,6 +2989,9 @@ def command_evidence(args: argparse.Namespace) -> int:
     errors.extend(validate_claim_closure(claims, sources, outline, manifests))
     errors.extend(validate_absence_searches(claims, absence_searches, sources, manifests, brief))
     errors.extend(validate_theory_claim_sources(claims, sources, brief))
+    errors.extend(validate_material_claim_prose(claims, brief))
+    if _is_maximal_full_dossier(brief):
+        errors.extend(validate_material_capture_depth(claims, manifests))
     errors.extend(_validate_contradictions(contradictions, claims))
     errors.extend(_validate_uncertainties(uncertainties))
     tasklets: list[dict[str, object]] = []
@@ -2203,6 +3016,19 @@ def command_evidence(args: argparse.Namespace) -> int:
             ))
             errors.extend(validate_findings_claim_links(claims, findings))
             coverage = load_json(coverage_path)
+            errors.extend(validate_maximal_saturation(brief, coverage))
+            uncertainty_ids = {
+                str(record.get("uncertainty_id"))
+                for record in uncertainties.get("uncertainties", [])
+                if isinstance(record, dict)
+            }
+            for assessment in coverage.get("saturation_assessments", []):
+                if not isinstance(assessment, dict):
+                    continue
+                if assessment.get("terminal_state") == "access_limited_uncertainty" and str(assessment.get("uncertainty_id")) not in uncertainty_ids:
+                    errors.append(
+                        f"{assessment.get('gap_id')} access limitation is not registered in uncertainty ledger"
+                    )
             unresolved = set(str(item) for item in coverage.get("unresolved_tasklet_ids", []))
             uncertainty_bindings: dict[str, int] = {}
             for record in uncertainties.get("uncertainties", []):
@@ -2500,13 +3326,19 @@ def draft_preflight_report(
     report = generate_references(draft_text, sources)
     traceability_errors = validate_report_traceability(report, paragraph_map, claims, sources)
     errors.extend(traceability_errors)
+    errors.extend(audit_boilerplate_errors(report, "draft"))
+    errors.extend(validate_maximal_report_source_coverage(report, sources, brief))
     length_contract = brief.get("length_contract") if isinstance(brief.get("length_contract"), dict) else {}
     unit = str(length_contract.get("unit", "words"))
     measured = body_length(report, unit)
-    minimum = int(length_contract.get("minimum", 1))
-    maximum = int(length_contract.get("maximum", 0))
-    if measured < minimum or measured > maximum:
-        errors.append(f"draft body length {measured} {unit} is outside {minimum}-{maximum}")
+    policy = str(length_contract.get("policy", "bounded"))
+    minimum = length_contract.get("minimum") if policy == "bounded" else None
+    maximum = length_contract.get("maximum") if policy == "bounded" else None
+    if policy == "bounded":
+        lower = int(minimum or 1)
+        upper = int(maximum or 0)
+        if measured < lower or measured > upper:
+            errors.append(f"draft body length {measured} {unit} is outside {lower}-{upper}")
     errors.extend(quote_limit_errors(report, unit))
     paragraphs = extract_paragraphs(report)
     paragraph_by_locator = {
@@ -2525,11 +3357,12 @@ def draft_preflight_report(
         "ok": not errors,
         "mode": "draft-preflight",
         "length": {
+            "policy": policy,
             "measured": measured,
             "unit": unit,
             "minimum": minimum,
             "maximum": maximum,
-            "within_range": minimum <= measured <= maximum,
+            "within_range": True if policy == "open_ended" else int(minimum or 1) <= measured <= int(maximum or 0),
             "references_excluded": True,
             "quoted_blocks_excluded": True,
             "quoted": quoted_length(report, unit),
@@ -2566,21 +3399,59 @@ def command_draft(args: argparse.Namespace) -> int:
         raise DraftGateError("draft contains a hand-written References body")
     report = generate_references(draft_text, sources)
     errors = validate_report_traceability(report, paragraph_map, claims, sources)
+    errors.extend(audit_boilerplate_errors(report, "draft"))
+    errors.extend(validate_maximal_report_source_coverage(report, sources, brief))
     length_contract = brief.get("length_contract") if isinstance(brief.get("length_contract"), dict) else {}
     unit = str(length_contract.get("unit", "words"))
     measured = body_length(report, unit)
-    minimum = int(length_contract.get("minimum", 1))
-    maximum = int(length_contract.get("maximum", 0))
-    if measured < minimum or measured > maximum:
+    if str(length_contract.get("policy", "bounded")) == "bounded":
+        minimum = int(length_contract.get("minimum", 1))
+        maximum = int(length_contract.get("maximum", 0))
+        if measured < minimum or measured > maximum:
+            errors.append(
+                f"draft body length {measured} {unit} is outside {minimum}-{maximum}"
+            )
+    elif str(length_contract.get("policy")) != "open_ended":
         errors.append(
-            f"draft body length {measured} {unit} is outside {minimum}-{maximum}"
+            "draft length_contract.policy must be bounded or open_ended"
         )
     errors.extend(quote_limit_errors(report, unit))
     if errors:
         raise DraftGateError("; ".join(dict.fromkeys(errors)))
+    evidence_receipt = load_json(layout.receipt(generation, Stage.EVIDENCE))
+    prepared_execution = _prepare_execution_capture(
+        brief,
+        stage="draft",
+        provenance_path=args.execution_provenance,
+        transcript_path=args.execution_transcript,
+        predecessor_completed_at=evidence_receipt.get("completed_at"),
+        expected_inputs={
+            "artifacts/research/execution/draft-input.md": sha256_file(args.draft_md),
+            "artifacts/research/execution/draft-paragraph-map-input.jsonl": sha256_file(args.paragraph_map_jsonl),
+        },
+        expected_record_ids=sorted(str(claim.get("claim_id")) for claim in claims),
+    )
     citations = citation_index(sources)
     outputs = _promote_draft_artifacts(
         layout, generation, report, paragraph_map, citations
+    )
+    execution_inputs: list[Path] = []
+    if prepared_execution is not None:
+        draft_input_copy = layout.artifact(
+            generation, "research/execution/draft-input.md"
+        )
+        map_input_copy = layout.artifact(
+            generation, "research/execution/draft-paragraph-map-input.jsonl"
+        )
+        atomic_copy_file(args.draft_md, draft_input_copy)
+        atomic_copy_file(args.paragraph_map_jsonl, map_input_copy)
+        execution_inputs.extend([draft_input_copy, map_input_copy])
+    execution_outputs = _write_execution_capture(
+        layout,
+        generation,
+        stage="draft",
+        prepared=prepared_execution,
+        output_paths=outputs,
     )
     commit_stage_receipt(
         layout,
@@ -2593,7 +3464,7 @@ def command_draft(args: argparse.Namespace) -> int:
             "artifacts/research/source-register.jsonl": sha256_file(source_path),
             "artifacts/research/report-outline.json": sha256_file(outline_path),
         },
-        output_paths=outputs,
+        output_paths=[*outputs, *execution_inputs, *execution_outputs],
     )
     _refresh_current_draft_view(layout, report, paragraph_map, citations)
     print(f"Drafted {layout.root}")
@@ -2606,6 +3477,7 @@ def _validate_revision_map(
     *,
     draft_sha256: str,
     candidate_sha256: str,
+    review_concerns: dict[str, dict[str, object]] | None = None,
 ) -> list[str]:
     if set(payload) != {"schema_version", "revisions"} or payload.get("schema_version") != "2.0":
         return ["revision map has invalid top-level contract"]
@@ -2626,7 +3498,36 @@ def _validate_revision_map(
         action_id = str(revision.get("action_id", ""))
         action = target_actions.get(action_id)
         if action is None:
-            errors.append(f"revision {index} does not resolve a review action")
+            if not re.fullmatch(r"RC\d{3}", action_id):
+                errors.append(f"revision {index} does not resolve a review action")
+                continue
+            if revision.get("status") not in {"applied", "waived", "preserved_as_uncertainty"}:
+                errors.append(f"revision {index} review concern status is invalid")
+            if not _is_sha256(revision.get("before_sha256")) or not _is_sha256(revision.get("after_sha256")):
+                errors.append(f"revision {index} review concern hashes are invalid")
+            if revision.get("status") == "applied" and revision.get("before_sha256") == revision.get("after_sha256"):
+                errors.append(f"revision {index} applied review concern did not change its target")
+            if not str(revision.get("action", "")).strip():
+                errors.append(f"revision {index} review concern action is required")
+            if revision.get("status") != "applied" and not str(revision.get("reason", "")).strip():
+                errors.append(f"revision {index} review concern terminal reason is required")
+            concern = (review_concerns or {}).get(action_id)
+            if review_concerns is not None and concern is None:
+                errors.append(f"revision {index} does not match a registered review concern")
+            elif concern is not None:
+                if revision.get("before_sha256") != concern.get("target_sha256"):
+                    errors.append(f"revision {index} before_sha256 does not match review concern target")
+                if revision.get("action") != concern.get("required_action"):
+                    errors.append(f"revision {index} action does not match review concern")
+                terminal = str(concern.get("terminal_disposition", ""))
+                expected_status = {
+                    "addressed": "applied",
+                    "waived": "waived",
+                    "preserved_as_uncertainty": "preserved_as_uncertainty",
+                }.get(terminal)
+                if expected_status and revision.get("status") != expected_status:
+                    errors.append(f"revision {index} status does not match review concern closure")
+            applied.add(action_id)
             continue
         if revision.get("before_sha256") != action.get("before_sha256"):
             errors.append(f"revision {index} before_sha256 does not match P4 action")
@@ -2651,6 +3552,130 @@ def _validate_revision_map(
     return errors
 
 
+def _review_concerns_by_id(loop: dict[str, object] | None) -> dict[str, dict[str, object]]:
+    grouped: dict[str, dict[str, object]] = {}
+    if not isinstance(loop, dict):
+        return grouped
+    for round_record in loop.get("rounds", []):
+        if not isinstance(round_record, dict):
+            continue
+        for concern in round_record.get("required_concerns", []):
+            if not isinstance(concern, dict):
+                continue
+            concern_id = str(concern.get("concern_id", ""))
+            if not re.fullmatch(r"RC\d{3}", concern_id):
+                continue
+            current = grouped.setdefault(concern_id, dict(concern))
+            if concern.get("disposition") in {"addressed", "waived", "preserved_as_uncertainty"}:
+                current["terminal_disposition"] = concern.get("disposition")
+                current["terminal_reason"] = concern.get("reason")
+    return grouped
+
+
+def _review_block_path(layout: RunLayout, generation: int) -> Path:
+    return package_child(
+        layout.root, f"state/generations/g{generation:04d}/review-blocked.json"
+    )
+
+
+def _open_review_concerns(loop: dict[str, object] | None) -> dict[str, dict[str, object]]:
+    opened: dict[str, dict[str, object]] = {}
+    terminal: set[str] = set()
+    if not isinstance(loop, dict):
+        return opened
+    for round_record in loop.get("rounds", []):
+        if not isinstance(round_record, dict):
+            continue
+        for concern in round_record.get("required_concerns", []):
+            if not isinstance(concern, dict):
+                continue
+            concern_id = str(concern.get("concern_id", ""))
+            if concern.get("disposition") == "open" and re.fullmatch(r"RC\d{3}", concern_id):
+                opened[concern_id] = concern
+            elif concern.get("disposition") in {
+                "addressed", "waived", "preserved_as_uncertainty",
+            }:
+                terminal.add(concern_id)
+    return {key: value for key, value in opened.items() if key not in terminal}
+
+
+def _persist_review_block(
+    layout: RunLayout,
+    generation: int,
+    loop: dict[str, object],
+    errors: list[str],
+    *,
+    provenance: dict[str, object],
+    request: dict[str, object],
+    review_output_sha256: str,
+    transcript_path: Path,
+) -> None:
+    concerns = _open_review_concerns(loop)
+    if not concerns:
+        return
+    path = _review_block_path(layout, generation)
+    required_stages = {
+        concern_id: str(concern.get("required_stage") or "review")
+        for concern_id, concern in sorted(concerns.items())
+    }
+    rounds = [item for item in loop.get("rounds", []) if isinstance(item, dict)]
+    blocked_round_sha256 = str(rounds[-1].get("round_sha256", "")) if rounds else ""
+    payload: dict[str, object] = {
+        "schema_version": "2.0",
+        "generation": generation,
+        "review_loop_sha256": canonical_json_sha256(loop),
+        "blocked_round_sha256": blocked_round_sha256,
+        "review_request_sha256": str(request.get("request_sha256", "")),
+        "review_provenance_sha256": canonical_json_sha256(provenance),
+        "review_output_sha256": review_output_sha256,
+        "review_transcript_sha256": sha256_file(transcript_path),
+        "blocking_issue_ids": sorted(concerns),
+        "required_stages": required_stages,
+        "validation_errors": list(dict.fromkeys(errors)),
+        "created_at": _utc_now(),
+        "block_sha256": "0" * 64,
+    }
+    payload["block_sha256"] = canonical_json_sha256({
+        key: value for key, value in payload.items() if key != "block_sha256"
+    })
+    if path.exists() or path.is_symlink():
+        existing = load_json(path)
+        if existing.get("review_loop_sha256") == payload["review_loop_sha256"]:
+            return
+        raise ReviewGateError(
+            "review blocker record is immutable; create a new generation before re-review"
+        )
+    atomic_write_json(path, payload)
+    append_journal_event(layout, {
+        "event": "review_blocked",
+        "generation": generation,
+        "blocking_issue_ids": sorted(concerns),
+        "block_sha256": payload["block_sha256"],
+        "recorded_at": payload["created_at"],
+    })
+
+
+def _review_round_bindings(layout: RunLayout, through_generation: int) -> dict[int, dict[str, str]]:
+    bindings: dict[int, dict[str, str]] = {}
+    for generation in range(1, through_generation + 1):
+        draft_receipt_path = layout.receipt(generation, Stage.DRAFT)
+        request_path = layout.artifact(generation, "research/review-request.json")
+        if not draft_receipt_path.is_file() or not request_path.is_file():
+            continue
+        draft_receipt = load_json(draft_receipt_path)
+        request = load_json(request_path)
+        item = {
+            "draft_receipt_sha256": str(draft_receipt.get("receipt_sha256", "")),
+            "review_request_sha256": str(request.get("request_sha256", "")),
+        }
+        block_path = _review_block_path(layout, generation)
+        if block_path.is_file() and not block_path.is_symlink():
+            block = load_json(block_path)
+            item["blocked_round_sha256"] = str(block.get("blocked_round_sha256", ""))
+        bindings[generation] = item
+    return bindings
+
+
 def _review_request_digest(payload: dict[str, object]) -> str:
     return canonical_json_sha256({key: value for key, value in payload.items() if key != "request_sha256"})
 
@@ -2663,6 +3688,19 @@ def command_review_prepare(args: argparse.Namespace) -> int:
     package_hash = compute_skill_package_hash(ROOT)
     verify_stage_precondition(layout, generation, Stage.REVIEW, package_hash)
     brief = verify_current_brief_view(layout, generation)
+    if _captured_execution_required(brief):
+        draft_provenance_path = layout.artifact(
+            generation, "research/execution/draft-provenance.json"
+        )
+        if not draft_provenance_path.is_file() or draft_provenance_path.is_symlink():
+            raise StagePreconditionError(
+                "captured_host_execution review requires draft execution provenance"
+            )
+        draft_provenance = load_json(draft_provenance_path)
+        if args.author_context_id != draft_provenance.get("context_id"):
+            raise ReviewGateError(
+                "review author context must match captured draft execution context"
+            )
     p4_path = _storm_lens_artifact_path(layout, generation, "P4")
     p4, _ = _optional_lens_inputs(
         layout, generation, "P4", _storm_lens_expected_inputs(layout, generation, "P4"),
@@ -2736,19 +3774,128 @@ def _parse_datetime(value: object) -> datetime | None:
         return None
 
 
+EXECUTION_DECLARATION_FIELDS = {
+    "schema_version", "provenance_id", "stage", "execution_kind",
+    "context_id", "provider", "model", "runner", "execution_id",
+    "started_at", "completed_at", "transcript_sha256", "input_artifacts",
+    "record_ids", "provider_signed",
+}
+
+
+def _captured_execution_required(brief: dict[str, object]) -> bool:
+    return brief.get("assurance_target") == "captured_host_execution"
+
+
+def _execution_transcript_errors(text: str, *, label: str) -> list[str]:
+    nonempty = [line.strip() for line in text.splitlines() if line.strip()]
+    errors: list[str] = []
+    if len(text.strip()) < 200:
+        errors.append(f"{label} transcript must contain at least 200 characters")
+    if len(nonempty) < 3:
+        errors.append(f"{label} transcript must contain at least three non-empty lines")
+    return errors
+
+
+def _prepare_execution_capture(
+    brief: dict[str, object],
+    *,
+    stage: str,
+    provenance_path: Path | None,
+    transcript_path: Path | None,
+    predecessor_completed_at: object,
+    expected_inputs: dict[str, str],
+    expected_record_ids: list[str],
+) -> tuple[dict[str, object], str] | None:
+    required = _captured_execution_required(brief)
+    if not required:
+        if provenance_path is not None or transcript_path is not None:
+            raise CLIContractError(
+                "execution provenance is only accepted when assurance_target is captured_host_execution"
+            )
+        return None
+    if provenance_path is None or transcript_path is None:
+        raise CLIContractError(
+            f"captured_host_execution {stage} requires --execution-provenance and --execution-transcript"
+        )
+    declaration = load_json(provenance_path)
+    errors: list[str] = []
+    if set(declaration) != EXECUTION_DECLARATION_FIELDS:
+        errors.append(f"{stage} execution provenance has invalid fields")
+    if declaration.get("schema_version") != "2.0":
+        errors.append(f"{stage} execution provenance schema_version must be 2.0")
+    if declaration.get("stage") != stage:
+        errors.append(f"{stage} execution provenance stage mismatch")
+    if declaration.get("execution_kind") != "host_execution":
+        errors.append(f"{stage} execution provenance requires host_execution")
+    if declaration.get("provider_signed") is not False:
+        errors.append(f"{stage} execution provenance provider_signed must be false")
+    for field in ("provenance_id", "context_id", "provider", "model", "runner", "execution_id"):
+        if not isinstance(declaration.get(field), str) or not str(declaration.get(field, "")).strip():
+            errors.append(f"{stage} execution provenance {field} is required")
+    if not str(declaration.get("provenance_id", "")).startswith("EPROV-"):
+        errors.append(f"{stage} execution provenance provenance_id is invalid")
+    if declaration.get("input_artifacts") != expected_inputs:
+        errors.append(f"{stage} execution provenance input artifact hashes do not match")
+    if declaration.get("record_ids") != expected_record_ids:
+        errors.append(f"{stage} execution provenance record_ids do not match")
+    transcript = transcript_path.read_text(encoding="utf-8")
+    if declaration.get("transcript_sha256") != sha256_file(transcript_path):
+        errors.append(f"{stage} execution provenance transcript hash mismatch")
+    errors.extend(_execution_transcript_errors(transcript, label=stage))
+    predecessor = _parse_datetime(predecessor_completed_at)
+    started = _parse_datetime(declaration.get("started_at"))
+    completed = _parse_datetime(declaration.get("completed_at"))
+    now = datetime.now(timezone.utc)
+    if not predecessor or not started or not completed:
+        errors.append(f"{stage} execution provenance timestamps are invalid")
+    elif not (predecessor <= started < completed <= now + timedelta(minutes=5)):
+        errors.append(f"{stage} execution provenance timestamps are not causal")
+    if errors:
+        raise CLIContractError("; ".join(dict.fromkeys(errors)))
+    return declaration, transcript
+
+
+def _write_execution_capture(
+    layout: RunLayout,
+    generation: int,
+    *,
+    stage: str,
+    prepared: tuple[dict[str, object], str] | None,
+    output_paths: list[Path],
+) -> list[Path]:
+    if prepared is None:
+        return []
+    declaration, transcript = prepared
+    execution_root = layout.artifact(generation, "research/execution")
+    transcript_path = execution_root / f"{stage}-transcript.txt"
+    provenance_path = execution_root / f"{stage}-provenance.json"
+    atomic_write_text(transcript_path, transcript)
+    payload = dict(declaration)
+    payload["transcript_ref"] = f"artifacts/research/execution/{stage}-transcript.txt"
+    payload["output_artifacts"] = {
+        path.relative_to(layout.generation_root(generation)).as_posix(): sha256_file(path)
+        for path in output_paths
+    }
+    atomic_write_json(provenance_path, payload)
+    return [provenance_path, transcript_path]
+
+
 def _validate_review_provenance(
     provenance: dict[str, object],
     request: dict[str, object],
     review_output_sha256: str,
     transcript_path: Path,
     reviews: list[dict[str, object]],
+    *,
+    strict_execution: bool = False,
+    review_loop: dict[str, object] | None = None,
 ) -> list[str]:
     fields = {
         "schema_version", "provenance_id", "review_session_id", "execution_kind",
         "author_context_id", "reviewer_context_id", "reviewer_identity", "provider",
         "model", "runner", "execution_id", "request_sha256", "review_output_sha256",
         "transcript_ref", "transcript_sha256", "started_at", "completed_at",
-        "isolation_attestation",
+        "isolation_attestation", "review_sessions",
     }
     if set(provenance) != fields:
         return ["review provenance has invalid fields"]
@@ -2771,6 +3918,60 @@ def _validate_review_provenance(
         errors.append("review provenance transcript hash mismatch")
     if provenance.get("isolation_attestation") is not True:
         errors.append("review provenance lacks isolation attestation")
+    transcript_bytes = transcript_path.read_bytes()
+    sessions = provenance.get("review_sessions")
+    observed_sessions: set[tuple[str, str, str, str, str, str]] = set()
+    ranges: list[tuple[int, int]] = []
+    session_fields = {
+        "round_id", "generation", "round_sha256", "reviewer_role", "context_id", "execution_id",
+        "start_byte", "end_byte", "sha256",
+    }
+    if not isinstance(sessions, list) or not sessions:
+        errors.append("review provenance requires review_sessions")
+        sessions = []
+    for index, session in enumerate(sessions, start=1):
+        if not isinstance(session, dict) or set(session) != session_fields:
+            errors.append(f"review provenance session {index} has invalid fields")
+            continue
+        start, end = session.get("start_byte"), session.get("end_byte")
+        if not isinstance(start, int) or not isinstance(end, int) or not (0 <= start < end <= len(transcript_bytes)):
+            errors.append(f"review provenance session {index} byte range is invalid")
+            continue
+        if any(start < prior_end and prior_start < end for prior_start, prior_end in ranges):
+            errors.append(f"review provenance session {index} overlaps another transcript segment")
+        ranges.append((start, end))
+        if hashlib.sha256(transcript_bytes[start:end]).hexdigest() != session.get("sha256"):
+            errors.append(f"review provenance session {index} transcript segment hash mismatch")
+        observed_sessions.add((
+            str(session.get("round_id")), str(session.get("generation")),
+            str(session.get("round_sha256")), str(session.get("reviewer_role")),
+            str(session.get("context_id")), str(session.get("execution_id")),
+        ))
+    if review_loop:
+        expected_sessions: set[tuple[str, str, str, str, str, str]] = set()
+        for round_record in review_loop.get("rounds", []):
+            if not isinstance(round_record, dict):
+                continue
+            if round_record.get("generation") != request.get("generation"):
+                continue
+            round_id = str(round_record.get("round_id"))
+            for panel_review in round_record.get("panel_reviews", []):
+                if isinstance(panel_review, dict):
+                    expected_sessions.add((
+                        round_id, str(round_record.get("generation")),
+                        str(round_record.get("round_sha256")), str(panel_review.get("reviewer_role")),
+                        str(panel_review.get("reviewer_context_id")),
+                        str(panel_review.get("execution_id")),
+                    ))
+            editor = round_record.get("editor_review")
+            if isinstance(editor, dict):
+                expected_sessions.add((
+                    round_id, str(round_record.get("generation")),
+                    str(round_record.get("round_sha256")), "editor_synthesizer", str(editor.get("context_id")),
+                    str(editor.get("execution_id")),
+                ))
+        if observed_sessions != expected_sessions:
+            errors.append("review provenance sessions do not match panel and editor executions")
     for field in ("provenance_id", "review_session_id", "reviewer_context_id", "reviewer_identity", "execution_id"):
         if not isinstance(provenance.get(field), str) or not provenance.get(field):
             errors.append(f"review provenance {field} is required")
@@ -2783,6 +3984,14 @@ def _validate_review_provenance(
     created = _parse_datetime(request.get("created_at"))
     if not started or not completed or not created or not (created <= started <= completed):
         errors.append("review provenance timestamps are not causal")
+    if strict_execution:
+        if started and completed and started >= completed:
+            errors.append("captured review execution must have a non-zero causal time window")
+        errors.extend(
+            _execution_transcript_errors(
+                transcript_path.read_text(encoding="utf-8"), label="review"
+            )
+        )
     session_id = str(provenance.get("review_session_id", ""))
     author_id = str(provenance.get("author_context_id", ""))
     for review in reviews:
@@ -2849,8 +4058,483 @@ def _require_full_review_inputs(args: argparse.Namespace, brief: dict[str, objec
             ("--review-transcript", args.review_transcript),
         ) if value is None
     ]
+    if _is_maximal_full_dossier(brief) and args.review_loop is None:
+        missing.append("--review-loop")
     if missing:
         raise CLIContractError("full_dossier review requires " + ", ".join(missing))
+
+
+REVIEW_SUBJECT_PATHS = {
+    "claims": "research/claim-evidence-ledger.jsonl",
+    "sources": "research/source-register.jsonl",
+    "findings": "research/storm-findings-pool.jsonl",
+    "contradictions": "research/contradiction-ledger.json",
+    "uncertainties": "research/uncertainty-ledger.json",
+    "p2": "research/storm-lens-conflicts.json",
+    "p3": "research/storm-lens-outline.json",
+    "p4": "research/storm-lens-red-team.json",
+    "retrieval_audit": "research/retrieval-audit.jsonl",
+    "finding_coverage": "research/finding-coverage.json",
+}
+
+
+def review_subject_artifact_hashes(
+    layout: RunLayout,
+    generation: int,
+    candidate_md: Path,
+    candidate_map: Path,
+    revision_map: Path,
+) -> dict[str, str]:
+    paths = {
+        "report": candidate_md,
+        "paragraph_map": candidate_map,
+        "revision_map": revision_map,
+        **{
+            key: layout.artifact(generation, relative)
+            for key, relative in REVIEW_SUBJECT_PATHS.items()
+        },
+    }
+    missing = [key for key, path in paths.items() if not path.is_file() or path.is_symlink()]
+    if missing:
+        raise ReviewGateError(
+            "review subject is missing governed artifacts: " + ", ".join(sorted(missing))
+        )
+    return {
+        key: sha256_file(path) for key, path in sorted(paths.items())
+    }
+
+
+def review_subject_sha256(
+    layout: RunLayout,
+    generation: int,
+    candidate_md: Path,
+    candidate_map: Path,
+    revision_map: Path,
+) -> str:
+    return canonical_json_sha256(review_subject_artifact_hashes(
+        layout, generation, candidate_md, candidate_map, revision_map
+    ))
+
+
+def _review_round_digest(round_record: dict[str, object]) -> str:
+    return canonical_json_sha256({
+        key: value for key, value in round_record.items() if key != "round_sha256"
+    })
+
+
+def _review_reason_is_specific(value: object) -> bool:
+    text = str(value or "").strip()
+    if len(text) < 80:
+        return False
+    generic = {
+        "check source closure", "check evidence strength", "check domain coverage",
+        "check strongest counterargument", "re-review accepts the candidate",
+    }
+    return text.rstrip(".").casefold() not in generic
+
+
+def _validate_review_loop_contract(
+    loop: dict[str, object],
+    *,
+    final_candidate_sha256: str,
+    final_review_subject_sha256: str,
+    revision_map_sha256: str,
+    material_claim_ids: set[str],
+    revision_action_ids: set[str],
+    p4_action_ids: set[str],
+    required_gap_review_ids: set[str],
+    required_gap_review_targets: list[set[str]] | None = None,
+    high_stakes: bool,
+    author_context_id: str,
+    skill_package_sha256: str,
+    uncertainty_records: dict[str, dict[str, object]] | None = None,
+    report_binding_ids: set[str] | None = None,
+    current_generation: int | None = None,
+    round_bindings: dict[int, dict[str, str]] | None = None,
+    final_review_subject_artifacts: dict[str, str] | None = None,
+) -> list[str]:
+    fields = {"schema_version", "policy", "rounds", "final_integrity", "summary"}
+    errors: list[str] = []
+    if set(loop) != fields:
+        return ["review-loop.json has invalid fields"]
+    if loop.get("schema_version") != "2.0":
+        errors.append("review-loop.json schema_version must be 2.0")
+    if loop.get("policy") != "concern_driven_until_clear":
+        errors.append("review-loop.json policy must be concern_driven_until_clear")
+    rounds = loop.get("rounds")
+    final_integrity = loop.get("final_integrity")
+    summary = loop.get("summary")
+    if not isinstance(rounds, list) or not rounds:
+        errors.append("maximal_full_dossier requires at least one substantive panel review")
+        rounds = []
+    if not isinstance(final_integrity, dict):
+        errors.append("review-loop.json final_integrity must be an object")
+        final_integrity = {}
+    if not isinstance(summary, dict):
+        errors.append("review-loop.json summary must be an object")
+        summary = {}
+    if summary.get("round_count") != len(rounds):
+        errors.append("review-loop.json summary round_count must match rounds")
+    if summary.get("final_editor_decision") != "accept":
+        errors.append("maximal_full_dossier review loop final editor decision must be accept")
+    if summary.get("unresolved_concerns") != 0:
+        errors.append("maximal_full_dossier review loop must have zero unresolved concerns")
+    if summary.get("final_candidate_sha256") != final_candidate_sha256:
+        errors.append("review-loop.json final candidate hash mismatch")
+    if summary.get("final_review_subject_sha256") != final_review_subject_sha256:
+        errors.append("review-loop.json final review subject hash mismatch")
+    if not isinstance(summary.get("terminal_reason"), str) or not str(summary.get("terminal_reason", "")).strip():
+        errors.append("review-loop.json terminal_reason is required")
+    required_roles = MAX_REVIEW_ROLES
+    opened_concerns: set[str] = set()
+    terminal_concerns: set[str] = set()
+    terminal_gap_targets: dict[str, str] = {}
+    concern_contracts: dict[str, dict[str, object]] = {}
+    linked_p4_actions: set[str] = set()
+    previous_subject: str | None = None
+    previous_storm_analysis_sha256: str | None = None
+    previous_generation: int | None = None
+    previous_subject_artifacts: dict[str, str] | None = None
+    previous_open_concerns: list[dict[str, object]] = []
+    for index, round_record in enumerate(rounds, start=1):
+        if not isinstance(round_record, dict):
+            errors.append(f"review loop round {index} must be an object")
+            continue
+        round_fields = {
+            "round_id", "candidate_sha256", "review_subject_sha256",
+            "panel_reviews", "editor_decision", "editor_review",
+            "required_concerns", "revision_map_sha256", "re_review_result",
+            "unresolved_concerns", "generation", "draft_receipt_sha256",
+            "review_request_sha256", "review_subject_artifacts", "round_sha256",
+        }
+        if set(round_record) != round_fields:
+            errors.append(f"review loop round {index} has invalid fields")
+            continue
+        round_generation = round_record.get("generation")
+        if not isinstance(round_generation, int) or round_generation < 1:
+            errors.append(f"review loop round {index} generation is invalid")
+        elif previous_generation is not None and round_generation <= previous_generation:
+            errors.append("review rounds must use distinct increasing generations")
+        previous_generation = round_generation if isinstance(round_generation, int) else previous_generation
+        if _review_round_digest(round_record) != round_record.get("round_sha256"):
+            errors.append(f"review loop round {index} round_sha256 mismatch")
+        subject_artifacts = round_record.get("review_subject_artifacts")
+        expected_subject_keys = {"report", "paragraph_map", "revision_map", *REVIEW_SUBJECT_PATHS}
+        if (
+            not isinstance(subject_artifacts, dict)
+            or set(subject_artifacts) != expected_subject_keys
+            or not all(_is_sha256(value) for value in subject_artifacts.values())
+        ):
+            errors.append(f"review loop round {index} review_subject_artifacts are invalid")
+            subject_artifacts = {}
+        elif canonical_json_sha256(subject_artifacts) != round_record.get("review_subject_sha256"):
+            errors.append(f"review loop round {index} subject manifest hash mismatch")
+        bindings = (round_bindings or {}).get(round_generation, {}) if isinstance(round_generation, int) else {}
+        if (
+            round_record.get("draft_receipt_sha256") != bindings.get("draft_receipt_sha256")
+            or round_record.get("review_request_sha256") != bindings.get("review_request_sha256")
+        ):
+            errors.append(f"review loop round {index} is not bound to its generation receipts")
+        if index < len(rounds) and round_record.get("round_sha256") != bindings.get("blocked_round_sha256"):
+            errors.append(f"review loop round {index} lacks an immutable blocked review receipt")
+        if previous_subject_artifacts is not None and previous_open_concerns:
+            changed = {
+                key for key in expected_subject_keys
+                if previous_subject_artifacts.get(key) != subject_artifacts.get(key)
+            }
+            for concern in previous_open_concerns:
+                stage = str(concern.get("required_stage", ""))
+                required_components = {
+                    "retrieval": {"retrieval_audit", "sources", "findings", "finding_coverage"},
+                    "evidence": {"claims", "contradictions", "uncertainties", "finding_coverage"},
+                    "draft": {"report", "paragraph_map", "revision_map", "p3", "p4"},
+                }.get(stage, set())
+                if required_components and not changed.intersection(required_components):
+                    errors.append(
+                        f"review concern {concern.get('concern_id')} did not change its required upstream artifacts"
+                    )
+        previous_subject_artifacts = dict(subject_artifacts)
+        if not _is_sha256(round_record.get("candidate_sha256")):
+            errors.append(f"review loop round {index} candidate_sha256 is invalid")
+        subject_hash = str(round_record.get("review_subject_sha256", ""))
+        if not _is_sha256(subject_hash):
+            errors.append(f"review loop round {index} review_subject_sha256 is invalid")
+        if previous_subject and round_record.get("required_concerns") and subject_hash == previous_subject:
+            errors.append(f"review loop round {index} reused the prior review subject")
+        previous_subject = subject_hash
+        decision = str(round_record.get("editor_decision"))
+        if decision not in {"accept", "minor_revision", "major_revision", "reject"}:
+            errors.append(f"review loop round {index} editor_decision is invalid")
+        panel = round_record.get("panel_reviews")
+        panel_contexts: list[str] = []
+        panel_executions: list[str] = []
+        if not isinstance(panel, list):
+            errors.append(f"review loop round {index} panel_reviews must be an array")
+            panel = []
+        else:
+            roles = {
+                str(item.get("reviewer_role"))
+                for item in panel
+                if isinstance(item, dict)
+            }
+            missing_roles = sorted(required_roles - roles)
+            if missing_roles:
+                errors.append(
+                    f"review loop round {index} missing reviewer roles: "
+                    + ", ".join(missing_roles)
+                )
+            for panel_review in panel:
+                if not isinstance(panel_review, dict):
+                    errors.append(f"review loop round {index} panel review must be an object")
+                    continue
+                panel_fields = {
+                    "reviewer_role", "decision", "reason", "rubric_id",
+                    "rubric_sha256", "reviewed_subject_sha256",
+                    "reviewer_context_id", "execution_id", "concerns", "storm_analysis",
+                }
+                if set(panel_review) != panel_fields:
+                    errors.append(f"review loop round {index} panel review has invalid fields")
+                    continue
+                role = str(panel_review.get("reviewer_role"))
+                if not _review_reason_is_specific(panel_review.get("reason")):
+                    errors.append(f"review loop {role} reason is generic or too short")
+                expected_rubric_id, expected_rubric_sha256 = max_review_rubric_binding(
+                    role, skill_package_sha256
+                )
+                if not str(panel_review.get("rubric_id", "")).strip() or not _is_sha256(panel_review.get("rubric_sha256")):
+                    errors.append(f"review loop {role} rubric binding is invalid")
+                elif (
+                    panel_review.get("rubric_id") != expected_rubric_id
+                    or panel_review.get("rubric_sha256") != expected_rubric_sha256
+                ):
+                    errors.append(
+                        f"review loop {role} rubric hash does not match the committed role rubric"
+                    )
+                if panel_review.get("reviewed_subject_sha256") != subject_hash:
+                    errors.append(f"review loop {role} reviewed the wrong subject")
+                context_id = str(panel_review.get("reviewer_context_id", ""))
+                execution_id = str(panel_review.get("execution_id", ""))
+                if not context_id or context_id == author_context_id:
+                    errors.append(f"review loop {role} context is missing or not isolated from author")
+                if not execution_id:
+                    errors.append(f"review loop {role} execution_id is required")
+                panel_contexts.append(context_id)
+                panel_executions.append(execution_id)
+                if panel_review.get("decision") not in {"accept", "minor_revision", "major_revision", "reject"}:
+                    errors.append(f"review loop {role} decision is invalid")
+                if not isinstance(panel_review.get("concerns"), list):
+                    errors.append(f"review loop {role} concerns must be an array")
+                storm_analysis = panel_review.get("storm_analysis")
+                if role == "storm_synthesis_reviewer":
+                    errors.extend(validate_storm_review_analysis(storm_analysis))
+                    if isinstance(storm_analysis, dict):
+                        storm_digest = canonical_json_sha256(storm_analysis)
+                        if previous_storm_analysis_sha256 == storm_digest:
+                            errors.append(
+                                "storm_synthesis_reviewer copied the prior round audit instead of re-reviewing the changed subject"
+                            )
+                        previous_storm_analysis_sha256 = storm_digest
+                elif storm_analysis is not None:
+                    errors.append(f"review loop {role} must not submit storm_analysis")
+            if len(panel_contexts) != len(set(panel_contexts)):
+                errors.append("panel reviewer contexts must be distinct")
+            if len(panel_executions) != len(set(panel_executions)):
+                errors.append("panel reviewer executions must be distinct")
+        editor_review = round_record.get("editor_review")
+        editor_fields = {"context_id", "execution_id", "decision", "reason", "concern_ids"}
+        if not isinstance(editor_review, dict) or set(editor_review) != editor_fields:
+            errors.append(f"review loop round {index} editor_review has invalid fields")
+            editor_review = {}
+        else:
+            editor_context = str(editor_review.get("context_id", ""))
+            if not editor_context or editor_context == author_context_id or editor_context in set(panel_contexts):
+                errors.append(f"review loop round {index} editor context is not isolated")
+            if not str(editor_review.get("execution_id", "")).strip():
+                errors.append(f"review loop round {index} editor execution_id is required")
+            if not _review_reason_is_specific(editor_review.get("reason")):
+                errors.append(f"review loop round {index} editor reason is generic or too short")
+        concerns = round_record.get("required_concerns")
+        if not isinstance(concerns, list):
+            errors.append(f"review loop round {index} required_concerns must be an array")
+            concerns = []
+        concern_ids: set[str] = set()
+        for concern in concerns:
+            if not isinstance(concern, dict):
+                errors.append(f"review loop round {index} concern must be an object")
+                continue
+            concern_fields = {
+                "concern_id", "reviewer_role", "severity", "target_kind", "target_id",
+                "target_sha256", "evidence_or_locator", "problem", "required_action",
+                "acceptance_test", "origin_action_ids", "issue_type", "required_stage",
+                "uncertainty_id", "report_binding", "disposition", "reason",
+            }
+            if set(concern) != concern_fields:
+                errors.append(f"review loop round {index} concern has invalid fields")
+                continue
+            concern_id = str(concern.get("concern_id", ""))
+            concern_ids.add(concern_id)
+            current = concern_contracts.setdefault(concern_id, dict(concern))
+            for field in ("reviewer_role", "severity", "target_kind", "target_id", "target_sha256", "required_action", "acceptance_test"):
+                if current.get(field) != concern.get(field):
+                    errors.append(f"review loop concern {concern_id} changed its contract across rounds")
+            if not re.fullmatch(r"RC\d{3}", concern_id):
+                errors.append(f"review loop concern {concern_id} has invalid ID")
+            if concern.get("reviewer_role") not in required_roles:
+                errors.append(f"review loop concern {concern_id} has invalid reviewer role")
+            if concern.get("severity") not in {"blocker", "major", "minor"}:
+                errors.append(f"review loop concern {concern_id} has invalid severity")
+            if not _is_sha256(concern.get("target_sha256")):
+                errors.append(f"review loop concern {concern_id} target hash is invalid")
+            for field in ("target_kind", "target_id", "evidence_or_locator", "problem", "required_action", "acceptance_test"):
+                if not str(concern.get(field, "")).strip():
+                    errors.append(f"review loop concern {concern_id} requires {field}")
+            issue_type = str(concern.get("issue_type", ""))
+            required_stage = str(concern.get("required_stage", ""))
+            expected_stage = REVIEW_ISSUE_STAGE.get(issue_type)
+            if expected_stage is None or required_stage != expected_stage:
+                errors.append(
+                    f"review loop concern {concern_id} requires issue_type and required_stage with deterministic routing"
+                )
+            origin_action_ids = concern.get("origin_action_ids")
+            if not isinstance(origin_action_ids, list) or not all(
+                re.fullmatch(r"RA\d{3}", str(item)) for item in origin_action_ids
+            ) or len(origin_action_ids) != len(set(str(item) for item in origin_action_ids)):
+                errors.append(f"review loop concern {concern_id} has invalid origin_action_ids")
+            else:
+                linked_p4_actions.update(str(item) for item in origin_action_ids)
+            disposition = concern.get("disposition")
+            if disposition == "open":
+                opened_concerns.add(concern_id)
+            elif disposition in {"addressed", "waived", "preserved_as_uncertainty"}:
+                terminal_concerns.add(concern_id)
+                if (
+                    concern.get("reviewer_role") == "domain_reviewer"
+                    and concern.get("target_kind") in {"gap", "gap_assessment"}
+                    and str(concern.get("target_id", "")).strip()
+                ):
+                    terminal_gap_targets[
+                        f"{concern.get('target_kind')}:{concern.get('target_id')}"
+                    ] = concern_id
+                if not str(concern.get("reason", "")).strip():
+                    errors.append(f"review loop concern {concern_id} terminal disposition lacks reason")
+                if disposition == "waived" and high_stakes and concern.get("severity") in {"blocker", "major"}:
+                    errors.append(f"high-stakes concern {concern_id} cannot be waived")
+                if disposition == "preserved_as_uncertainty":
+                    uncertainty_id = str(concern.get("uncertainty_id") or "")
+                    report_binding = str(concern.get("report_binding") or "")
+                    uncertainty = (uncertainty_records or {}).get(uncertainty_id)
+                    if (
+                        not re.fullmatch(r"U\d{3}", uncertainty_id)
+                        or uncertainty is None
+                        or not report_binding
+                        or report_binding not in (report_binding_ids or set())
+                        or (
+                            concern.get("target_kind") == "claim"
+                            and uncertainty.get("claim_id") != concern.get("target_id")
+                        )
+                    ):
+                        errors.append(
+                            f"review loop concern {concern_id} preserved uncertainty requires uncertainty_id and report binding"
+                        )
+                elif concern.get("uncertainty_id") is not None or concern.get("report_binding") is not None:
+                    errors.append(
+                        f"review loop concern {concern_id} uncertainty fields are only valid for preserved_as_uncertainty"
+                    )
+            else:
+                errors.append(f"review loop concern {concern_id} disposition is invalid")
+        panel_concern_ids = {
+            str(concern.get("concern_id"))
+            for item in panel if isinstance(item, dict)
+            for concern in item.get("concerns", []) if isinstance(concern, dict)
+        }
+        if panel_concern_ids != concern_ids:
+            errors.append(f"review loop round {index} editor concern matrix does not match panel concerns")
+        open_severities = {
+            str(concern.get("severity")) for concern in concerns
+            if isinstance(concern, dict) and concern.get("disposition") == "open"
+        }
+        expected_decision = (
+            "reject" if "blocker" in open_severities else
+            "major_revision" if "major" in open_severities else
+            "minor_revision" if "minor" in open_severities else "accept"
+        )
+        if decision != expected_decision:
+            errors.append(f"review loop round {index} editor decision conflicts with open concerns")
+        if editor_review:
+            if editor_review.get("decision") != decision:
+                errors.append(f"review loop round {index} editor review decision mismatch")
+            if set(str(item) for item in editor_review.get("concern_ids", [])) != concern_ids:
+                errors.append(f"review loop round {index} editor review omitted panel concerns")
+        if index < len(rounds):
+            if round_record.get("revision_map_sha256") != revision_map_sha256:
+                errors.append(f"review loop round {index} revision_map_sha256 mismatch")
+            if round_record.get("re_review_result") not in {"pending", "requires_re_review"}:
+                errors.append(f"review loop round {index} re_review_result must require re-review")
+            if not concern_ids:
+                errors.append(f"review loop round {index} must record the concerns that triggered re-review")
+            if round_record.get("unresolved_concerns") != len([
+                item for item in concerns if isinstance(item, dict) and item.get("disposition") == "open"
+            ]):
+                errors.append(f"review loop round {index} unresolved concern count mismatch")
+        else:
+            if current_generation is not None and round_generation != current_generation:
+                errors.append("review loop final round must bind the current generation")
+            if (
+                final_review_subject_artifacts is not None
+                and subject_artifacts != final_review_subject_artifacts
+            ):
+                errors.append("review loop final round subject artifacts mismatch")
+            if round_record.get("candidate_sha256") != final_candidate_sha256:
+                errors.append("review loop final round candidate hash mismatch")
+            expected_re_review = "pass" if len(rounds) > 1 else "not_required"
+            if round_record.get("re_review_result") != expected_re_review:
+                errors.append(f"review loop final round re_review_result must be {expected_re_review}")
+            if round_record.get("unresolved_concerns") != 0:
+                errors.append("review loop final round must have zero unresolved concerns")
+        previous_open_concerns = [
+            item for item in concerns
+            if isinstance(item, dict) and item.get("disposition") == "open"
+        ]
+    missing_revisions = sorted(opened_concerns - revision_action_ids)
+    if missing_revisions:
+        errors.append("review concerns are missing from revision map: " + ", ".join(missing_revisions))
+    unclosed = sorted(opened_concerns - terminal_concerns)
+    if unclosed:
+        errors.append("review concerns remain unresolved after re-review: " + ", ".join(unclosed))
+    missing_p4_links = sorted(p4_action_ids - linked_p4_actions)
+    if missing_p4_links:
+        errors.append("P4 repair actions are absent from the review concern matrix: " + ", ".join(missing_p4_links))
+    missing_gap_reviews = sorted(required_gap_review_ids - terminal_concerns)
+    if missing_gap_reviews:
+        errors.append("gap terminal assessments lack closed independent review: " + ", ".join(missing_gap_reviews))
+    for target_options in required_gap_review_targets or []:
+        if not set(target_options) & set(terminal_gap_targets):
+            errors.append(
+                "terminal gap disposition requires independent review closure: "
+                + " or ".join(sorted(target_options))
+            )
+    wrong_gap_reviewers = sorted(
+        concern_id for concern_id in required_gap_review_ids & terminal_concerns
+        if concern_contracts.get(concern_id, {}).get("reviewer_role") != "domain_reviewer"
+    )
+    if wrong_gap_reviewers:
+        errors.append(
+            "gap terminal assessments require domain reviewer acceptance: "
+            + ", ".join(wrong_gap_reviewers)
+        )
+    integrity_fields = {
+        "review_subject_sha256", "status", "checked_claim_ids", "regression_issues",
+    }
+    if set(final_integrity) != integrity_fields:
+        errors.append("review-loop.json final_integrity has invalid fields")
+    else:
+        if final_integrity.get("review_subject_sha256") != final_review_subject_sha256:
+            errors.append("final integrity reviewed the wrong subject")
+        if final_integrity.get("status") != "pass" or final_integrity.get("regression_issues") != []:
+            errors.append("final integrity must pass with zero regression issues")
+        if set(str(item) for item in final_integrity.get("checked_claim_ids", [])) != material_claim_ids:
+            errors.append("final integrity must check every material Claim")
+    return list(dict.fromkeys(errors))
 
 
 def _peer_review_markdown(summary: dict[str, object]) -> str:
@@ -2862,6 +4546,8 @@ def _peer_review_markdown(summary: dict[str, object]) -> str:
         f"- Fact checks: {summary.get('fact_checks', 0)}\n"
         f"- Conflict reviews: {summary.get('conflict_reviews', 0)}\n"
         f"- Draft audits: {summary.get('draft_audits', 0)}\n"
+        f"- P4 repair actions: {summary.get('p4_repair_actions', 0)}\n"
+        f"- Review loop policy: {summary.get('review_loop_policy', 'single_pass_external_review')}\n"
         f"- Decision: {summary['decision']}\n"
     )
 
@@ -2875,6 +4561,7 @@ def _promote_review_artifacts(
     peer_review: dict[str, object],
     provenance: dict[str, object],
     transcript_path: Path,
+    review_loop: dict[str, object] | None = None,
 ) -> list[Path]:
     staging = package_child(
         layout.root, f"work/.staging/g{generation:04d}/review-{uuid.uuid4().hex}"
@@ -2886,6 +4573,8 @@ def _promote_review_artifacts(
     )
     atomic_write_json(staging / "research/revision-map.json", revision_map)
     atomic_write_json(staging / "research/peer-review.json", peer_review)
+    if review_loop is not None:
+        atomic_write_json(staging / "research/review-loop.json", review_loop)
     atomic_write_json(staging / "research/reviewer-provenance.json", provenance)
     shutil.copyfile(transcript_path, staging / "research/reviewer-transcript.txt")
     atomic_write_text(
@@ -2896,6 +4585,8 @@ def _promote_review_artifacts(
         "research/peer-review.json", "research/peer-review.md",
         "research/reviewer-provenance.json", "research/reviewer-transcript.txt",
     ]
+    if review_loop is not None:
+        relative_paths.append("research/review-loop.json")
     outputs = []
     for relative in relative_paths:
         destination = layout.artifact(generation, relative)
@@ -2923,6 +4614,7 @@ def command_review(args: argparse.Namespace) -> int:
     conflict_reviews = _load_optional_jsonl(args.conflict_reviews)
     draft_audits = _load_optional_jsonl(args.draft_audit)
     revision_map = load_json(args.revision_map)
+    review_loop = load_json(args.review_loop) if args.review_loop else None
     if args.review_provenance is None or args.review_transcript is None:
         raise CLIContractError("full_dossier review requires --review-provenance and --review-transcript")
     provenance = load_json(args.review_provenance)
@@ -2973,6 +4665,7 @@ def command_review(args: argparse.Namespace) -> int:
         revision_map, repairs,
         draft_sha256=sha256_file(draft_path),
         candidate_sha256=sha256_file(args.revised_md),
+        review_concerns=_review_concerns_by_id(review_loop),
     ))
     review_output_payload = {
         "claim_reviews": claim_reviews,
@@ -2980,18 +4673,100 @@ def command_review(args: argparse.Namespace) -> int:
         "fact_checks": fact_checks,
         "conflict_reviews": conflict_reviews,
         "draft_audits": draft_audits,
+        "review_loop": review_loop or {},
     }
     all_reviews = [*claim_reviews, *paragraph_reviews, *fact_checks, *draft_audits, *conflict_reviews]
     errors.extend(_validate_review_provenance(
         provenance, request, _review_output_digest(review_output_payload),
         args.review_transcript, all_reviews,
+        strict_execution=_captured_execution_required(brief),
+        review_loop=review_loop,
     ))
+    if _is_maximal_full_dossier(brief):
+        if review_loop is None:
+            errors.append("maximal_full_dossier requires review-loop.json")
+        else:
+            subject_artifacts = review_subject_artifact_hashes(
+                layout, generation, args.revised_md,
+                args.revised_paragraph_map_jsonl, args.revision_map,
+            )
+            subject_hash = canonical_json_sha256(subject_artifacts)
+            revision_action_ids = {
+                str(item.get("action_id"))
+                for item in revision_map.get("revisions", [])
+                if isinstance(item, dict)
+            }
+            terminal_gap_review_ids: set[str] = set()
+            terminal_gap_review_targets: list[set[str]] = []
+            for item in load_jsonl(layout.artifact(generation, "research/retrieval-audit.jsonl")):
+                if item.get("record_kind") != "gap_assessment" or item.get("terminal_state") not in {
+                    "saturated", "bounded_corpus_exhausted",
+                    "access_limited_uncertainty", "out_of_scope",
+                }:
+                    continue
+                review_concern_id = item.get("review_concern_id")
+                if review_concern_id:
+                    terminal_gap_review_ids.add(str(review_concern_id))
+                else:
+                    terminal_gap_review_targets.append({
+                        f"gap_assessment:{item.get('assessment_id')}",
+                        f"gap:{item.get('gap_id')}",
+                    })
+            errors.extend(_validate_review_loop_contract(
+                review_loop,
+                final_candidate_sha256=sha256_file(args.revised_md),
+                final_review_subject_sha256=subject_hash,
+                revision_map_sha256=sha256_file(args.revision_map),
+                material_claim_ids={
+                    str(claim.get("claim_id")) for claim in claims
+                    if claim.get("material")
+                },
+                revision_action_ids=revision_action_ids,
+                p4_action_ids={str(item.get("action_id")) for item in repairs},
+                required_gap_review_ids=terminal_gap_review_ids,
+                required_gap_review_targets=terminal_gap_review_targets,
+                high_stakes=bool(brief.get("high_stakes")),
+                author_context_id=str(request.get("author_context_id", "")),
+                skill_package_sha256=package_hash,
+                uncertainty_records={
+                    str(item.get("uncertainty_id")): item
+                    for item in load_json(
+                        layout.artifact(generation, "research/uncertainty-ledger.json")
+                    ).get("uncertainties", [])
+                    if isinstance(item, dict)
+                },
+                report_binding_ids={
+                    *(
+                        str(item.get("paragraph_locator"))
+                        for item in paragraph_map if isinstance(item, dict)
+                    ),
+                    *(
+                        f"claim:{claim.get('claim_id')}"
+                        for claim in claims if isinstance(claim, dict)
+                    ),
+                },
+                current_generation=generation,
+                round_bindings=_review_round_bindings(layout, generation),
+                final_review_subject_artifacts=subject_artifacts,
+            ))
     if errors:
+        if _is_maximal_full_dossier(brief) and isinstance(review_loop, dict):
+            _persist_review_block(
+                layout, generation, review_loop, errors,
+                provenance=provenance, request=request,
+                review_output_sha256=_review_output_digest(review_output_payload),
+                transcript_path=args.review_transcript,
+            )
         raise ReviewGateError("; ".join(dict.fromkeys(errors)))
     reviewer_ids = sorted({
         str(review["reviewer_run_id"])
         for review in [*claim_reviews, *paragraph_reviews, *fact_checks, *draft_audits, *conflict_reviews]
     })
+    review_loop_policy = (
+        "concern_driven_until_clear"
+        if brief.get("research_profile") == "maximal_full_dossier"
+        else "single_pass_external_review"
+    )
     summary = {
         "reviewer_run_id": ", ".join(reviewer_ids),
         "claim_reviews": len(claim_reviews),
@@ -2999,6 +4774,8 @@ def command_review(args: argparse.Namespace) -> int:
         "fact_checks": len(fact_checks),
         "conflict_reviews": len(conflict_reviews),
         "draft_audits": len(draft_audits),
+        "p4_repair_actions": len(repairs),
+        "review_loop_policy": review_loop_policy,
         "decision": "passed",
         "assurance": "captured external review",
         "provenance_id": provenance.get("provenance_id"),
@@ -3015,7 +4792,7 @@ def command_review(args: argparse.Namespace) -> int:
     }
     outputs = _promote_review_artifacts(
         layout, generation, report, paragraph_map, revision_map, peer_review,
-        provenance, args.review_transcript,
+        provenance, args.review_transcript, review_loop,
     )
     review_inputs = {
         "artifacts/drafts/report-v1.md": sha256_file(draft_path),
@@ -3039,6 +4816,8 @@ def command_review(args: argparse.Namespace) -> int:
     )
     atomic_write_text(package_child(layout.root, "current/report.md"), report)
     atomic_write_json(package_child(layout.root, "current/research/peer-review.json"), peer_review)
+    if review_loop is not None:
+        atomic_write_json(package_child(layout.root, "current/research/review-loop.json"), review_loop)
     atomic_write_text(
         package_child(layout.root, "current/research/peer-review.md"),
         _peer_review_markdown(summary),
@@ -3127,7 +4906,7 @@ def command_validate(args: argparse.Namespace) -> int:
     return exit_code
 
 
-def _collect_files(artifacts: Path) -> list[str]:
+def _collect_files(artifacts: Path, *, include_audit: bool) -> list[str]:
     candidates = [
         "report.md",
         "exports/report.html",
@@ -3135,6 +4914,29 @@ def _collect_files(artifacts: Path) -> list[str]:
         "validation/validation-report.json",
         "validation/validation-report.md",
     ]
+    if include_audit:
+        candidates.extend([
+            "research/research-plan.json",
+            "research/source-plan.json",
+            "research/storm-tasklets.jsonl",
+            "research/retrieval-audit.jsonl",
+            "research/retrieval-manifest.jsonl",
+            "research/source-register.jsonl",
+            "research/storm-findings-pool.jsonl",
+            "research/finding-coverage.json",
+            "research/claim-evidence-ledger.jsonl",
+            "research/contradiction-ledger.json",
+            "research/uncertainty-ledger.json",
+            "research/report-outline.json",
+            "research/peer-review.json",
+            "research/review-loop.json",
+            "research/execution/retrieval-provenance.json",
+            "research/execution/retrieval-transcript.txt",
+            "research/execution/draft-provenance.json",
+            "research/execution/draft-transcript.txt",
+            "research/review-provenance.json",
+            "research/review-transcript.txt",
+        ])
     return [relative for relative in candidates if (artifacts / relative).is_file()]
 
 
@@ -3150,6 +4952,19 @@ def command_collect(args: argparse.Namespace) -> int:
     validation_report = load_json(validation_report_path)
     if not validation_report.get("ok"):
         raise CLIContractError("collect requires a passing validation report")
+    assurance_level = validation_report.get("assurance_level")
+    if assurance_level not in {
+        "validated_artifact_contract_only", "validated_captured_host_execution"
+    }:
+        raise CLIContractError("collect requires an explicit validated assurance level")
+    if (
+        assurance_level != "validated_captured_host_execution"
+        and not args.allow_artifact_contract
+    ):
+        raise CLIContractError(
+            "collect requires validated_captured_host_execution; "
+            "use --allow-artifact-contract only for fixtures or harness acceptance"
+        )
     public_checks, public_code = _public_safety_checks(artifacts)
     if public_code:
         failures = [
@@ -3162,16 +4977,23 @@ def command_collect(args: argparse.Namespace) -> int:
         raise OutputPathError(f"collect target already exists: {target_root}")
     target_root.mkdir(parents=True, exist_ok=False)
     copied: dict[str, str] = {}
-    for relative in _collect_files(artifacts):
+    include_audit = assurance_level == "validated_captured_host_execution"
+    for relative in _collect_files(artifacts, include_audit=include_audit):
         source = artifacts / relative
-        destination = package_child(target_root, relative)
+        target_relative = (
+            f"audit/{relative}" if include_audit and relative.startswith("research/") else relative
+        )
+        destination = package_child(target_root, target_relative)
         atomic_copy_file(source, destination)
-        copied[relative] = sha256_file(destination)
+        copied[target_relative] = sha256_file(destination)
     manifest = {
         "schema_version": "1.0",
         "run_dir": str(layout.root),
         "generation": generation,
         "source_validation_report_sha256": sha256_file(validation_report_path),
+        "assurance_level": assurance_level,
+        "artifact_contract_override": bool(args.allow_artifact_contract),
+        "audit_bundle_included": include_audit,
         "files": copied,
     }
     atomic_write_json(package_child(target_root, "collect-manifest.json"), manifest)
@@ -3224,11 +5046,58 @@ def _status_payload(run_dir: Path) -> dict[str, object]:
         }
     package_hash = compute_skill_package_hash(ROOT)
     status = receipt_chain_status(layout, generation, package_hash)
-    return {
+    payload = {
         "schema_version": "2.0",
         "run_dir": str(layout.root),
         **status,
     }
+    brief_path = layout.generation_input(generation, "brief.json")
+    blockers: set[str] = set()
+    required_stages: dict[str, str] = {}
+    if brief_path.is_file() and load_json(brief_path).get("research_profile") == "maximal_full_dossier":
+        coverage_path = layout.artifact(generation, "research/finding-coverage.json")
+        if coverage_path.is_file():
+            coverage = load_json(coverage_path)
+            blockers.update(
+                str(item.get("gap_id"))
+                for item in coverage.get("saturation_assessments", [])
+                if isinstance(item, dict) and item.get("terminal_state") == "open"
+            )
+        loop_path = layout.artifact(generation, "research/review-loop.json")
+        if loop_path.is_file():
+            opened: set[str] = set()
+            terminal: set[str] = set()
+            for round_record in load_json(loop_path).get("rounds", []):
+                if not isinstance(round_record, dict):
+                    continue
+                for concern in round_record.get("required_concerns", []):
+                    if not isinstance(concern, dict):
+                        continue
+                    concern_id = str(concern.get("concern_id", ""))
+                    if concern.get("disposition") == "open":
+                        opened.add(concern_id)
+                    elif concern.get("disposition") in {"addressed", "waived", "preserved_as_uncertainty"}:
+                        terminal.add(concern_id)
+            blockers.update(opened - terminal)
+        review_block_path = _review_block_path(layout, generation)
+        if review_block_path.is_file() and not review_block_path.is_symlink():
+            review_block = load_json(review_block_path)
+            expected_block_sha = canonical_json_sha256({
+                key: value for key, value in review_block.items() if key != "block_sha256"
+            })
+            if review_block.get("block_sha256") == expected_block_sha:
+                blockers.update(str(item) for item in review_block.get("blocking_issue_ids", []))
+                required_stages.update({
+                    str(key): str(value)
+                    for key, value in review_block.get("required_stages", {}).items()
+                })
+    if blockers and payload.get("state") != "invalid":
+        payload["state"] = "blocked_with_unresolved_issues"
+        payload["blocking_issue_ids"] = sorted(blockers)
+        payload["blocking_required_stages"] = {
+            key: required_stages.get(key, "review") for key in sorted(blockers)
+        }
+    return payload
 
 
 def _print_json(payload: dict[str, object]) -> None:
@@ -3241,14 +5110,23 @@ def command_status(args: argparse.Namespace) -> int:
 
 
 def command_explain(args: argparse.Namespace) -> int:
+    layout = RunLayout(args.run_dir)
     status = _status_payload(args.run_dir)
+    generation = latest_generation(layout)
     failed_stage = status.get("invalid_stage") or status.get("next_stage")
     error = status.get("error") or f"{failed_stage} has not been run"
-    repair_command = (
-        "run is already released"
-        if failed_stage is None
-        else f"storm-research retry {status['run_dir']} --stage {failed_stage}"
-    )
+    if status.get("state") == "blocked_with_unresolved_issues" and status.get("blocking_issue_ids"):
+        repair_command = (
+            f"storm-research amend {status['run_dir']} --resume-blocked-review "
+            "--initiator <reviewer-or-user> --approval-evidence <approval-evidence> "
+            '--reason "Resume blocked review cycle"'
+        )
+    else:
+        repair_command = (
+            "run is already released"
+            if failed_stage is None
+            else f"storm-research retry {status['run_dir']} --stage {failed_stage}"
+        )
     _print_json({
         "schema_version": "2.0",
         "run_dir": status["run_dir"],
@@ -3256,10 +5134,35 @@ def command_explain(args: argparse.Namespace) -> int:
         "state": status["state"],
         "failed_stage": failed_stage,
         "failed_checks": [] if failed_stage is None else [error],
+        "blocking_issue_ids": status.get("blocking_issue_ids", []),
+        "blocking_required_stages": status.get("blocking_required_stages", {}),
         "invalidated_artifacts": status.get("invalidated_artifacts", []),
         "repair_command": repair_command,
+        "suggestions": (
+            _doctor_suggestions_for_run(layout, generation, failed_stage)
+            if generation is not None else _doctor_suggestions(failed_stage)
+        ),
     })
     return EXIT_OK
+
+
+def _doctor_suggestions_for_run(
+    layout: RunLayout, generation: int, next_stage: object
+) -> list[str]:
+    stage = str(next_stage or "")
+    brief = verify_current_brief_view(layout, generation)
+    if stage == "retrieval" and (
+        brief.get("research_profile") == "maximal_full_dossier"
+        and brief.get("assurance_target") == "captured_host_execution"
+    ):
+        return [
+            "build typed retrieval JSONL with search_run, candidate, capture, search_wave, and gap_assessment records",
+            "do not rely on capture-source/ingest-dir alone for Max captured retrieval",
+            "run storm_research.py retrieval-preflight RUN_DIR --input-jsonl retrieval-records.jsonl",
+            "run storm_research.py retrieval-prepare RUN_DIR --input-jsonl retrieval-records.jsonl --transcript retrieval-transcript.txt --context-id ... --provider ... --model ... --runner ... --execution-id ... --started-at ... --completed-at ... --to retrieval-execution.json",
+            "run storm_research.py ingest RUN_DIR --input-jsonl retrieval-records.jsonl --execution-provenance retrieval-execution.json --execution-transcript retrieval-transcript.txt",
+        ]
+    return _doctor_suggestions(next_stage)
 
 
 def _doctor_suggestions(next_stage: object) -> list[str]:
@@ -3353,7 +5256,10 @@ def command_doctor(args: argparse.Namespace) -> int:
         "validation_exit_code": validation_exit_code,
         "validation_error": validation_error,
         "failed_checks": checks,
-        "suggested_next_actions": _doctor_suggestions(next_stage),
+        "suggested_next_actions": (
+            _doctor_suggestions_for_run(layout, generation, next_stage)
+            if generation is not None else _doctor_suggestions(next_stage)
+        ),
     })
     return EXIT_OK
 
@@ -3451,32 +5357,58 @@ def command_amend(args: argparse.Namespace) -> int:
         raise StagePreconditionError(f"cannot amend invalid receipt chain: {status.get('error')}")
     if status.get("last_valid_stage") == Stage.RELEASE.value:
         raise StagePreconditionError("released runs cannot be amended in place")
-    changes_payload = load_json(args.changes_json)
-    if not changes_payload:
-        raise CLIContractError("amendment changes must be a non-empty object")
     brief = load_json(layout.generation_input(generation, "brief.json"))
-    unknown = sorted(set(changes_payload) - set(brief))
-    if unknown:
-        raise CLIContractError("amendment references unknown brief fields: " + ", ".join(unknown))
-    if (
-        brief.get("depth_level") == "full_dossier"
-        and brief.get("output_mode") == "full"
-        and changes_payload.get("output_mode") == "reduced"
-    ):
-        raise StagePreconditionError("full dossier cannot be amended to reduced output")
     new_brief = dict(brief)
     changes: list[dict[str, object]] = []
-    for field, after in sorted(changes_payload.items()):
-        before = brief.get(field)
-        if before == after:
-            continue
-        new_brief[field] = after
+    invalidation_start_stage = Stage.PLAN.value
+    if args.resume_blocked_review:
+        block_path = _review_block_path(layout, generation)
+        if not block_path.is_file() or block_path.is_symlink():
+            raise StagePreconditionError("run has no immutable blocked review to resume")
+        block = load_json(block_path)
+        expected_block_sha = canonical_json_sha256({
+            key: value for key, value in block.items() if key != "block_sha256"
+        })
+        if block.get("block_sha256") != expected_block_sha:
+            raise StagePreconditionError("blocked review digest does not recompute")
+        stage_rank = {stage.value: index for index, stage in enumerate(Stage)}
+        routed = [
+            str(value) for value in block.get("required_stages", {}).values()
+            if str(value) in stage_rank
+        ]
+        invalidation_start_stage = min(
+            routed or [Stage.REVIEW.value], key=lambda value: stage_rank[value]
+        )
         changes.append({
-            "field": field,
-            "before": before,
-            "after": after,
+            "field": "review_cycle",
+            "before": block["block_sha256"],
+            "after": f"generation:{generation + 1}",
             "reason": args.reason,
         })
+    else:
+        changes_payload = load_json(args.changes_json)
+        if not changes_payload:
+            raise CLIContractError("amendment changes must be a non-empty object")
+        unknown = sorted(set(changes_payload) - set(brief))
+        if unknown:
+            raise CLIContractError("amendment references unknown brief fields: " + ", ".join(unknown))
+        if (
+            brief.get("depth_level") == "full_dossier"
+            and brief.get("output_mode") == "full"
+            and changes_payload.get("output_mode") == "reduced"
+        ):
+            raise StagePreconditionError("full dossier cannot be amended to reduced output")
+        for field, after in sorted(changes_payload.items()):
+            before = brief.get(field)
+            if before == after:
+                continue
+            new_brief[field] = after
+            changes.append({
+                "field": field,
+                "before": before,
+                "after": after,
+                "reason": args.reason,
+            })
     if not changes:
         raise CLIContractError("amendment does not change the brief")
     validate_or_raise(validate_brief(new_brief))
@@ -3489,7 +5421,7 @@ def command_amend(args: argparse.Namespace) -> int:
         "changes": changes,
         "initiator": args.initiator,
         "user_approval_evidence": args.approval_evidence,
-        "invalidation_start_stage": Stage.PLAN.value,
+        "invalidation_start_stage": invalidation_start_stage,
         "created_at": _utc_now(),
         "amendment_sha256": "0" * 64,
     }
@@ -3589,6 +5521,10 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--research-profile", choices=tuple(sorted(INIT_RESEARCH_PROFILES)), default="auto")
     init.add_argument("--profile-selection-mode", choices=tuple(sorted(PROFILE_SELECTION_MODES)))
     init.add_argument("--profile-selection-evidence", default="")
+    init.add_argument("--profile-selection-evidence-file", type=Path)
+    init.add_argument("--profile-prompt-file", type=Path)
+    init.add_argument("--assurance-target", choices=tuple(sorted(ASSURANCE_TARGETS)))
+    init.add_argument("--run-intent", choices=tuple(sorted(RUN_INTENTS)), default="user_delivery")
     init.add_argument("--depth-level", choices=("briefing", "standard_report", "full_dossier"))
     init.add_argument("--briefing-reason", default="")
     init.add_argument("--min-units", type=int)
@@ -3636,7 +5572,10 @@ def build_parser() -> argparse.ArgumentParser:
     capture.add_argument("--locator-type")
     capture.add_argument("--adapter", choices=("host", "provider", "closed_corpus"))
     capture.add_argument("--adapter-run-id")
-    capture.add_argument("--capture-level", choices=("full_text", "official_data", "user_file", "search_snippet"))
+    capture.add_argument(
+        "--capture-level",
+        choices=("full_text", "abstract", "metadata", "official_data", "user_file", "search_snippet"),
+    )
     capture.add_argument("--evidence-strength-ceiling", choices=("strong", "medium", "weak", "background"))
     capture.add_argument("--observed-status", type=int)
     capture.add_argument("--content-type")
@@ -3659,9 +5598,31 @@ def build_parser() -> argparse.ArgumentParser:
     ingest_dir.add_argument("--allow-warning", action="store_true")
     ingest_dir.set_defaults(handler=command_ingest_dir)
 
+    preflight = subparsers.add_parser("retrieval-preflight", help="Validate retrieval JSONL without writing receipts.")
+    preflight.add_argument("run_dir", type=Path)
+    preflight.add_argument("--input-jsonl", type=Path, required=True)
+    preflight.set_defaults(handler=command_retrieval_preflight)
+
+    prepare = subparsers.add_parser("retrieval-prepare", help="Write captured-host retrieval provenance for a preflighted JSONL.")
+    prepare.add_argument("run_dir", type=Path)
+    prepare.add_argument("--input-jsonl", type=Path, required=True)
+    prepare.add_argument("--transcript", type=Path, required=True)
+    prepare.add_argument("--context-id", required=True)
+    prepare.add_argument("--provider", required=True)
+    prepare.add_argument("--model", required=True)
+    prepare.add_argument("--runner", required=True)
+    prepare.add_argument("--execution-id", required=True)
+    prepare.add_argument("--started-at", required=True)
+    prepare.add_argument("--completed-at", required=True)
+    prepare.add_argument("--to", type=Path, required=True)
+    prepare.set_defaults(handler=command_retrieval_prepare)
+
     ingest = subparsers.add_parser("ingest", help="Validate and commit captured retrieval evidence.")
     ingest.add_argument("run_dir", type=Path)
     ingest.add_argument("--input-jsonl", type=Path, required=True)
+    ingest.add_argument("--execution-provenance", type=Path)
+    ingest.add_argument("--execution-transcript", type=Path)
+    ingest.add_argument("--allow-diagnostic-debt", action="store_true")
     ingest.set_defaults(handler=command_ingest)
 
     findings = subparsers.add_parser("findings", help="Validate and register STORM finding pool before evidence.")
@@ -3700,6 +5661,8 @@ def build_parser() -> argparse.ArgumentParser:
     draft.add_argument("run_dir", type=Path)
     draft.add_argument("--draft-md", type=Path, required=True)
     draft.add_argument("--paragraph-map-jsonl", type=Path, required=True)
+    draft.add_argument("--execution-provenance", type=Path)
+    draft.add_argument("--execution-transcript", type=Path)
     draft.add_argument("--preflight", action="store_true")
     draft.set_defaults(handler=command_draft)
 
@@ -3723,6 +5686,7 @@ def build_parser() -> argparse.ArgumentParser:
     review.add_argument("--revision-map", type=Path, required=True)
     review.add_argument("--review-provenance", type=Path)
     review.add_argument("--review-transcript", type=Path)
+    review.add_argument("--review-loop", type=Path)
     review.set_defaults(handler=command_review)
 
     lens_review = subparsers.add_parser("lens-review", help="Register Prompt 4 red-team artifact after draft.")
@@ -3745,6 +5709,7 @@ def build_parser() -> argparse.ArgumentParser:
     collect = subparsers.add_parser("collect", help="Copy validated local deliverables without creating a release.")
     collect.add_argument("run_dir", type=Path)
     collect.add_argument("--to", type=Path, required=True)
+    collect.add_argument("--allow-artifact-contract", action="store_true")
     collect.set_defaults(handler=command_collect)
 
     release = subparsers.add_parser("release", help="Build a Trust-approved public release package.")
@@ -3755,9 +5720,11 @@ def build_parser() -> argparse.ArgumentParser:
     release.add_argument("--reverification", type=Path)
     release.set_defaults(handler=command_release)
 
-    amend = subparsers.add_parser("amend", help="Create a new generation from an approved brief amendment.")
+    amend = subparsers.add_parser("amend", help="Create a new generation from an approved brief or blocked-review amendment.")
     amend.add_argument("run_dir", type=Path)
-    amend.add_argument("--changes-json", type=Path, required=True)
+    amend_mode = amend.add_mutually_exclusive_group(required=True)
+    amend_mode.add_argument("--changes-json", type=Path)
+    amend_mode.add_argument("--resume-blocked-review", action="store_true")
     amend.add_argument("--initiator", required=True)
     amend.add_argument("--approval-evidence", required=True)
     amend.add_argument("--reason", default="User-approved scope amendment")

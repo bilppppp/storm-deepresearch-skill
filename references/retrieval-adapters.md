@@ -23,15 +23,35 @@ Submit one JSONL containing a typed union defined by `schemas/retrieval-record.s
 1. `search_run` records the query, aliases, surface, pass kind (`corpus`, `baseline`, `counterevidence`, or `gap_fill`), result count, execution status, and immutable result snapshot.
 2. `candidate` records screening disposition, bibliographic identifiers, resolver outcomes, and version-family membership. `unreachable` means the resolver could not be reached; it is not equivalent to `unmatched`.
 3. `capture` binds an included candidate and query to the exact content snapshot, locator, excerpt, and evidence-strength ceiling used by a Claim.
+4. `search_wave` and `gap_assessment` record Max gap-fill waves and terminal gap disposition. `material_delta` may be `null` before findings; final ledgers recompute it. `review_concern_id` may be omitted at ingest and must be closed later by review-loop concern ID or by a `gap_assessment` / `gap` target.
 
-Search and resolver snapshots are required audit evidence. Search snippets can identify candidates but cannot close material Claims. A zero-result search cannot prove absence by itself.
+Search and resolver snapshots are required audit evidence. Search snippets can identify candidates but cannot close material Claims. A zero-result search cannot prove absence by itself. `execution_status` records the actual host attempt: if a database, registry, resolver, or publisher endpoint cannot be reached in the captured context, keep it as `unreachable` and close the affected gap with `access_limited_uncertainty`; do not recast it as `zero_results` or `saturated`.
 
 Commit records with:
 
 ```bash
-python3 scripts/storm_research.py ingest "$RUN_DIR" \
+python3 scripts/storm_research.py retrieval-preflight "$RUN_DIR" \
   --input-jsonl adapter-output.jsonl
+
+python3 scripts/storm_research.py retrieval-prepare "$RUN_DIR" \
+  --input-jsonl adapter-output.jsonl \
+  --transcript retrieval-transcript.txt \
+  --context-id "$HOST_CONTEXT_ID" \
+  --provider "$PROVIDER" \
+  --model "$MODEL" \
+  --runner "$RUNNER" \
+  --execution-id "$EXECUTION_ID" \
+  --started-at "$STARTED_AT" \
+  --completed-at "$COMPLETED_AT" \
+  --to retrieval-execution.json
+
+python3 scripts/storm_research.py ingest "$RUN_DIR" \
+  --input-jsonl adapter-output.jsonl \
+  --execution-provenance retrieval-execution.json \
+  --execution-transcript retrieval-transcript.txt
 ```
+
+For `artifact_contract` or non-captured fixture runs, omit the execution provenance arguments. `capture-source` and `ingest-dir` can build partial capture rows, but they do not prove Max captured retrieval by themselves.
 
 The ingest stage writes generation-scoped `source-register.jsonl`, `retrieval-manifest.jsonl`, and internal `retrieval-audit.jsonl`, then commits `20-retrieval.json`. The receipt binds every search, resolver, and capture snapshot. Malformed provenance, placeholder domains, missing snapshots, destructive ledger replacement, absolute public file paths, mode mismatches, invalid timestamps, secondary-as-primary classification, blanket Tier A reliability, and unverified academic candidates are hard failures.
 

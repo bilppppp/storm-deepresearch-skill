@@ -30,6 +30,41 @@ ABSENCE_CLAIM_RE = re.compile(
     r"(?:\b(?:no|none|without|not\s+found|lack(?:s|ing)?)\s+(?:human|clinical|evidence|trials?|stud(?:y|ies)|records?|data)\b|未发现|尚无|没有.{0,8}(?:证据|试验|研究|数据)|不存在)",
     re.IGNORECASE,
 )
+SUBSTANTIVE_CAPTURE_LEVELS = {"full_text", "abstract", "official_data", "user_file"}
+
+
+def validate_material_capture_depth(
+    claims: list[dict[str, Any]],
+    retrieval_manifests: list[dict[str, Any]],
+) -> list[str]:
+    manifests_by_source: dict[str, list[dict[str, Any]]] = {}
+    for manifest in retrieval_manifests:
+        manifests_by_source.setdefault(str(manifest.get("source_id")), []).append(manifest)
+    errors: list[str] = []
+    for claim in claims:
+        if not claim.get("material"):
+            continue
+        claim_id = str(claim.get("claim_id", ""))
+        locators = {
+            str(locator.get("source_id")): locator
+            for locator in claim.get("evidence_locators", [])
+            if isinstance(locator, dict)
+        }
+        substantive = False
+        for source_id in claim.get("supporting_source_ids", []):
+            locator = locators.get(str(source_id))
+            if locator is None:
+                continue
+            substantive = substantive or any(
+                manifest.get("snapshot_sha256") == locator.get("snapshot_sha256")
+                and manifest.get("capture_level") in SUBSTANTIVE_CAPTURE_LEVELS
+                for manifest in manifests_by_source.get(str(source_id), [])
+            )
+        if not substantive:
+            errors.append(
+                f"maximal material claim {claim_id} requires at least abstract-level or full-text evidence"
+            )
+    return errors
 
 
 def validate_absence_searches(

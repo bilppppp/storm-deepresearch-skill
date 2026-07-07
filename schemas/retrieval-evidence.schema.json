@@ -28,7 +28,7 @@
     "retrieved_at": {"type": "string", "format": "date-time"},
     "adapter": {"enum": ["host", "provider", "closed_corpus"]},
     "adapter_run_id": {"type": "string", "minLength": 1},
-    "capture_level": {"enum": ["full_text", "official_data", "user_file", "search_snippet"]},
+    "capture_level": {"enum": ["full_text", "abstract", "metadata", "official_data", "user_file", "search_snippet"]},
     "evidence_strength_ceiling": {"enum": ["strong", "medium", "weak", "background"]},
     "snapshot_ref": {"type": "string", "minLength": 1},
     "snapshot_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
@@ -79,6 +79,22 @@
         "properties": {
           "evidence_strength_ceiling": {"enum": ["weak", "background"]},
           "reliability_tier": {"enum": ["B", "C", "D"]}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"capture_level": {"const": "abstract"}}},
+      "then": {
+        "properties": {
+          "evidence_strength_ceiling": {"enum": ["medium", "weak", "background"]}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"capture_level": {"const": "metadata"}}},
+      "then": {
+        "properties": {
+          "evidence_strength_ceiling": {"const": "background"}
         }
       }
     }

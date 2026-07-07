@@ -36,6 +36,8 @@ class InitResearchPackageTests(unittest.TestCase):
                     "user_requested_default",
                     "--profile-selection-evidence",
                     "test explicitly requested the default full dossier profile",
+                    "--assurance-target",
+                    "artifact_contract",
                 ],
                 capture_output=True,
                 text=True,
@@ -50,6 +52,7 @@ class InitResearchPackageTests(unittest.TestCase):
             self.assertEqual(brief["depth_level"], "full_dossier")
             self.assertEqual(brief["profile_selection"]["mode"], "user_requested_default")
             self.assertEqual(brief["report_language"], "en")
+            self.assertEqual(brief["length_contract"]["policy"], "bounded")
             self.assertEqual(brief["length_contract"]["minimum"], 3500)
             self.assertFalse((output / "current/research/research-plan.json").exists())
             verify_receipt_chain(
@@ -76,6 +79,8 @@ class InitResearchPackageTests(unittest.TestCase):
                     "user_requested_default",
                     "--profile-selection-evidence",
                     "test explicitly requested the default full dossier profile",
+                    "--assurance-target",
+                    "artifact_contract",
                 ],
                 capture_output=True,
                 text=True,
@@ -85,6 +90,7 @@ class InitResearchPackageTests(unittest.TestCase):
             brief = json.loads((output / "brief.json").read_text(encoding="utf-8"))
             self.assertEqual(brief["report_language"], "zh-CN")
             self.assertEqual(brief["length_contract"]["unit"], "characters")
+            self.assertEqual(brief["length_contract"]["policy"], "bounded")
             self.assertEqual(brief["length_contract"]["minimum"], 8000)
             self.assertEqual(brief["length_contract"]["maximum"], 10000)
 
@@ -112,6 +118,8 @@ class InitResearchPackageTests(unittest.TestCase):
                     "user_requested_default",
                     "--profile-selection-evidence",
                     "test explicitly requested the default full dossier profile",
+                    "--assurance-target",
+                    "artifact_contract",
                 ],
                 capture_output=True,
                 text=True,
@@ -138,6 +146,8 @@ class InitResearchPackageTests(unittest.TestCase):
                     "user_requested_default",
                     "--profile-selection-evidence",
                     "test explicitly requested the default full dossier profile",
+                    "--assurance-target",
+                    "artifact_contract",
                 ],
                 capture_output=True,
                 text=True,

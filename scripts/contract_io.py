@@ -2,6 +2,7 @@
 """Load and validate the canonical research package contracts."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from datetime import date, datetime
@@ -13,23 +14,165 @@ SCRIPT_INTERFACE = "internal-module"
 SCRIPT_INTERFACE_REASON = "Shared contract loading and validation functions imported by package CLIs."
 
 
+MAX_REVIEW_ROLES = {
+    "source_integrity_reviewer",
+    "evidence_method_reviewer",
+    "domain_reviewer",
+    "perspective_interdisciplinary_reviewer",
+    "devils_advocate",
+    "storm_synthesis_reviewer",
+}
+MAX_REVIEW_RUBRIC_VERSION = "v1"
+MAX_REVIEW_RUBRIC_CRITERIA = {
+    "source_integrity_reviewer": (
+        "Verify source identity, capture integrity, locators, and citation closure.",
+        "Reject placeholder, inaccessible, mismatched, or overstated source support.",
+    ),
+    "evidence_method_reviewer": (
+        "Verify Claim entailment, evidence ceilings, methods, and uncertainty scope.",
+        "Route unsupported Claims and evidence-strength defects back to evidence.",
+    ),
+    "domain_reviewer": (
+        "Verify domain coverage, canonical literature, omissions, and corpus exhaustion.",
+        "Challenge non-applicable discovery surfaces and bounded-corpus claims.",
+    ),
+    "perspective_interdisciplinary_reviewer": (
+        "Verify that relevant perspectives survive synthesis and retain their disagreements.",
+        "Route missing perspectives or synthesis failures back to drafting.",
+    ),
+    "devils_advocate": (
+        "State the strongest counterargument and test causal and logical weak points.",
+        "Open a concern when counterevidence could materially change a conclusion.",
+    ),
+    "storm_synthesis_reviewer": (
+        "Re-run STORM conflict, consensus, blind-spot, resolver, and historical-pattern analysis.",
+        "Give every STORM item an explicit disposition and concern binding when material.",
+    ),
+}
+REVIEW_ISSUE_STAGE = {
+    "missing_source": "retrieval",
+    "blind_spot": "retrieval",
+    "resolver_question": "retrieval",
+    "bounded_corpus": "retrieval",
+    "access_limited": "retrieval",
+    "scope_exclusion": "retrieval",
+    "gap_terminal_disposition": "retrieval",
+    "unsupported_claim": "evidence",
+    "evidence_strength": "evidence",
+    "missing_perspective": "draft",
+    "synthesis_failure": "draft",
+    "citation_or_wording": "draft",
+}
+STORM_REVIEW_LIST_FIELDS = (
+    "direct_conflicts",
+    "cross_perspective_consensus",
+    "blind_spots",
+    "resolver_questions",
+    "missing_perspectives",
+    "historical_patterns",
+    "dispositions",
+)
+STORM_REVIEW_ITEM_FIELDS = {
+    "item_id", "statement", "disposition", "reason", "concern_id",
+}
+STORM_REVIEW_DISPOSITIONS = {
+    "confirmed", "closed", "new_retrieval", "preserved_as_uncertainty",
+    "out_of_scope", "not_applicable",
+}
+
+
+def max_review_rubric_binding(role: str, skill_package_sha256: str) -> tuple[str, str]:
+    """Return the precommitted role rubric ID and package-bound digest."""
+    criteria = MAX_REVIEW_RUBRIC_CRITERIA.get(role)
+    if criteria is None or not re.fullmatch(r"[0-9a-f]{64}", skill_package_sha256):
+        return "", ""
+    rubric_id = f"storm-max-{role}-{MAX_REVIEW_RUBRIC_VERSION}"
+    payload = {
+        "rubric_id": rubric_id,
+        "skill_package_sha256": skill_package_sha256,
+        "criteria": list(criteria),
+    }
+    digest = hashlib.sha256(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return rubric_id, digest
+
+
+def validate_storm_review_analysis(payload: object) -> list[str]:
+    """Validate a disposition-complete STORM audit for a Max review round."""
+    required = set(STORM_REVIEW_LIST_FIELDS) | {"strongest_evidence", "weakest_evidence"}
+    if not isinstance(payload, dict) or set(payload) != required:
+        return ["storm_synthesis_reviewer lacks the complete STORM audit"]
+    errors: list[str] = []
+    for field in ("strongest_evidence", "weakest_evidence"):
+        if not isinstance(payload.get(field), str) or not str(payload.get(field, "")).strip():
+            errors.append("storm_synthesis_reviewer must rank strongest and weakest evidence")
+    observed_ids: set[str] = set()
+    material_concern_ids: set[str] = set()
+    disposition_ids: set[str] = set()
+    for field in STORM_REVIEW_LIST_FIELDS:
+        items = payload.get(field)
+        if not isinstance(items, list) or not items:
+            errors.append(f"storm_synthesis_reviewer {field} requires explicit disposition")
+            continue
+        for index, item in enumerate(items, start=1):
+            if not isinstance(item, dict) or set(item) != STORM_REVIEW_ITEM_FIELDS:
+                errors.append(f"storm_synthesis_reviewer {field} item {index} has invalid fields")
+                continue
+            item_id = str(item.get("item_id", ""))
+            if not re.fullmatch(r"ST[0-9]{3}", item_id) or item_id in observed_ids:
+                errors.append(f"storm_synthesis_reviewer {field} item {index} has invalid item_id")
+            observed_ids.add(item_id)
+            if not str(item.get("statement", "")).strip() or not str(item.get("reason", "")).strip():
+                errors.append(f"storm_synthesis_reviewer {field} item {index} requires statement and reason")
+            disposition = str(item.get("disposition", ""))
+            if disposition not in STORM_REVIEW_DISPOSITIONS:
+                errors.append(f"storm_synthesis_reviewer {field} item {index} has invalid disposition")
+            concern_id = item.get("concern_id")
+            if concern_id is not None and not re.fullmatch(r"RC[0-9]{3}", str(concern_id)):
+                errors.append(f"storm_synthesis_reviewer {field} item {index} has invalid concern_id")
+            if disposition in {"new_retrieval", "preserved_as_uncertainty"}:
+                if concern_id is None:
+                    errors.append(f"storm_synthesis_reviewer {field} item {index} requires concern_id")
+                else:
+                    material_concern_ids.add(str(concern_id))
+            if field == "dispositions":
+                disposition_ids.add(item_id)
+    if material_concern_ids and not material_concern_ids.issubset({
+        str(item.get("concern_id"))
+        for item in payload.get("dispositions", []) if isinstance(item, dict)
+    }):
+        errors.append("storm_synthesis_reviewer material items are missing from dispositions")
+    return list(dict.fromkeys(errors))
+
+
 class ContractError(ValueError):
     """Raised when a contract file cannot be decoded safely."""
 
 
 BRIEF_REQUIRED_FIELDS = {
     "schema_version", "topic", "research_question", "user_goal", "audience",
-    "research_profile", "profile_selection", "depth_level", "geography", "timeframe", "source_policy",
+    "research_profile", "profile_selection", "assurance_target", "depth_level", "geography", "timeframe", "source_policy",
     "freshness_policy", "retrieval_mode", "output_mode", "uncertainty_tolerance",
     "report_language", "length_contract", "storm_lens_mode", "high_stakes", "user_materials", "assumptions",
 }
 RESEARCH_PROFILES = {
-    "default_full_dossier", "strict_storm_lens", "critique_deepresearch",
+    "default_full_dossier", "maximal_full_dossier", "strict_storm_lens", "critique_deepresearch",
     "closed_corpus", "briefing", "custom",
 }
 PROFILE_SELECTION_MODES = {"user_selected", "user_requested_default", "defaulted_after_prompt"}
-PROFILE_SELECTION_FIELDS = {"mode", "selected_profile", "evidence", "available_profiles"}
-BRIEF_FIELDS = BRIEF_REQUIRED_FIELDS | {"briefing_reason"}
+PROFILE_SELECTION_REQUIRED_FIELDS = {"mode", "selected_profile", "evidence", "available_profiles"}
+PROFILE_SELECTION_FIELDS = PROFILE_SELECTION_REQUIRED_FIELDS | {
+    "evidence_ref", "evidence_sha256", "prompt_ref", "prompt_sha256",
+}
+BRIEF_FIELDS = BRIEF_REQUIRED_FIELDS | {"briefing_reason", "maximal_completeness_contract", "run_intent"}
+RUN_INTENTS = {"user_delivery", "diagnostic_rehearsal"}
+MAXIMAL_COMPLETENESS_FIELDS = {
+    "completion_policy", "discovery_surface_policy",
+    "surface_applicability_required", "tasklet_closure_required",
+    "storm_gap_closure_required", "material_novelty_window",
+    "final_integrity_required", "review_policy",
+}
 RESEARCH_PLAN_FIELDS = {
     "schema_version", "status", "perspectives", "questions", "source_priorities",
     "stopping_conditions", "retrieval_budget",
@@ -37,7 +180,8 @@ RESEARCH_PLAN_FIELDS = {
 QUESTION_FIELDS = {
     "question_id", "perspective", "text", "status", "claim_ids", "disposition_note",
 }
-OUTLINE_FIELDS = {"schema_version", "status", "unit", "minimum", "target", "maximum", "sections"}
+OUTLINE_REQUIRED_FIELDS = {"schema_version", "status", "unit", "policy", "sections"}
+OUTLINE_FIELDS = OUTLINE_REQUIRED_FIELDS | {"minimum", "target", "maximum"}
 OUTLINE_SECTION_FIELDS = {
     "section_id", "title", "purpose", "target_units", "question_ids", "claim_ids",
     "required_elements",
@@ -83,8 +227,8 @@ BIBLIOGRAPHIC_FIELDS = {"identifiers", "status", "version_family_id", "version_r
 SEARCH_RUN_FIELDS = {
     "record_kind", "search_run_id", "query_id", "adapter", "pass_kind",
     "surface", "surface_class", "query", "aliases", "searched_at",
-    "result_count", "execution_status", "raw_artifact", "snapshot_sha256",
-    "limitations",
+    "result_count", "execution_status", "request_artifact", "request_sha256",
+    "raw_artifact", "snapshot_sha256", "limitations",
 }
 RESOLVER_OUTCOME_FIELDS = {
     "resolver", "status", "query_basis", "matched_identifier",
@@ -95,7 +239,7 @@ CANDIDATE_FIELDS = {
     "record_kind", "candidate_id", "adapter", "search_run_ids", "title",
     "authors", "year", "venue", "url", "identifiers", "resolver_outcomes",
     "disposition", "screening_reason", "version_family_id", "version_role",
-    "relationship_basis",
+    "relationship_basis", "canonical_version",
 }
 CAPTURE_INPUT_FIELDS = {
     "record_kind", "candidate_id", "search_run_ids", "query_id", "url",
@@ -105,6 +249,21 @@ CAPTURE_INPUT_FIELDS = {
     "capture_level", "evidence_strength_ceiling", "raw_artifact",
     "observed_status", "content_type", "source_type", "primary_class",
     "reliability_tier", "freshness_status", "reliability_notes",
+}
+SEARCH_WAVE_FIELDS = {
+    "record_kind", "wave_id", "adapter", "gap_id", "question_ids",
+    "search_run_ids", "new_candidate_ids", "new_source_ids", "new_finding_ids",
+    "new_contradiction_ids", "new_uncertainty_ids", "changed_claim_ids",
+    "material_delta", "created_at",
+}
+GAP_ASSESSMENT_FIELDS = {
+    "record_kind", "assessment_id", "adapter", "gap_id", "terminal_state",
+    "supporting_wave_ids", "supporting_search_run_ids", "screened_candidate_ids",
+    "raw_result_count", "deduplicated_candidate_count", "uncertainty_id", "reason", "created_at",
+}
+GAP_ASSESSMENT_OPTIONAL_FIELDS = {
+    "review_concern_id", "result_windows_retrieved", "total_result_windows",
+    "enumeration_complete", "access_limitations",
 }
 PASS_KINDS = {"corpus", "baseline", "counterevidence", "gap_fill"}
 EXECUTION_STATUSES = {"completed", "zero_results", "unreachable"}
@@ -120,7 +279,8 @@ PARAGRAPH_MAP_FIELDS = {
 SEMANTIC_REVIEW_FIELDS = {
     "schema_version", "review_id", "review_type", "author_run_id", "reviewer_run_id",
     "independent", "target_kind", "target_id", "target_sha256", "material", "verdict",
-    "reason", "allowable_scope", "required_action", "findings", "reviewed_at",
+    "reason", "evidence_or_locator", "allowable_scope", "required_action",
+    "acceptance_test", "findings", "reviewed_at",
 }
 TASKLET_FIELDS = {
     "schema_version", "tasklet_id", "question_id", "perspective", "question",
@@ -296,6 +456,10 @@ def validate_search_run_record(data: dict[str, Any]) -> list[str]:
         errors.append("raw_artifact must be a non-empty string")
     if not _is_sha256(data.get("snapshot_sha256")):
         errors.append("snapshot_sha256 must be a SHA-256 value")
+    if not isinstance(data.get("request_artifact"), str) or not data.get("request_artifact"):
+        errors.append("request_artifact must be a non-empty string")
+    if not _is_sha256(data.get("request_sha256")):
+        errors.append("request_sha256 must be a SHA-256 value")
     limitations = data.get("limitations")
     if not isinstance(limitations, list) or not all(isinstance(item, str) and item.strip() for item in limitations):
         errors.append("limitations must be a string array")
@@ -317,7 +481,8 @@ def _validate_resolver_outcome(
     if not isinstance(outcome.get("resolver"), str) or not str(outcome.get("resolver")).strip():
         errors.append(f"resolver outcome {index}: resolver is required")
     query_basis = outcome.get("query_basis")
-    if query_basis not in {"doi", "pmid", "arxiv_id", "metadata", "publisher", "library"}:
+    identifier_basis = {"doi", "pmid", "arxiv_id", "semantic_scholar_id", "openalex_id"}
+    if query_basis not in {*identifier_basis, "metadata", "publisher", "library"}:
         errors.append(f"resolver outcome {index}: query_basis is invalid")
     if not isinstance(outcome.get("metadata_match"), bool):
         errors.append(f"resolver outcome {index}: metadata_match must be boolean")
@@ -351,7 +516,7 @@ def _validate_resolver_outcome(
             errors.append(f"resolver outcome {index}: returned_authors must be a string array")
         if outcome.get("returned_year") is not None and not isinstance(outcome.get("returned_year"), int):
             errors.append(f"resolver outcome {index}: returned_year must be an integer or null")
-        if query_basis in {"doi", "pmid", "arxiv_id"}:
+        if query_basis in identifier_basis:
             expected = identifiers.get(str(query_basis))
             if outcome.get("matched_identifier") != expected:
                 errors.append(f"resolver matched_identifier conflicts with candidate {query_basis}")
@@ -388,8 +553,15 @@ def validate_candidate_record(data: dict[str, Any]) -> list[str]:
         errors.append("resolver_outcomes must be a non-empty array")
     else:
         identifier_map = identifiers if isinstance(identifiers, dict) else {}
+        attempted_identifier_basis: set[str] = set()
         for index, outcome in enumerate(resolver_outcomes, start=1):
             errors.extend(_validate_resolver_outcome(outcome, identifier_map, index))
+            if isinstance(outcome, dict) and outcome.get("status") != "skipped":
+                attempted_identifier_basis.add(str(outcome.get("query_basis")))
+        if data.get("disposition") == "include" and isinstance(identifier_map, dict):
+            for key, value in sorted(identifier_map.items()):
+                if value is not None and key not in attempted_identifier_basis:
+                    errors.append(f"included candidate identifier {key} lacks resolver outcome")
     if data.get("disposition") not in DISPOSITIONS:
         errors.append("candidate disposition is invalid")
     if not isinstance(data.get("screening_reason"), str) or not data.get("screening_reason"):
@@ -397,6 +569,8 @@ def validate_candidate_record(data: dict[str, Any]) -> list[str]:
     family_id = data.get("version_family_id")
     role = data.get("version_role")
     basis = data.get("relationship_basis")
+    if not isinstance(data.get("canonical_version"), bool):
+        errors.append("canonical_version must be boolean")
     if family_id is None:
         if role is not None or basis is not None:
             errors.append("version metadata requires version_family_id")
@@ -431,7 +605,11 @@ def validate_adapter_capture_record(data: dict[str, Any]) -> list[str]:
         errors.append("file capture requires null final_url and observed_status")
     if data.get("adapter") not in {"host", "provider", "closed_corpus"}:
         errors.append("adapter is invalid")
-    if data.get("capture_level") not in {"full_text", "official_data", "user_file", "search_snippet"}:
+    capture_level = data.get("capture_level")
+    if capture_level not in {
+        "full_text", "abstract", "metadata", "official_data", "user_file",
+        "search_snippet",
+    }:
         errors.append("capture_level is invalid")
     if data.get("evidence_strength_ceiling") not in {"strong", "medium", "weak", "background"}:
         errors.append("evidence_strength_ceiling is invalid")
@@ -457,6 +635,23 @@ def validate_adapter_capture_record(data: dict[str, Any]) -> list[str]:
         errors.append("reliability_tier is invalid")
     if data.get("freshness_status") not in {"current", "stale", "historical", "unknown"}:
         errors.append("freshness_status is invalid")
+    locator_kind = " ".join((
+        str(data.get("locator_type", "")),
+        str(data.get("content_locator", "")),
+    )).casefold()
+    weak_locator = any(marker in locator_kind for marker in ("abstract", "metadata", "title", "题名", "摘要"))
+    if capture_level == "full_text" and weak_locator:
+        errors.append("full_text capture cannot use an abstract or metadata locator")
+    if capture_level == "abstract":
+        if "abstract" not in locator_kind and "摘要" not in locator_kind:
+            errors.append("abstract capture requires an abstract locator")
+        if data.get("evidence_strength_ceiling") not in {"medium", "weak", "background"}:
+            errors.append("abstract capture cannot exceed medium evidence")
+    if capture_level == "metadata":
+        if not any(marker in locator_kind for marker in ("metadata", "title", "题名")):
+            errors.append("metadata capture requires a title or metadata locator")
+        if data.get("evidence_strength_ceiling") != "background":
+            errors.append("metadata capture must use background evidence ceiling")
     return errors
 
 
@@ -468,7 +663,106 @@ def validate_retrieval_input_record(data: dict[str, Any]) -> list[str]:
         return validate_candidate_record(data)
     if kind == "capture":
         return validate_adapter_capture_record(data)
-    return ["record_kind must be search_run, candidate, or capture"]
+    if kind == "search_wave":
+        errors = _unknown_fields(data, SEARCH_WAVE_FIELDS) + _missing_fields(
+            data, SEARCH_WAVE_FIELDS
+        )
+        if not re.fullmatch(r"WAVE\d{3}", str(data.get("wave_id", ""))):
+            errors.append("wave_id must match WAVE followed by three digits")
+        if not re.fullmatch(r"G\d{3}", str(data.get("gap_id", ""))):
+            errors.append("gap_id must match G followed by three digits")
+        if data.get("adapter") not in {"host", "provider", "closed_corpus"}:
+            errors.append("adapter is invalid")
+        for field, pattern in (
+            ("question_ids", r"Q\d{3}"), ("search_run_ids", r"SR\d{3}"),
+            ("new_candidate_ids", r"K\d{3}"), ("new_source_ids", r"S\d{3}"),
+            ("new_finding_ids", r"F\d{3}"), ("new_contradiction_ids", r"X\d{3}"),
+            ("new_uncertainty_ids", r"U\d{3}"), ("changed_claim_ids", r"C\d{3}"),
+        ):
+            values = data.get(field)
+            if not isinstance(values, list) or not all(re.fullmatch(pattern, str(item)) for item in values):
+                errors.append(f"{field} contains invalid IDs")
+            elif len(values) != len(set(values)):
+                errors.append(f"{field} must contain unique IDs")
+        if not data.get("question_ids") or not data.get("search_run_ids"):
+            errors.append("search_wave requires question_ids and search_run_ids")
+        delta = data.get("material_delta")
+        if delta is not None and (
+            not isinstance(delta, int) or isinstance(delta, bool) or delta < 0
+        ):
+            errors.append("search_wave material_delta must be null or a non-negative integer")
+        if not _valid_iso_datetime(data.get("created_at")):
+            errors.append("created_at must be an ISO datetime")
+        return errors
+    if kind == "gap_assessment":
+        errors = _unknown_fields(
+            data, GAP_ASSESSMENT_FIELDS | GAP_ASSESSMENT_OPTIONAL_FIELDS
+        ) + _missing_fields(
+            data, GAP_ASSESSMENT_FIELDS
+        )
+        if not re.fullmatch(r"GA\d{3}", str(data.get("assessment_id", ""))):
+            errors.append("assessment_id must match GA followed by three digits")
+        if not re.fullmatch(r"G\d{3}", str(data.get("gap_id", ""))):
+            errors.append("gap_id must match G followed by three digits")
+        if data.get("adapter") not in {"host", "provider", "closed_corpus"}:
+            errors.append("adapter is invalid")
+        if data.get("terminal_state") not in {
+            "saturated", "bounded_corpus_exhausted",
+            "access_limited_uncertainty", "out_of_scope",
+        }:
+            errors.append("gap assessment terminal_state is invalid")
+        for field, pattern in (
+            ("supporting_wave_ids", r"WAVE\d{3}"),
+            ("supporting_search_run_ids", r"SR\d{3}"),
+            ("screened_candidate_ids", r"K\d{3}"),
+        ):
+            values = data.get(field)
+            if not isinstance(values, list) or not all(re.fullmatch(pattern, str(item)) for item in values):
+                errors.append(f"{field} contains invalid IDs")
+            elif len(values) != len(set(values)):
+                errors.append(f"{field} must contain unique IDs")
+        if not data.get("supporting_search_run_ids"):
+            errors.append("gap assessment requires supporting_search_run_ids")
+        for field in ("raw_result_count", "deduplicated_candidate_count"):
+            value = data.get(field)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                errors.append(f"{field} must be a non-negative integer")
+        uncertainty_id = data.get("uncertainty_id")
+        if uncertainty_id is not None and not re.fullmatch(r"U\d{3}", str(uncertainty_id)):
+            errors.append("uncertainty_id must be null or match U followed by three digits")
+        if data.get("terminal_state") == "access_limited_uncertainty" and uncertainty_id is None:
+            errors.append("access_limited_uncertainty requires uncertainty_id")
+        review_concern_id = data.get("review_concern_id")
+        if review_concern_id is not None and not re.fullmatch(r"RC\d{3}", str(review_concern_id)):
+            errors.append("review_concern_id must match RC followed by three digits")
+        if data.get("terminal_state") == "bounded_corpus_exhausted":
+            total_windows = data.get("total_result_windows")
+            retrieved_windows = data.get("result_windows_retrieved")
+            if (
+                data.get("enumeration_complete") is not True
+                or not isinstance(total_windows, int)
+                or isinstance(total_windows, bool)
+                or total_windows < 1
+                or not isinstance(retrieved_windows, int)
+                or isinstance(retrieved_windows, bool)
+                or retrieved_windows != total_windows
+            ):
+                errors.append("bounded_corpus_exhausted requires complete result-window enumeration")
+            access_limitations = data.get("access_limitations")
+            if not isinstance(access_limitations, list) or not all(
+                isinstance(item, str) for item in access_limitations
+            ):
+                errors.append("bounded_corpus_exhausted requires access_limitations array")
+        else:
+            for field in ("result_windows_retrieved", "total_result_windows", "enumeration_complete", "access_limitations"):
+                if field in data:
+                    errors.append(f"{field} is only allowed for bounded_corpus_exhausted")
+        if not isinstance(data.get("reason"), str) or len(str(data.get("reason", "")).strip()) < 40:
+            errors.append("gap assessment reason must contain at least 40 characters")
+        if not _valid_iso_datetime(data.get("created_at")):
+            errors.append("created_at must be an ISO datetime")
+        return errors
+    return ["record_kind must be search_run, candidate, capture, search_wave, or gap_assessment"]
 
 
 def _strict_record(data: dict[str, Any], fields: set[str]) -> list[str]:
@@ -506,16 +800,24 @@ def validate_brief(data: dict[str, Any]) -> list[str]:
     if not isinstance(length_contract, dict):
         errors.append("length_contract must be an object")
     else:
-        expected = {"unit", "minimum", "target", "maximum", "content_standard"}
+        policy = length_contract.get("policy")
+        expected = (
+            {"unit", "policy", "minimum", "target", "maximum", "content_standard"}
+            if policy == "bounded"
+            else {"unit", "policy", "content_standard"}
+        )
         if set(length_contract) != expected:
             errors.append("length_contract has invalid fields")
+        if policy not in {"bounded", "open_ended"}:
+            errors.append("length_contract.policy is invalid")
         if length_contract.get("unit") not in {"characters", "words"}:
             errors.append("length_contract.unit is invalid")
-        values = [length_contract.get(key) for key in ("minimum", "target", "maximum")]
-        if not all(isinstance(value, int) and value > 0 for value in values):
-            errors.append("length_contract sizes must be positive integers")
-        elif not values[0] <= values[1] <= values[2]:
-            errors.append("length_contract must satisfy minimum <= target <= maximum")
+        if policy == "bounded":
+            values = [length_contract.get(key) for key in ("minimum", "target", "maximum")]
+            if not all(isinstance(value, int) and value > 0 for value in values):
+                errors.append("length_contract sizes must be positive integers")
+            elif not values[0] <= values[1] <= values[2]:
+                errors.append("length_contract must satisfy minimum <= target <= maximum")
         if length_contract.get("content_standard") != "evidence_led":
             errors.append("length_contract.content_standard must be evidence_led")
     if data.get("source_policy") not in {"external_allowed", "closed_corpus", "primary_only"}:
@@ -530,6 +832,10 @@ def validate_brief(data: dict[str, Any]) -> list[str]:
         errors.append("uncertainty_tolerance is invalid")
     if data.get("storm_lens_mode") not in {"advisory", "strict"}:
         errors.append("storm_lens_mode is invalid")
+    if data.get("assurance_target") not in {"artifact_contract", "captured_host_execution"}:
+        errors.append("assurance_target is invalid")
+    if data.get("run_intent", "user_delivery") not in RUN_INTENTS:
+        errors.append("run_intent is invalid")
     profile = data.get("research_profile", "custom")
     if profile not in RESEARCH_PROFILES:
         errors.append("research_profile is invalid")
@@ -540,6 +846,22 @@ def validate_brief(data: dict[str, Any]) -> list[str]:
             errors.append("default_full_dossier profile requires external_allowed host retrieval")
         if data.get("storm_lens_mode") != "strict":
             errors.append("default_full_dossier profile requires strict STORM lens")
+        if isinstance(length_contract, dict) and length_contract.get("policy") != "bounded":
+            errors.append("default_full_dossier profile requires bounded length")
+    elif profile == "maximal_full_dossier":
+        if data.get("depth_level") != "full_dossier" or data.get("output_mode") != "full":
+            errors.append("maximal_full_dossier profile requires full_dossier and full output")
+        if data.get("source_policy") != "external_allowed" or data.get("retrieval_mode") != "host":
+            errors.append("maximal_full_dossier profile requires external_allowed host retrieval")
+        if data.get("storm_lens_mode") != "strict":
+            errors.append("maximal_full_dossier profile requires strict STORM lens")
+        if isinstance(length_contract, dict) and length_contract.get("policy") != "open_ended":
+            errors.append("maximal_full_dossier profile requires open_ended length")
+        contract = data.get("maximal_completeness_contract")
+        if not isinstance(contract, dict):
+            errors.append("maximal_full_dossier profile requires maximal_completeness_contract")
+        else:
+            errors.extend(_validate_maximal_completeness_contract(contract))
     elif profile == "strict_storm_lens":
         if data.get("depth_level") != "full_dossier" or data.get("output_mode") != "full":
             errors.append("strict_storm_lens profile requires full_dossier and full output")
@@ -557,18 +879,37 @@ def validate_brief(data: dict[str, Any]) -> list[str]:
             errors.append("closed_corpus profile requires closed_corpus source policy and retrieval mode")
     elif profile == "briefing" and data.get("depth_level") != "briefing":
         errors.append("briefing profile requires briefing depth")
+    if profile != "maximal_full_dossier" and "maximal_completeness_contract" in data:
+        errors.append("maximal_completeness_contract is only valid for maximal_full_dossier")
     selection = data.get("profile_selection")
     if not isinstance(selection, dict):
         errors.append("profile_selection must be an object")
     else:
         errors.extend(_unknown_fields(selection, PROFILE_SELECTION_FIELDS))
-        errors.extend(_missing_fields(selection, PROFILE_SELECTION_FIELDS))
+        errors.extend(_missing_fields(selection, PROFILE_SELECTION_REQUIRED_FIELDS))
         if selection.get("mode") not in PROFILE_SELECTION_MODES:
             errors.append("profile_selection.mode is invalid")
         if selection.get("selected_profile") != profile:
             errors.append("profile_selection.selected_profile must match research_profile")
         if not isinstance(selection.get("evidence"), str) or not str(selection.get("evidence", "")).strip():
             errors.append("profile_selection.evidence must be a non-empty string")
+        if data.get("assurance_target") == "captured_host_execution":
+            if selection.get("evidence_ref") != "inputs/profile-selection-evidence.txt":
+                errors.append("profile_selection.evidence_ref is required for captured_host_execution")
+            if not _is_sha256(selection.get("evidence_sha256")):
+                errors.append("profile_selection.evidence_sha256 is required for captured_host_execution")
+        elif "evidence_ref" in selection or "evidence_sha256" in selection:
+            if selection.get("evidence_ref") != "inputs/profile-selection-evidence.txt":
+                errors.append("profile_selection.evidence_ref is invalid")
+            if not _is_sha256(selection.get("evidence_sha256")):
+                errors.append("profile_selection.evidence_sha256 is invalid")
+        if selection.get("mode") == "defaulted_after_prompt":
+            if not isinstance(selection.get("prompt_ref"), str) or not str(selection.get("prompt_ref", "")).strip():
+                errors.append("profile_selection.prompt_ref is required for defaulted_after_prompt")
+            if not _is_sha256(selection.get("prompt_sha256")):
+                errors.append("profile_selection.prompt_sha256 is required for defaulted_after_prompt")
+        elif "prompt_ref" in selection or "prompt_sha256" in selection:
+            errors.append("profile_selection prompt fields are only valid for defaulted_after_prompt")
         available = selection.get("available_profiles")
         if not isinstance(available, list) or not available:
             errors.append("profile_selection.available_profiles must be a non-empty array")
@@ -594,6 +935,28 @@ def validate_brief(data: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _validate_maximal_completeness_contract(contract: dict[str, Any]) -> list[str]:
+    errors = _unknown_fields(contract, MAXIMAL_COMPLETENESS_FIELDS) + _missing_fields(
+        contract, MAXIMAL_COMPLETENESS_FIELDS
+    )
+    expected_values = {
+        "completion_policy": "coverage_and_saturation",
+        "discovery_surface_policy": "domain_adaptive_with_mandatory_counterevidence",
+        "surface_applicability_required": True,
+        "tasklet_closure_required": True,
+        "storm_gap_closure_required": True,
+        "material_novelty_window": 2,
+        "final_integrity_required": True,
+        "review_policy": "concern_driven_until_clear",
+    }
+    for field, expected in expected_values.items():
+        if contract.get(field) != expected:
+            errors.append(
+                f"maximal_completeness_contract.{field} must be {expected!r}"
+            )
+    return errors
+
+
 def validate_research_plan(
     data: dict[str, Any], brief: dict[str, Any], known_claim_ids: set[str]
 ) -> list[str]:
@@ -610,7 +973,22 @@ def validate_research_plan(
         if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
             errors.append(f"{field} must be an array of strings")
     budget = data.get("retrieval_budget")
-    if not isinstance(budget, dict) or set(budget) != {"max_queries", "max_sources"}:
+    if brief.get("research_profile") == "maximal_full_dossier":
+        required_budget = {"policy", "max_queries", "max_sources", "stop_conditions"}
+        required_stops = {
+            "tasklet_closure", "storm_gap_closure",
+            "material_novelty_saturation", "reviewer_no_material_omission",
+        }
+        if not isinstance(budget, dict) or set(budget) != required_budget:
+            errors.append("maximal retrieval_budget must remain open ended until saturation")
+        elif (
+            budget.get("policy") != "open_ended_until_saturation"
+            or budget.get("max_queries") is not None
+            or budget.get("max_sources") is not None
+            or set(budget.get("stop_conditions", [])) != required_stops
+        ):
+            errors.append("maximal retrieval_budget must remain open ended until saturation")
+    elif not isinstance(budget, dict) or set(budget) != {"max_queries", "max_sources"}:
         errors.append("retrieval_budget requires only max_queries and max_sources")
     elif not all(isinstance(budget.get(key), int) and budget[key] > 0 for key in budget):
         errors.append("retrieval_budget values must be positive integers")
@@ -659,15 +1037,26 @@ def validate_report_outline(
     known_question_ids: set[str],
     known_claim_ids: set[str],
 ) -> list[str]:
-    errors = _unknown_fields(outline, OUTLINE_FIELDS) + _missing_fields(outline, OUTLINE_FIELDS)
+    errors = _unknown_fields(outline, OUTLINE_FIELDS) + _missing_fields(outline, OUTLINE_REQUIRED_FIELDS)
     if outline.get("schema_version") != "2.0":
         errors.append("report_outline.schema_version must be 2.0")
     if outline.get("status") not in {"initialized", "planned", "complete"}:
         errors.append("report_outline.status is invalid")
     length_contract = brief.get("length_contract", {}) if isinstance(brief.get("length_contract"), dict) else {}
-    for field in ("unit", "minimum", "target", "maximum"):
-        if outline.get(field) != length_contract.get(field):
-            errors.append(f"report_outline.{field} must match brief.length_contract.{field}")
+    if outline.get("unit") != length_contract.get("unit"):
+        errors.append("report_outline.unit must match brief.length_contract.unit")
+    if outline.get("policy") != length_contract.get("policy"):
+        errors.append("report_outline.policy must match brief.length_contract.policy")
+    if length_contract.get("policy") == "bounded":
+        for field in ("minimum", "target", "maximum"):
+            if outline.get(field) != length_contract.get(field):
+                errors.append(f"report_outline.{field} must match brief.length_contract.{field}")
+    elif length_contract.get("policy") == "open_ended":
+        for field in ("minimum", "target", "maximum"):
+            if field in outline:
+                errors.append(f"report_outline.{field} is invalid for open_ended length")
+    else:
+        errors.append("report_outline length policy is invalid")
     sections = outline.get("sections")
     if not isinstance(sections, list):
         errors.append("report_outline.sections must be an array")
@@ -794,8 +1183,29 @@ def validate_amendment(data: dict[str, Any]) -> list[str]:
 
 
 def validate_source_plan(data: dict[str, Any]) -> list[str]:
-    errors = _strict_record(data, SOURCE_PLAN_FIELDS)
+    errors = _unknown_fields(data, SOURCE_PLAN_FIELDS | {"surface_applicability"})
+    errors.extend(_missing_fields(data, SOURCE_PLAN_FIELDS))
+    if data.get("schema_version") != "2.0":
+        errors.append("schema_version must be 2.0")
     questions = data.get("questions")
+    applicability = data.get("surface_applicability")
+    if applicability is not None:
+        seen_surfaces: set[str] = set()
+        if not isinstance(applicability, list) or not applicability:
+            errors.append("surface_applicability must be a non-empty array")
+        else:
+            for index, item in enumerate(applicability, start=1):
+                if not isinstance(item, dict) or set(item) != {"surface", "applicability", "reason"}:
+                    errors.append(f"surface applicability {index} has invalid fields")
+                    continue
+                surface = str(item.get("surface", "")).strip()
+                if not surface or surface in seen_surfaces:
+                    errors.append(f"surface applicability {index} surface is empty or duplicated")
+                seen_surfaces.add(surface)
+                if item.get("applicability") not in {"required", "not_applicable"}:
+                    errors.append(f"surface applicability {index} status is invalid")
+                if len(str(item.get("reason", "")).strip()) < 20:
+                    errors.append(f"surface applicability {index} reason is too short")
     if not isinstance(questions, list) or not questions:
         errors.append("questions must be a non-empty array")
     else:
@@ -885,7 +1295,11 @@ def validate_retrieval_evidence(data: dict[str, Any]) -> list[str]:
             errors.append(f"{field} must be a non-empty string")
     if data.get("adapter") not in {"host", "provider", "closed_corpus"}:
         errors.append("adapter is invalid")
-    if data.get("capture_level") not in {"full_text", "official_data", "user_file", "search_snippet"}:
+    capture_level = data.get("capture_level")
+    if capture_level not in {
+        "full_text", "abstract", "metadata", "official_data", "user_file",
+        "search_snippet",
+    }:
         errors.append("capture_level is invalid")
     if data.get("evidence_strength_ceiling") not in {"strong", "medium", "weak", "background"}:
         errors.append("evidence_strength_ceiling is invalid")
@@ -905,6 +1319,22 @@ def validate_retrieval_evidence(data: dict[str, Any]) -> list[str]:
         errors.append("primary_class is invalid")
     if data.get("reliability_tier") not in {"A", "B", "C", "D"}:
         errors.append("reliability_tier is invalid")
+    locator_kind = " ".join((
+        str(data.get("locator_type", "")), str(data.get("locator", ""))
+    )).casefold()
+    weak_locator = any(marker in locator_kind for marker in ("abstract", "metadata", "title", "题名", "摘要"))
+    if capture_level == "full_text" and weak_locator:
+        errors.append("full_text capture cannot use an abstract or metadata locator")
+    if capture_level == "abstract":
+        if "abstract" not in locator_kind and "摘要" not in locator_kind:
+            errors.append("abstract capture requires an abstract locator")
+        if data.get("evidence_strength_ceiling") not in {"medium", "weak", "background"}:
+            errors.append("abstract capture cannot exceed medium evidence")
+    if capture_level == "metadata":
+        if not any(marker in locator_kind for marker in ("metadata", "title", "题名")):
+            errors.append("metadata capture requires a title or metadata locator")
+        if data.get("evidence_strength_ceiling") != "background":
+            errors.append("metadata capture must use background evidence ceiling")
     return errors
 
 
@@ -957,12 +1387,16 @@ def validate_semantic_review_record(data: dict[str, Any]) -> list[str]:
         errors.append("material must be boolean")
     if not isinstance(data.get("reason"), str) or not data.get("reason"):
         errors.append("reason must be a non-empty string")
+    if not isinstance(data.get("evidence_or_locator"), str) or not data.get("evidence_or_locator"):
+        errors.append("evidence_or_locator must be a non-empty string")
     if data.get("allowable_scope") is not None and not isinstance(data.get("allowable_scope"), str):
         errors.append("allowable_scope must be null or string")
     if data.get("required_action") not in {"none", "qualify", "remove", "rewrite", "add_evidence"}:
         errors.append("required_action is invalid")
     if data.get("verdict") != "supported" and data.get("required_action") == "none":
         errors.append("non-supported verdict requires an action")
+    if not isinstance(data.get("acceptance_test"), str) or not data.get("acceptance_test"):
+        errors.append("acceptance_test must be a non-empty string")
     if not isinstance(data.get("findings"), list):
         errors.append("findings must be an array")
     if not _valid_iso_datetime(data.get("reviewed_at")):

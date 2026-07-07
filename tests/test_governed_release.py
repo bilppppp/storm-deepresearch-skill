@@ -176,7 +176,9 @@ class GovernedReleaseTests(unittest.TestCase):
         self.assertEqual(required, set())
 
     def validated_run(self, workspace: Path) -> Path:
-        run = build_valid_governed_run(workspace)
+        run = build_valid_governed_run(
+            workspace, assurance_target="captured_host_execution"
+        )
         result = self.invoke("validate", str(run))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return run

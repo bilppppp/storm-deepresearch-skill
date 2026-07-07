@@ -9,22 +9,36 @@
     "record_kind": {}, "search_run_id": {}, "query_id": {}, "adapter": {},
     "pass_kind": {}, "surface": {}, "surface_class": {}, "query": {},
     "aliases": {}, "searched_at": {}, "result_count": {}, "execution_status": {},
+    "request_artifact": {}, "request_sha256": {},
     "raw_artifact": {}, "snapshot_sha256": {}, "limitations": {},
     "candidate_id": {}, "search_run_ids": {}, "title": {}, "authors": {},
     "year": {}, "venue": {}, "url": {}, "identifiers": {},
     "resolver_outcomes": {}, "disposition": {}, "screening_reason": {},
     "version_family_id": {}, "version_role": {}, "relationship_basis": {},
+    "canonical_version": {},
     "final_url": {}, "file_ref": {}, "publisher": {}, "published_at": {},
     "publication_date_status": {}, "retrieved_at": {}, "content_excerpt": {},
     "content_locator": {}, "locator_type": {}, "adapter_run_id": {},
     "capture_level": {}, "evidence_strength_ceiling": {}, "observed_status": {},
     "content_type": {}, "source_type": {}, "primary_class": {},
-    "reliability_tier": {}, "freshness_status": {}, "reliability_notes": {}
+    "reliability_tier": {}, "freshness_status": {}, "reliability_notes": {},
+    "wave_id": {}, "gap_id": {}, "question_ids": {}, "new_candidate_ids": {},
+    "new_source_ids": {}, "new_finding_ids": {}, "new_contradiction_ids": {},
+    "new_uncertainty_ids": {}, "changed_claim_ids": {}, "material_delta": {},
+    "assessment_id": {}, "terminal_state": {}, "supporting_wave_ids": {},
+    "supporting_search_run_ids": {}, "screened_candidate_ids": {},
+    "raw_result_count": {}, "deduplicated_candidate_count": {}, "uncertainty_id": {},
+    "review_concern_id": {}, "reason": {},
+    "result_windows_retrieved": {}, "total_result_windows": {},
+    "enumeration_complete": {}, "access_limitations": {},
+    "created_at": {}
   },
   "oneOf": [
     {"$ref": "#/$defs/search_run"},
     {"$ref": "#/$defs/candidate"},
-    {"$ref": "#/$defs/capture"}
+    {"$ref": "#/$defs/capture"},
+    {"$ref": "#/$defs/search_wave"},
+    {"$ref": "#/$defs/gap_assessment"}
   ],
   "$defs": {
     "identifiers": {
@@ -50,7 +64,12 @@
       "properties": {
         "resolver": {"type": "string", "minLength": 1},
         "status": {"enum": ["matched", "unmatched", "unreachable", "skipped"]},
-        "query_basis": {"enum": ["doi", "pmid", "arxiv_id", "metadata", "publisher", "library"]},
+        "query_basis": {
+          "enum": [
+            "doi", "pmid", "arxiv_id", "semantic_scholar_id", "openalex_id",
+            "metadata", "publisher", "library"
+          ]
+        },
         "matched_identifier": {"type": ["string", "null"]},
         "returned_title": {"type": ["string", "null"]},
         "returned_authors": {"type": "array", "items": {"type": "string", "minLength": 1}},
@@ -68,8 +87,8 @@
       "required": [
         "record_kind", "search_run_id", "query_id", "adapter", "pass_kind",
         "surface", "surface_class", "query", "aliases", "searched_at",
-        "result_count", "execution_status", "raw_artifact", "snapshot_sha256",
-        "limitations"
+        "result_count", "execution_status", "request_artifact", "request_sha256",
+        "raw_artifact", "snapshot_sha256", "limitations"
       ],
       "properties": {
         "record_kind": {"const": "search_run"},
@@ -84,6 +103,8 @@
         "searched_at": {"type": "string", "format": "date-time"},
         "result_count": {"type": ["integer", "null"], "minimum": 0},
         "execution_status": {"enum": ["completed", "zero_results", "unreachable"]},
+        "request_artifact": {"type": "string", "minLength": 1},
+        "request_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "raw_artifact": {"type": "string", "minLength": 1},
         "snapshot_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
@@ -101,7 +122,7 @@
         "record_kind", "candidate_id", "adapter", "search_run_ids", "title",
         "authors", "year", "venue", "url", "identifiers", "resolver_outcomes",
         "disposition", "screening_reason", "version_family_id", "version_role",
-        "relationship_basis"
+        "relationship_basis", "canonical_version"
       ],
       "properties": {
         "record_kind": {"const": "candidate"},
@@ -119,8 +140,92 @@
         "screening_reason": {"type": "string", "minLength": 1},
         "version_family_id": {"type": ["string", "null"], "pattern": "^W[0-9]{3}$"},
         "version_role": {"type": ["string", "null"], "enum": ["preprint", "conference", "journal", "book", "chapter", "report", "other", null]},
-        "relationship_basis": {"type": ["string", "null"], "enum": ["exact_identifier", "explicit_metadata", "manual_confirmed", "unresolved", null]}
+        "relationship_basis": {"type": ["string", "null"], "enum": ["exact_identifier", "explicit_metadata", "manual_confirmed", "unresolved", null]},
+        "canonical_version": {"type": "boolean"}
       }
+    },
+    "search_wave": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_kind", "wave_id", "adapter", "gap_id", "question_ids",
+        "search_run_ids", "new_candidate_ids", "new_source_ids", "new_finding_ids",
+        "new_contradiction_ids", "new_uncertainty_ids", "changed_claim_ids",
+        "material_delta", "created_at"
+      ],
+      "properties": {
+        "record_kind": {"const": "search_wave"},
+        "wave_id": {"type": "string", "pattern": "^WAVE[0-9]{3}$"},
+        "adapter": {"enum": ["host", "provider", "closed_corpus"]},
+        "gap_id": {"type": "string", "pattern": "^G[0-9]{3}$"},
+        "question_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^Q[0-9]{3}$"}},
+        "search_run_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^SR[0-9]{3}$"}},
+        "new_candidate_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^K[0-9]{3}$"}},
+        "new_source_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^S[0-9]{3}$"}},
+        "new_finding_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^F[0-9]{3}$"}},
+        "new_contradiction_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^X[0-9]{3}$"}},
+        "new_uncertainty_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^U[0-9]{3}$"}},
+        "changed_claim_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^C[0-9]{3}$"}},
+        "material_delta": {"type": ["integer", "null"], "minimum": 0},
+        "created_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "gap_assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_kind", "assessment_id", "adapter", "gap_id", "terminal_state",
+        "supporting_wave_ids", "supporting_search_run_ids", "screened_candidate_ids",
+        "raw_result_count", "deduplicated_candidate_count", "uncertainty_id",
+        "reason", "created_at"
+      ],
+      "properties": {
+        "record_kind": {"const": "gap_assessment"},
+        "assessment_id": {"type": "string", "pattern": "^GA[0-9]{3}$"},
+        "adapter": {"enum": ["host", "provider", "closed_corpus"]},
+        "gap_id": {"type": "string", "pattern": "^G[0-9]{3}$"},
+        "terminal_state": {
+          "enum": ["saturated", "bounded_corpus_exhausted", "access_limited_uncertainty", "out_of_scope"]
+        },
+        "supporting_wave_ids": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^WAVE[0-9]{3}$"}
+        },
+        "supporting_search_run_ids": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^SR[0-9]{3}$"}
+        },
+        "screened_candidate_ids": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^K[0-9]{3}$"}
+        },
+        "raw_result_count": {"type": "integer", "minimum": 0},
+        "deduplicated_candidate_count": {"type": "integer", "minimum": 0},
+        "uncertainty_id": {"type": ["string", "null"], "pattern": "^U[0-9]{3}$"},
+        "review_concern_id": {"type": ["string", "null"], "pattern": "^RC[0-9]{3}$"},
+        "reason": {"type": "string", "minLength": 40},
+        "result_windows_retrieved": {"type": "integer", "minimum": 0},
+        "total_result_windows": {"type": "integer", "minimum": 0},
+        "enumeration_complete": {"type": "boolean"},
+        "access_limitations": {"type": "array", "items": {"type": "string"}},
+        "created_at": {"type": "string", "format": "date-time"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"terminal_state": {"const": "bounded_corpus_exhausted"}}},
+          "then": {
+            "required": [
+              "result_windows_retrieved", "total_result_windows",
+              "enumeration_complete", "access_limitations"
+            ],
+            "properties": {
+              "result_windows_retrieved": {"type": "integer", "minimum": 1},
+              "total_result_windows": {"type": "integer", "minimum": 1},
+              "enumeration_complete": {"const": true}
+            }
+          }
+        }
+      ]
     },
     "capture": {
       "type": "object",
@@ -151,7 +256,7 @@
         "locator_type": {"type": "string", "minLength": 1},
         "adapter": {"enum": ["host", "provider", "closed_corpus"]},
         "adapter_run_id": {"type": "string", "minLength": 1},
-        "capture_level": {"enum": ["full_text", "official_data", "user_file", "search_snippet"]},
+        "capture_level": {"enum": ["full_text", "abstract", "metadata", "official_data", "user_file", "search_snippet"]},
         "evidence_strength_ceiling": {"enum": ["strong", "medium", "weak", "background"]},
         "raw_artifact": {"type": "string", "minLength": 1},
         "observed_status": {"type": ["integer", "null"], "minimum": 100, "maximum": 599},
@@ -178,6 +283,16 @@
             "final_url": {"type": "null"},
             "observed_status": {"type": "null"}
           }
+        }
+      ],
+      "allOf": [
+        {
+          "if": {"properties": {"capture_level": {"const": "abstract"}}},
+          "then": {"properties": {"evidence_strength_ceiling": {"enum": ["medium", "weak", "background"]}}}
+        },
+        {
+          "if": {"properties": {"capture_level": {"const": "metadata"}}},
+          "then": {"properties": {"evidence_strength_ceiling": {"const": "background"}}}
         }
       ]
     }

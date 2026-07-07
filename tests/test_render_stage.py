@@ -52,9 +52,15 @@ class RenderStageTests(unittest.TestCase):
             self.assertTrue(manifest.is_file())
             self.assertTrue((run / "state/generations/g0001/receipts/60-render.json").is_file())
 
-    def reviewed_run(self, workspace: Path, *, strict_lens: bool = False) -> Path:
+    def reviewed_run(
+        self, workspace: Path, *, strict_lens: bool = False,
+        profile: str = "default_full_dossier", assurance_target: str = "artifact_contract",
+    ) -> Path:
         helper = review_stage_helpers.ReviewStageTests(methodName="runTest")
-        return helper.reviewed_run(workspace, strict_lens=strict_lens)
+        return helper.reviewed_run(
+            workspace, strict_lens=strict_lens, profile=profile,
+            assurance_target=assurance_target,
+        )
 
     def invoke(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(

@@ -6,7 +6,8 @@
   "required": [
     "schema_version", "review_id", "review_type", "author_run_id", "reviewer_run_id",
     "independent", "target_kind", "target_id", "target_sha256", "material", "verdict",
-    "reason", "allowable_scope", "required_action", "findings", "reviewed_at"
+    "reason", "evidence_or_locator", "allowable_scope", "required_action",
+    "acceptance_test", "findings", "reviewed_at"
   ],
   "properties": {
     "schema_version": {"const": "2.0"},
@@ -21,8 +22,10 @@
     "material": {"type": "boolean"},
     "verdict": {"enum": ["supported", "overstated", "not_supported", "unclear"]},
     "reason": {"type": "string", "minLength": 1},
+    "evidence_or_locator": {"type": "string", "minLength": 1},
     "allowable_scope": {"type": ["string", "null"]},
     "required_action": {"enum": ["none", "qualify", "remove", "rewrite", "add_evidence"]},
+    "acceptance_test": {"type": "string", "minLength": 1},
     "findings": {"type": "array", "items": {"type": "object"}},
     "reviewed_at": {"type": "string", "format": "date-time"}
   }

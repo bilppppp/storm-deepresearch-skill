@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+- Added `retrieval-preflight` and `retrieval-prepare` so Max captured runs can validate typed retrieval JSONL and generate matching execution provenance before `ingest`.
+- Made helper output honest: `capture-source` and `ingest-dir` now warn that they are partial capture builders and insufficient for Max captured retrieval by themselves.
+- Deferred terminal gap review binding from retrieval input to review/final validation; `search_wave.material_delta` may be null before findings and is recomputed later.
+- Repaired `maximal_full_dossier` so source, candidate, tasklet, finding, Claim, section, and review-round counts are metrics rather than stopping targets. Max now closes on tasklet/STORM-gap coverage plus recomputable material-novelty saturation, bounded-corpus exhaustion, access-limited uncertainty, or approved scope disposition.
+- Replaced review-shaped Max JSON with a concern-driven STORM plus academic panel: isolated role contexts, separate editor synthesis, P4 action links, causal revision-map closure, required re-review after real concerns, and final integrity. Public report prose still rejects source-register narration such as `这条可审计来源是...`.
+- Bound every Max review round to a distinct generation, draft receipt, review request, complete subject manifest, package-derived role rubric, round digest, and transcript session. Blocking review now writes an immutable blocker and resumes only through `amend --resume-blocked-review`.
+- Expanded Max material-novelty recomputation across sources, findings, contradictions, uncertainties, and Claim changes; bounded-corpus closure now requires domain-reviewer acceptance.
+- Added root-level validation `review_outcomes` recomputed from generation ledgers and revision maps without adding audit narration to the report.
+- Split research depth from validation assurance with required `artifact_contract` and `captured_host_execution` targets.
+- Added receipt-bound retrieval/draft execution provenance, causal transcript and context checks, explicit validation assurance levels, artifact-only collect override, and captured-only public release.
+- Tightened profile intake and academic retrieval audit: `defaulted_after_prompt` now requires a hash-bound prompt artifact; external full dossiers must cover source-plan required surfaces, include non-all-include screening decisions, and resolver-check every declared included academic identifier. Captured local collect now includes an `audit/` bundle for handoff review.
+- Closed Max threshold-gaming paths: different query executions cannot reuse one response snapshot; Max academic candidates require cross-index resolution; duplicate bibliographic identities must share a canonical version family; and abstract/metadata captures can no longer be labelled as full text.
+
+## 4.0.0 - 2026-07-03
+
+### Added
+
+- `maximal_full_dossier` advanced profile for explicit no-cap or exhaustive research requests.
+- `length_contract.policy` with `bounded` and `open_ended` modes.
+- `report_depth.policy` in validation reports.
+- Review-loop summary fields for maximal runs: `review_loop_policy=concern_driven_until_clear` and `p4_repair_actions`.
+
+### Changed
+
+- New bounded briefs and report outlines explicitly declare `policy=bounded`.
+- `maximal_full_dossier` removes the min/target/max body-length range gate while preserving traceability, quote limits, academic retrieval, strict STORM lens, external review provenance, PDF/HTML parity, and release gates.
+- Validation checks the review loop policy for full dossiers and ensures P4 repair counts match the registered red-team artifact.
+
+### Migration
+
+- Follow `docs/migration-v3-to-v4.md`; old v3 runs remain bound to their 3.0 package and are not silently upgraded.
+
 ## 3.0.0 - 2026-07-03
 
 ### Added

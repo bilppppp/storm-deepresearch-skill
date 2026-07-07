@@ -1,7 +1,7 @@
 interface:
   display_name: "STORM DeepResearch"
-  short_description: "STORM research with evidence and review provenance"
-  default_prompt: "Use $storm-deepresearch-skill. Ask research_profile; recommend default_full_dossier. Record it; require academic baseline and retrieval-audit.jsonl; stop on missing evidence."
+  short_description: "evidence STORM provenance"
+  default_prompt: "research_profile/assurance_target. default_full_dossier default; maximal_full_dossier explicit. storm_research.py init with profile-selection evidence file; never handwrite. missing evidence: stop blocked; status/explain only, no topic findings."
 compatibility:
   canonical_format: "agent-skills"
   adapter_targets: ["openai", "claude", "agent-skills", "vscode", "generic"]
@@ -14,41 +14,47 @@ compatibility:
   trust:
     source_tier: "local"
     remote_inline_execution: "forbid"
-    remote_metadata_policy: "allow-metadata-only"
-    release_policy: "validation-trust-human-approval"
+    remote_metadata_policy: "metadata-only"
+    release_policy: "captured-host-execution human approval"
     trust_report_required: true
   degradation:
-    openai: "Keep contracts."
-    claude: "Keep contracts."
+    openai: "contracts"
+    claude: "contracts"
     agent-skills: "Use SKILL.md."
-    vscode: "Keep contracts."
-    generic: "Require adapter."
+    vscode: "contracts"
+    generic: "adapter"
 contract:
   inputs:
-    required: ["topic_or_question", "profile_selection"]
-    optional: ["input_files", "urls", "findings_jsonl", "audience", "timeframe", "source_policy", "freshness_policy", "retrieval_mode", "research_profile", "report_language", "length_contract", "storm_lens_mode", "workspace_root", "output_root"]
+    required: ["topic_or_question", "profile_selection", "assurance_target"]
+    optional: ["input_files", "urls", "findings_jsonl", "audience", "timeframe", "source_policy", "freshness_policy", "retrieval_mode", "research_profile", "report_language", "length_contract", "storm_lens_mode", "profile_selection_evidence_file", "workspace_root", "output_root"]
   defaults:
     research_profile: "default_full_dossier"
-    research_profile_options: ["default_full_dossier", "critique_deepresearch", "closed_corpus", "briefing", "repair_existing_run"]
+    research_profile_options: ["default_full_dossier", "maximal_full_dossier", "critique_deepresearch", "closed_corpus", "briefing", "repair_existing_run"]
     primary_research_profile_options: ["default_full_dossier", "briefing"]
     legacy_research_profile_aliases: {strict_storm_lens: "default_full_dossier"}
     profile_selection_modes: ["user_selected", "user_requested_default", "defaulted_after_prompt"]
-    profile_selection_policy: "init requires mode and evidence"
+    profile_selection_policy: "explicit mode/evidence"
+    assurance_target_options: ["artifact_contract", "captured_host_execution"]
+    assurance_policy: "explicit; artifact-only cannot deliver/release; captured_host_execution needs profile_selection_evidence_file"
+    user_facing_run_policy: "must begin with storm_research.py init; manual report or evidence dossier is not a valid skill run; blocked final answers are status/explain only, no topic findings"
     retrieval_mode: "host"
     output_mode: "full"
     depth_level: "full_dossier"
-    zh_length_contract: "8000-10000 net body characters excluding bibliography/source sections"
-    en_length_contract: "3500-7000 net body words excluding bibliography/source sections"
+    zh_length_contract: "8000-10000 net body characters"
+    en_length_contract: "3500-7000 net body words"
+    maximal_length_contract: "open-ended; enforce Max completeness"
     output_root: "output/storm-deepresearch"
     output_collision_policy: "fail"
     storm_lens_mode: "strict"
     ledger_update_policy: "monotonic-merge"
-    state_model: "generation artifacts plus immutable receipt chain"
-    research_pool_policy: "tasklets need usable findings before evidence"
-    release_policy: "validation-plus-trust-plus-human-approval"
-    review_policy: "full dossiers require frozen candidate and external/human provenance"
+    state_model: "immutable receipt chain"
+    research_pool_policy: "tasklets require findings"
+    release_policy: "captured-host-execution-plus-validation-plus-trust-plus-human-approval"
+    review_policy: "frozen candidate plus external/human provenance"
+    maximal_completeness_policy: "coverage/material-novelty saturation; counts are metrics, not stop targets"
+    review_loop_policy: "distinct-generation concern-driven STORM panel/editor/re-review/final-integrity closure"
     absence_claim_policy: "material absence needs multi-surface audit"
-    academic_retrieval_policy: "full dossiers require verified academic baseline, screening, version families, and gap-fill"
-  permissions: ["read approved inputs", "write inside output root", "use approved host network", "run validators"]
-  stop_conditions: ["required evidence or provenance missing", "P2 retrieval or P4 repair open", "a gate fails", "release lacks Trust or human approval"]
-  non_goals: ["quick lookup", "unsupported role-play", "personalized professional advice"]
+    academic_retrieval_policy: "retrieval-audit.jsonl: baseline, snapshots, surfaces, screening, cross-index IDs, canonical versions, capture levels, gap-fill"
+  permissions: ["read inputs", "write output root", "host network", "validators"]
+  stop_conditions: ["missing evidence/provenance", "open P2/P4", "gate fails", "no Trust/human approval"]
+  non_goals: ["lookup", "role-play", "personal advice"]

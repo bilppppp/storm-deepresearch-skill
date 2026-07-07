@@ -2,7 +2,7 @@
 
 - OK: `True`
 - Package: `storm-deepresearch-skill`
-- Version: `3.0.0`
+- Version: `4.0.0`
 - Maturity: `governed`
 - Owner: `陈旭`
 - License: `MIT-0`

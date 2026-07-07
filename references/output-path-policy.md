@@ -33,7 +33,7 @@ These are authoritative records:
 - `research/source-register.jsonl`
 - `research/claim-evidence-ledger.jsonl`
 
-`research/retrieval-audit.jsonl` is an internal, generation-scoped audit artifact. The ingest stage rebuilds it only from the validated typed input and binds its hash plus every referenced snapshot into `20-retrieval.json`; it is never copied into `release/`.
+`research/retrieval-audit.jsonl` is an internal, generation-scoped audit artifact. The ingest stage rebuilds it only from the validated typed input and binds its hash plus every referenced snapshot into `20-retrieval.json`; it is never copied into `release/`. Captured host execution `collect` may project it under `audit/research/retrieval-audit.jsonl` for local review handoff.
 
 Never recreate or truncate them after initialization. The retrieval normalizer reads the existing source register, preserves all existing IDs, updates a matching identity only with a newer retrieval record, assigns new IDs monotonically, and replaces the file atomically only after the complete merge succeeds. A failed parse or merge leaves the existing ledger unchanged.
 
@@ -53,3 +53,5 @@ Regeneration does not authorize writes outside the package or replacement of can
 ## Release projection
 
 `release/` is created only by `storm_research.py release`. It is a strict allowlist projection from the current generation plus `validation/release-manifest.json`. It never includes `work/`, `state/`, retrieval inputs, `retrieval-audit.jsonl`, claim update files, amendment inputs, raw caches, or host approval files.
+
+`collect/` is a local handoff, not a public release. For `validated_captured_host_execution`, it includes public deliverables plus an `audit/` subtree with ledgers and provenance needed to review the indexing process. For artifact-only fixture collection, it must be explicitly allowed and remains unsuitable for user delivery or public release.

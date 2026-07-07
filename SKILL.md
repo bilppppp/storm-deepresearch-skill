@@ -1,45 +1,32 @@
 ---
 name: storm-deepresearch-skill
-description: Use for source-grounded deep research with STORM findings, ledgers, receipts, and Markdown/HTML/PDF. Do not use for lookup.
+description: Use for source-grounded deep research. Do not use for lookup.
 ---
 
 # STORM DeepResearch
 
-## Router Rules
-
-- Vague `run ... research X`: ask `research_profile`; recommend `default_full_dossier` (strict P1-P4), not briefing.
-- Full dossiers: strict P1-P4, external/human review provenance, no self-review.
-- External full dossiers: run an academic baseline; corpus-seeded search cannot replace it.
-- Ingest search runs, screened candidates, and captures; bind `retrieval-audit.jsonl` internally.
-- Chinese full dossiers: `8000–10000` visible chars; citations/Markdown excluded.
-- Absence claims need search ledgers; Claims cannot exceed capture ceilings.
-- Fresh output path only; reject existing, escaping, symlink paths.
-- Use `closed_corpus` for supplied material; otherwise host search. Stop on missing evidence.
+Ask research_profile/assurance_target. Every run starts with `scripts/storm_research.py init`; `run_checks.py` is not research validation. Default `default_full_dossier`; Max `maximal_full_dossier`. Zh `8000–10000`; use P1-P4, `report_outline`, academic baseline.
 
 ## Compact Workflow
 
-1. `init` + `plan`: profile evidence, STORM tasklets, `report_outline`.
-2. `ingest` + `findings` + `evidence`: verify bibliography, close gaps, sources, and Claims.
-3. `draft` + P4 + `review-prepare` + `review`: close repairs and external review.
-4. `render` + `validate` + `release`: derive formats; require Trust and approval.
+`init`->`plan(report_outline)`->`ingest/findings/evidence`->`draft/P4/review`->`render/validate/release`.
 
 ## Decision Points
 
-- Input length changes retrieval, not depth; full dossiers cannot downgrade.
-- `init` needs profile-selection evidence; `amend` creates a generation.
+`maximal_full_dossier`: no source-count stopping target; close gaps by novelty/corpus/uncertainty. Max captured retrieval: typed records -> `retrieval-preflight` -> `retrieval-prepare` -> `ingest`.
+
+`diagnostic_rehearsal`: test intent only. Use `init --run-intent diagnostic_rehearsal`; if retrieval gates fail, `ingest --allow-diagnostic-debt` may record `research/blocking-debt-ledger.json` and continue for observation. Never present diagnostic output as validated delivery; final validation/release must stay blocked.
 
 ## Output Contract
 
-Produce plans, findings, ledgers, review, Markdown/HTML/PDF, receipts, and release. Follow [workflow](references/research-protocol.md), [gates](references/quality-gates.md), and [paths](references/output-path-policy.md).
+See references/output-path-policy.md.
 
 ## Failure Policy
 
-- Never invent citations, metrics, or findings.
-- Never reinitialize or truncate ledgers.
-- Never edit receipts or validators to pass.
-- Never mark P4 repairs applied without matching before/after hashes.
-- Fail non-zero; release needs Trust, registry, re-verification, human approval.
+Never reinitialize/truncate ledgers, invent evidence, edit receipts/hashes, or merge reviews. If blocked, use `status`/`explain`; never handwrite manual report/evidence dossier. Blocked final: status/stage/next; no topic findings.
+
+For diagnostic runs, preserve `unreachable` and `access_limited_uncertainty` literally; do not rewrite them as `zero_results` or `saturated`.
 
 ## Resources
 
-Lens: [prompts](references/storm-lens-prompt-pack.md). Check: `python3 scripts/run_checks.py --all`; dist: `python3 scripts/run_checks.py --dist`; cases: `evals/`.
+`scripts/run_checks.py`; `evals/`.
