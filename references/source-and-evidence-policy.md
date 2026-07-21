@@ -41,6 +41,24 @@ External full dossiers additionally require an academic baseline across two scho
 - If sources conflict, cite both sides and explain the disagreement.
 - If a source is old, say why it is still applicable or mark it as historical context.
 
+## Source-method fit
+
+Judge the shape of the specific Claim before judging whether its source and method can support it.
+
+| Source or method | Can support | Cannot support alone |
+|---|---|---|
+| Official statement, product manual, or policy | Recorded features, rules, and positions | Real-world adoption effects, satisfaction, or independent effectiveness |
+| User or community experience | That person's experience and signals of possible problems | Prevalence, general effectiveness, or population conclusions |
+| News report or press release | That an event or statement was reported | The underlying claim's truth or a causal mechanism |
+| Survey or observational study | Proportions or associations within its sample and measurements | Causal effects or unconditional population generalization |
+| Experiment or quasi-experiment | Effects within its identification assumptions and measured scope | Unmeasured long-term effects or universal applicability |
+| Systematic review or meta-analysis | Synthesis within the included studies | Elimination of bias, heterogeneity, or applicability limits |
+
+- Tier, source prestige, and paper count cannot upgrade what a research method can prove.
+- Multiple observational results do not automatically become causal proof.
+- A question's evidence mix may be completed across multiple Claims; do not require every Claim to carry every evidence role in the question plan.
+- P4 and external review must identify the concrete Claim, sentence, or source at issue. They must not reject an entire source category merely because it is nonacademic, news, or user-provided.
+
 ## Capture ceilings and absence claims
 
 - A fact Claim cannot be stronger than the exact retrieval manifest bound by its locator. `strong` requires at least one strong full-text or official-data capture; several medium abstracts do not automatically become strong.
@@ -60,4 +78,4 @@ Unsupported claims must be one of:
 
 Unknown or unsupported material facts cannot remain in the released report. See [Claim-Evidence Policy](claim-evidence-policy.md).
 
-Fresh current claims past the brief's freshness window require host-supplied re-verification before public release. Historical claims may remain historical, but must be labeled as such.
+Known stale or historical material cannot support an explicit current fact without current re-verification. An unobserved publication date or unknown freshness is a non-blocking risk for semantic review, not an evidence-closure failure: do not reject otherwise credible content or require a stock “date unknown” qualification solely for that missing adapter observation. Historical claims may remain historical when their scope is clear.

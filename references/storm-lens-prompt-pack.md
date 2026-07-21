@@ -42,6 +42,8 @@ Generate domain-adapted perspectives. Use the default lenses below unless anothe
 4. Search queries or source classes to pursue.
 5. What this lens might miss.
 
+Produce at least five genuinely different perspectives; renaming the same concern does not count. For every proposed source class, state what it can establish and what it cannot establish alone.
+
 Do not provide final answers. Do not cite model memory. These perspectives create tasklets; sources answer them.
 ```
 
@@ -157,6 +159,13 @@ Review the draft as an adversarial STORM editor.
 5. Is any citation attached to a sentence it does not actually support?
 6. What missing source, if found, would most improve the report?
 7. What should be revised, downgraded, removed, or sent back to retrieval?
+
+For every concern, inspect the conclusion form and the evidence's sample, method, time,
+geography, generalization boundary, and counterevidence. Name the concrete Claim, sentence,
+or source. Do not reject a whole category such as nonacademic, news, or user evidence.
+If the evidence supports a narrower conclusion, qualify or rewrite it. If it supports no
+material conclusion, remove it or route it to additional evidence. Use the existing output
+fields and repair paths; do not invent a method score or coverage field.
 
 Route each problem to one repair path:
 - retrieval

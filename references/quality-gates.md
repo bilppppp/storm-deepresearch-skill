@@ -16,7 +16,7 @@ Run `python3 scripts/storm_research.py validate "$RUN_DIR"` or `python3 scripts/
 - A Claim cannot declare stronger evidence than its bound retrieval capture; inference and recommendation strength cannot exceed their weakest premise.
 - Evidence locators exist.
 - Source helpers reject bad captures by default, including common anti-bot, access-denied, loading-only, and too-short snapshots.
-- Current claims pass freshness policy.
+- Known stale or historical evidence cannot close an explicit current fact. An unknown publication date or freshness status emits a non-blocking semantic-review warning and does not fail closure by itself.
 - Contested claims retain contradicting evidence.
 - No unsupported material claim reaches the report.
 - Every perspective question has a disposition; every answered question is used by `report_outline`.
@@ -71,5 +71,5 @@ The validator writes JSON and Markdown reports only when the resolved `validatio
 - Public release requires a passing Yao Trust report.
 - Registry metadata and trust evidence must bind the current source-contract hash.
 - Human approval must bind the validation receipt and be unexpired.
-- Current claims past the freshness window need host re-verification.
+- Current claims backed by evidence known to be past the freshness window need host re-verification.
 - The release package must match the strict allowlist and contain no process artifacts.

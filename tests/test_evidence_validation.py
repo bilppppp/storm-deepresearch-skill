@@ -3,7 +3,12 @@ from __future__ import annotations
 import unittest
 
 from scripts.contract_io import validate_claim_record
-from scripts.validate_evidence import compute_coverage, validate_absence_searches, validate_claim_closure
+from scripts.validate_evidence import (
+    compute_coverage,
+    freshness_risk_warnings,
+    validate_absence_searches,
+    validate_claim_closure,
+)
 from tests.governed_fixtures import (
     valid_claim_v2,
     valid_report_outline_v2,
@@ -106,6 +111,41 @@ class EvidenceValidationTests(unittest.TestCase):
             [valid_retrieval_manifest_v2()],
         )
         self.assertTrue(any("requires current evidence" in item for item in errors))
+
+    def test_unknown_date_warns_without_blocking_current_claim(self) -> None:
+        for source_type in ("official", "news"):
+            with self.subTest(source_type=source_type):
+                source = valid_source_v2()
+                source.update({
+                    "published_at": None,
+                    "publication_date_status": "unknown",
+                    "freshness_status": "unknown",
+                    "source_type": source_type,
+                    "primary_class": "primary" if source_type == "official" else "secondary",
+                    "reliability_tier": "A" if source_type == "official" else "B",
+                })
+                claim = valid_claim_v2()
+                claim["status"] = "supported"
+                claim["limitation"] = "The evidence is limited to its stated scope."
+                errors = validate_claim_closure(
+                    [claim], [source], self.outline_for("C001"),
+                    [valid_retrieval_manifest_v2()],
+                )
+                self.assertFalse(any("requires current evidence" in item for item in errors))
+                warnings = freshness_risk_warnings([claim], [source])
+                self.assertEqual(len(warnings), 1)
+                self.assertIn("semantic review must judge", warnings[0])
+
+    def test_historical_source_is_allowed_for_non_current_claim(self) -> None:
+        source = valid_source_v2()
+        source["freshness_status"] = "historical"
+        claim = valid_claim_v2()
+        claim["freshness_required"] = False
+        errors = validate_claim_closure(
+            [claim], [source], self.outline_for("C001"),
+            [valid_retrieval_manifest_v2()],
+        )
+        self.assertFalse(any("requires current evidence" in item for item in errors))
 
     def test_contested_claim_requires_contradicting_source(self) -> None:
         claim = valid_claim_v2(status="contested")

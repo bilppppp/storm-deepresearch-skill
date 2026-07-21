@@ -40,7 +40,14 @@ from scripts.harness_io import (
     sha256_file,
 )
 from scripts.export_report import DEFAULT_CHROME, RenderError, export_report, markdown_title
-from scripts.governed_release import ReleaseGateError, release_run
+from scripts.governed_release import (
+    ReleaseGateError,
+    _contradiction_markdown,
+    _evidence_map_markdown,
+    _source_register_markdown,
+    _uncertainty_markdown,
+    release_run,
+)
 from scripts.normalize_retrieval import (
     independent_source_identity,
     normalize_retrieval_records,
@@ -79,7 +86,11 @@ from scripts.source_evidence import (
     normalized_snapshot_text,
     resolve_snapshot,
 )
-from scripts.validate_evidence import validate_absence_searches, validate_claim_closure
+from scripts.validate_evidence import (
+    freshness_risk_warnings,
+    validate_absence_searches,
+    validate_claim_closure,
+)
 from scripts.validate_package import _public_safety_checks, validate_and_commit, validate_governed_run
 
 
@@ -2249,6 +2260,8 @@ def command_evidence(args: argparse.Namespace) -> int:
             errors.append("full_dossier requires at least six evidence-planned sections")
     if errors:
         raise EvidenceGateError("; ".join(dict.fromkeys(errors)))
+    for warning in freshness_risk_warnings(claims, sources):
+        print(f"WARNING: {warning}", file=sys.stderr)
     outputs = _promote_evidence_artifacts(
         layout, generation, claims, contradictions, uncertainties, outline, absence_searches
     )
@@ -2655,6 +2668,72 @@ def _review_request_digest(payload: dict[str, object]) -> str:
     return canonical_json_sha256({key: value for key, value in payload.items() if key != "request_sha256"})
 
 
+def _review_context_markdown(
+    brief: dict[str, object],
+    source_plan: dict[str, object],
+    claims: list[dict[str, object]],
+    sources: list[dict[str, object]],
+    manifests: list[dict[str, object]],
+    contradictions: dict[str, object],
+    uncertainties: dict[str, object],
+    p4: dict[str, object] | None,
+) -> str:
+    """Render existing review evidence into one readable, non-authoritative handoff."""
+    missing = "Not stated in the available materials."
+
+    def compact(value: object) -> str:
+        if value is None or value == "" or value == []:
+            return missing
+        if isinstance(value, list):
+            return "; ".join(compact(item) for item in value)
+        return re.sub(r"\s+", " ", str(value)).strip().replace("|", "\\|")
+
+    lines = [
+        "# External Review Context",
+        "",
+        "This program-generated file projects existing governed artifacts for semantic review. "
+        "It does not classify methods, score sources, or upgrade evidence strength.",
+        "", "## User question",
+    ]
+    for field in ("topic", "research_question", "user_goal", "audience", "geography", "timeframe",
+                  "high_stakes", "length_contract", "assumptions"):
+        lines.append(f"- **{field}:** {compact(brief.get(field))}")
+    lines.extend(["", "## Source proof boundaries", "",
+                  "| Class | Can establish | Cannot establish alone |", "| --- | --- | --- |"])
+    for source_class in source_plan.get("source_classes", []):
+        if isinstance(source_class, dict):
+            name = f"{compact(source_class.get('class_id'))} — {compact(source_class.get('name'))}"
+            lines.append(f"| {name} | {compact(source_class.get('can_prove'))} | {compact(source_class.get('cannot_prove'))} |")
+    lines.extend(["", "### Planned questions"])
+    for question in source_plan.get("questions", []):
+        if isinstance(question, dict):
+            lines.append(f"- **{compact(question.get('query_id'))}:** {compact(question.get('question'))} "
+                         f"Evidence need: {compact(question.get('evidence_need'))}. "
+                         f"Required classes: {compact(question.get('required_source_classes'))}.")
+    material_claims = [claim for claim in claims if claim.get("material")]
+    lines.extend(["", "## Material Claim cards", "", _evidence_map_markdown(material_claims).strip(),
+                  "", "## Source details", "", _source_register_markdown(sources).strip()])
+    for source in sources:
+        lines.append(f"- **{compact(source.get('source_id'))} notes:** {compact(source.get('reliability_notes'))}")
+    lines.extend(["", "## Captured support"])
+    for manifest in manifests:
+        lines.append(f"- **{compact(manifest.get('source_id'))}:** level={compact(manifest.get('capture_level'))}; "
+                     f"locator={compact(manifest.get('locator'))}; snapshot_ref={compact(manifest.get('snapshot_ref'))}; "
+                     f"exact excerpt={compact(manifest.get('excerpt'))}")
+    lines.extend(["", "## Contradictions and uncertainties", "",
+                  _contradiction_markdown(contradictions).strip(), "",
+                  _uncertainty_markdown(uncertainties).strip()])
+    output = p4.get("output", {}) if isinstance(p4, dict) and isinstance(p4.get("output"), dict) else {}
+    lines.extend(["", "## P4 flags"])
+    for field in ("weakest_claim_ids", "overstated_paragraphs", "citation_support_issues", "missing_perspectives"):
+        lines.append(f"- **{field}:** {compact(output.get(field))}")
+    lines.extend([
+        "", "Judge each conclusion against the actual method, sample, time, geography, and counterevidence shown above. "
+        "Unknown publication dates are a review risk, not automatic grounds for rejection.",
+    ])
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def command_review_prepare(args: argparse.Namespace) -> int:
     layout = RunLayout(args.run_dir)
     generation = latest_generation(layout)
@@ -2671,8 +2750,19 @@ def command_review_prepare(args: argparse.Namespace) -> int:
     report = args.candidate_md.read_text(encoding="utf-8")
     paragraph_map = load_jsonl(args.candidate_map)
     revision_map = load_json(args.revision_map)
-    claims = load_jsonl(layout.artifact(generation, "research/claim-evidence-ledger.jsonl"))
-    sources = load_jsonl(layout.artifact(generation, "research/source-register.jsonl"))
+    claim_path = layout.artifact(generation, "research/claim-evidence-ledger.jsonl")
+    source_path = layout.artifact(generation, "research/source-register.jsonl")
+    source_plan_path = layout.artifact(generation, "research/source-plan.json")
+    manifest_path = layout.artifact(generation, "research/retrieval-manifest.jsonl")
+    contradiction_path = layout.artifact(generation, "research/contradiction-ledger.json")
+    uncertainty_path = layout.artifact(generation, "research/uncertainty-ledger.json")
+    brief_path = layout.generation_input(generation, "brief.json")
+    claims = load_jsonl(claim_path)
+    sources = load_jsonl(source_path)
+    source_plan = load_json(source_plan_path)
+    manifests = load_jsonl(manifest_path)
+    contradictions = load_json(contradiction_path)
+    uncertainties = load_json(uncertainty_path)
     errors = validate_report_traceability(report, paragraph_map, claims, sources)
     repairs = list((p4 or {}).get("output", {}).get("repair_actions", []))
     draft_path = layout.artifact(generation, "drafts/report-v1.md")
@@ -2693,6 +2783,7 @@ def command_review_prepare(args: argparse.Namespace) -> int:
         "artifacts/review-candidate/report.md": candidate_root / "report.md",
         "artifacts/review-candidate/paragraph-map.jsonl": candidate_root / "paragraph-map.jsonl",
         "artifacts/review-candidate/revision-map.json": candidate_root / "revision-map.json",
+        "artifacts/review-candidate/review-context.md": candidate_root / "review-context.md",
     }
     for source, destination in (
         (args.candidate_md, destinations["artifacts/review-candidate/report.md"]),
@@ -2700,12 +2791,23 @@ def command_review_prepare(args: argparse.Namespace) -> int:
         (args.revision_map, destinations["artifacts/review-candidate/revision-map.json"]),
     ):
         atomic_copy_file(source, destination)
+    atomic_write_text(
+        destinations["artifacts/review-candidate/review-context.md"],
+        _review_context_markdown(
+            brief, source_plan, claims, sources, manifests, contradictions,
+            uncertainties, p4,
+        ),
+    )
     input_paths = {
+        "inputs/brief.json": brief_path,
         "artifacts/drafts/report-v1.md": draft_path,
         "artifacts/research/storm-lens-red-team.json": p4_path,
-        "artifacts/research/claim-evidence-ledger.jsonl": layout.artifact(generation, "research/claim-evidence-ledger.jsonl"),
-        "artifacts/research/source-register.jsonl": layout.artifact(generation, "research/source-register.jsonl"),
-        "artifacts/research/contradiction-ledger.json": layout.artifact(generation, "research/contradiction-ledger.json"),
+        "artifacts/research/source-plan.json": source_plan_path,
+        "artifacts/research/retrieval-manifest.jsonl": manifest_path,
+        "artifacts/research/claim-evidence-ledger.jsonl": claim_path,
+        "artifacts/research/source-register.jsonl": source_path,
+        "artifacts/research/contradiction-ledger.json": contradiction_path,
+        "artifacts/research/uncertainty-ledger.json": uncertainty_path,
     }
     request: dict[str, object] = {
         "schema_version": "2.0",
@@ -2944,6 +3046,7 @@ def command_review(args: argparse.Namespace) -> int:
         "artifacts/review-candidate/report.md": args.revised_md,
         "artifacts/review-candidate/paragraph-map.jsonl": args.revised_paragraph_map_jsonl,
         "artifacts/review-candidate/revision-map.json": args.revision_map,
+        "artifacts/review-candidate/review-context.md": layout.artifact(generation, "review-candidate/review-context.md"),
     }
     expected_candidates = request.get("candidate_artifacts")
     if not isinstance(expected_candidates, dict) or any(
@@ -3026,6 +3129,9 @@ def command_review(args: argparse.Namespace) -> int:
         "artifacts/review-candidate/report.md": sha256_file(args.revised_md),
         "artifacts/review-candidate/paragraph-map.jsonl": sha256_file(args.revised_paragraph_map_jsonl),
         "artifacts/review-candidate/revision-map.json": sha256_file(args.revision_map),
+        "artifacts/review-candidate/review-context.md": sha256_file(
+            layout.artifact(generation, "review-candidate/review-context.md")
+        ),
     }
     review_inputs.update(p4_receipt_inputs)
     commit_stage_receipt(

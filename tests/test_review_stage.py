@@ -14,9 +14,20 @@ from scripts.report_traceability import (
     validate_review_bindings,
     validate_semantic_review,
 )
-from scripts.storm_research import _validate_review_provenance, _validate_revision_map
+from scripts.storm_research import (
+    _review_context_markdown,
+    _validate_review_provenance,
+    _validate_revision_map,
+)
 import tests.test_evidence_stage as evidence_stage_helpers
-from tests.governed_fixtures import valid_storm_lens_artifact
+from tests.governed_fixtures import (
+    valid_brief_v2,
+    valid_claim_v2,
+    valid_retrieval_manifest_v2,
+    valid_source_plan,
+    valid_source_v2,
+    valid_storm_lens_artifact,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,6 +35,39 @@ CLI = ROOT / "scripts/storm_research.py"
 
 
 class ReviewStageTests(unittest.TestCase):
+    def test_review_context_contains_readable_method_and_counterevidence(self) -> None:
+        claim = valid_claim_v2()
+        claim["limitation"] = "The fixture sample does not establish population effectiveness."
+        p4 = valid_storm_lens_artifact(
+            "P4", "a" * 64, {}, target_sha256="b" * 64,
+        )
+        p4["output"]["citation_support_issues"] = ["C001 may exceed the observed sample."]
+        context = _review_context_markdown(
+            valid_brief_v2(), valid_source_plan(), [claim], [valid_source_v2()],
+            [valid_retrieval_manifest_v2()],
+            {"conflicts": [{
+                "conflict_id": "X001", "analysis": "Observed association conflicts with the causal wording.",
+                "source_ids": ["S001"], "change_condition": "A randomized comparison would change the conclusion.",
+            }]},
+            {"uncertainties": [{
+                "uncertainty_id": "U001", "description": "The sample geography is unclear.",
+                "impact": "Limits generalization.", "next_evidence": "A representative sample.",
+            }]},
+            p4,
+        )
+        for expected in (
+            "What evidence supports the conclusion?",
+            "The issuing body's recorded position",
+            "Independent causal validity",
+            "Official source 1",
+            "First-party source with inspectable full text.",
+            "Directly inspectable evidence excerpt 1.",
+            "The fixture sample does not establish population effectiveness.",
+            "Observed association conflicts with the causal wording.",
+            "C001 may exceed the observed sample.",
+        ):
+            self.assertIn(expected, context)
+
     def test_p4_required_action_cannot_use_empty_revision_map(self) -> None:
         action = {
             "action_id": "RA001", "target_kind": "draft", "target_id": "draft",
@@ -126,6 +170,41 @@ class ReviewStageTests(unittest.TestCase):
             self.assertEqual(second.returncode, 8, second.stdout + second.stderr)
             self.assertIn("review request is immutable", second.stderr)
             self.assertEqual(request_path.read_bytes(), before)
+
+    def test_review_prepare_packages_context_and_rejects_context_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.drafted_run(workspace)
+            self.register_lens_review(run, workspace)
+            inputs = self.write_review_inputs(run, workspace)
+            command = [
+                sys.executable, str(CLI), "review-prepare", str(run),
+                "--candidate-md", str(inputs[5]), "--candidate-map", str(inputs[6]),
+                "--revision-map", str(inputs[7]), "--author-context-id", "author-run-1",
+            ]
+            prepared = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
+            self.assertEqual(prepared.returncode, 0, prepared.stdout + prepared.stderr)
+            artifacts = run / "work/generations/g0001/artifacts"
+            context_path = artifacts / "review-candidate/review-context.md"
+            request = json.loads((artifacts / "research/review-request.json").read_text(encoding="utf-8"))
+            self.assertTrue(context_path.is_file())
+            self.assertIn("What evidence supports the conclusion?", context_path.read_text(encoding="utf-8"))
+            for key in (
+                "inputs/brief.json",
+                "artifacts/research/source-plan.json",
+                "artifacts/research/retrieval-manifest.jsonl",
+                "artifacts/research/uncertainty-ledger.json",
+            ):
+                self.assertIn(key, request["input_artifacts"])
+            self.assertIn(
+                "artifacts/review-candidate/review-context.md",
+                request["candidate_artifacts"],
+            )
+
+            context_path.write_text(context_path.read_text(encoding="utf-8") + "tampered\n", encoding="utf-8")
+            result = self.invoke_review(run, inputs, prepare_candidate=False)
+            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+            self.assertIn("review inputs do not match prepared candidate hashes", result.stderr)
 
     def test_strict_lens_mode_requires_p4_after_draft_before_review(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -282,6 +361,7 @@ class ReviewStageTests(unittest.TestCase):
         self, run: Path, inputs: tuple[Path, Path, Path, Path, Path, Path, Path, Path],
         *,
         with_provenance: bool = True,
+        prepare_candidate: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         claims, audit, fact_checks, conflict_reviews, draft_audit, revised, revised_map, revision_map = inputs
         command = [
@@ -295,15 +375,16 @@ class ReviewStageTests(unittest.TestCase):
             "--revision-map", str(revision_map),
         ]
         if with_provenance:
-            prepare = subprocess.run(
-                [
-                    sys.executable, str(CLI), "review-prepare", str(run),
-                    "--candidate-md", str(revised), "--candidate-map", str(revised_map),
-                    "--revision-map", str(revision_map), "--author-context-id", "author-run-1",
-                ],
-                cwd=ROOT, capture_output=True, text=True, check=False,
-            )
-            self.assertEqual(prepare.returncode, 0, prepare.stdout + prepare.stderr)
+            if prepare_candidate:
+                prepare = subprocess.run(
+                    [
+                        sys.executable, str(CLI), "review-prepare", str(run),
+                        "--candidate-md", str(revised), "--candidate-map", str(revised_map),
+                        "--revision-map", str(revision_map), "--author-context-id", "author-run-1",
+                    ],
+                    cwd=ROOT, capture_output=True, text=True, check=False,
+                )
+                self.assertEqual(prepare.returncode, 0, prepare.stdout + prepare.stderr)
             request = json.loads((run / "work/generations/g0001/artifacts/research/review-request.json").read_text(encoding="utf-8"))
             reviewed_at = request["created_at"]
             for path in (claims, audit, fact_checks, conflict_reviews, draft_audit):

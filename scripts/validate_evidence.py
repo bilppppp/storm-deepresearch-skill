@@ -32,6 +32,29 @@ ABSENCE_CLAIM_RE = re.compile(
 )
 
 
+def freshness_risk_warnings(
+    claims: list[dict[str, Any]], sources: list[dict[str, Any]]
+) -> list[str]:
+    """Report unknown freshness for semantic review without blocking evidence closure."""
+    source_by_id = {str(source.get("source_id")): source for source in sources}
+    warnings: list[str] = []
+    for claim in claims:
+        if not claim.get("freshness_required"):
+            continue
+        claim_id = str(claim.get("claim_id", ""))
+        for source_id in claim.get("supporting_source_ids", []):
+            source = source_by_id.get(str(source_id))
+            if source and (
+                source.get("publication_date_status") == "unknown"
+                or source.get("freshness_status") == "unknown"
+            ):
+                warnings.append(
+                    f"claim {claim_id} source {source_id} has unknown publication date or freshness; "
+                    "semantic review must judge whether it supports a current conclusion"
+                )
+    return list(dict.fromkeys(warnings))
+
+
 def validate_absence_searches(
     claims: list[dict[str, Any]],
     searches: list[dict[str, Any]],
@@ -216,7 +239,7 @@ def validate_claim_closure(
         if claim.get("freshness_required"):
             for source_id in claim.get("supporting_source_ids", []):
                 source = source_by_id.get(source_id)
-                if source and source.get("freshness_status") != "current":
+                if source and source.get("freshness_status") in {"stale", "historical"}:
                     errors.append(
                         f"claim {claim_id} requires current evidence but {source_id} "
                         f"is {source.get('freshness_status')}"

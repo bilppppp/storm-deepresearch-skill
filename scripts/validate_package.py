@@ -75,6 +75,7 @@ RENDER_ARTIFACTS = {
     "review-candidate/report.md",
     "review-candidate/paragraph-map.jsonl",
     "review-candidate/revision-map.json",
+    "review-candidate/review-context.md",
     "exports/report.html",
     "exports/report.pdf",
     "report.md",
