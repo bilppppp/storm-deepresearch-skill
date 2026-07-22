@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 3.1.0 - 2026-07-22
+
+### Added
+
+- Added a six-category source-and-method decision table that keeps source prestige and evidence quantity from upgrading what a study design can prove.
+- Added a readable, frozen `review-context.md` projection so independent reviewers can inspect the user question, proof boundaries, Claims, captures, contradictions, uncertainties, and P4 findings without parsing hashes.
+
+### Changed
+
+- P4 and independent review now assess method fit against concrete Claims and sentences, including sample, method, time, geography, extrapolation, counterevidence, and limitations.
+- Unknown publication dates and unknown freshness now produce non-blocking semantic-review warnings; known stale evidence still cannot support explicit current facts.
+- Paragraph review blocks only material evidence failures while preserving non-material findings and required actions as warnings.
+
 ## 3.0.0 - 2026-07-03
 
 ### Added

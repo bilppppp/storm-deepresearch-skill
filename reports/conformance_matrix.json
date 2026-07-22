@@ -235,7 +235,7 @@
     "fail_count": 0
   },
   "artifacts": {
-    "json": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/conformance_matrix.json",
-    "markdown": "/Users/gravity/Documents/Codex/2026-06-21/https-github-com-yaojingang-yao-meta/work/storm-deepresearch-skill-v1/reports/conformance_matrix.md"
+    "json": "$SKILL_ROOT/reports/conformance_matrix.json",
+    "markdown": "$SKILL_ROOT/reports/conformance_matrix.md"
   }
 }

@@ -2,7 +2,7 @@
 
 `storm-deepresearch-skill` 是一个证据驱动的 governed 深度研究 harness。它保留 STORM 的多视角提问思想，但不把角色观点当证据：视角只生成检索问题，事实必须进入来源登记和 Claim-Evidence 账本，每个阶段必须写入可重算 receipt，最终从单一 `report.md` 渲染并验证 Markdown、HTML 和 PDF。
 
-当前版本：`3.0.0`
+当前版本：`3.1.0`
 
 ## 能做什么
 
@@ -15,14 +15,15 @@
 - 默认中文完整研究为 `8000–10000` 净正文字符；参考文献、脚注键、链接地址、图片标记和 Markdown 控制符不计入字数；输入长度只改变检索量，不会自动把成品压缩成摘要。
 - full dossier 必须先冻结 review candidate，再由外部模型会话或人工 reviewer 提交可重算 provenance；`independent: true` 或两个不同字符串不再足以通过。
 - 同一来源可以回答多个 query；Source 去重与问题覆盖分离，Claim 强度不能超过精确 locator 对应的 capture ceiling。
+- 先判断具体 Claim 是记录事实、关联、因果、外推、推断还是建议，再检查来源类型、研究方法、样本、时间、地域和捕获层级是否足以支持；Tier、来源声望和论文数量不能升级方法本身的证明能力。
 - 外部 full dossier 强制完成 academic baseline：先记录搜索运行，再筛选候选文献、核验 bibliographic 身份、归并论文版本，最后捕获可引用正文。
 - 用户语料采用 corpus-seeded 检索，不会替代学术基线；未闭合问题必须进入 gap-fill 或不确定性账本。
 - “未发现证据”类 material Claim 必须声明 `absence_search` 并提交别名、检索面、结果数和来源快照。
 - 强制将已回答的 STORM 问题和材料性 Claim 映射到 `research-plan.report_outline`，避免研究停留在中间产物。
-- 对空证据、假引用、过期证据、占位符、本地路径泄漏、缺失 PDF 和格式漂移返回非零退出码。
+- 对空证据、假或不可检查的来源、material Claim 无证据、关键引用不支持、已知过期材料支撑明确当前事实、危险结论越界、凭证或本地路径泄漏、缺失 PDF 和格式漂移返回非零退出码。仅因 adapter 没观察到发布日期不会失败。
 - 默认在用户工作区的 `output/storm-deepresearch/` 下创建独立运行目录；已存在目标、路径逃逸和符号链接逃逸都会失败。
 - 初始化不会覆盖既有研究包；来源登记采用保留既有 ID 的原子合并，研究账本不能被重新初始化截断。
-- 公开 release 需要通过离线 validation、Yao Trust 报告、Registry hash 匹配、必要的来源再验证和 human approval。
+- 公开研究包 release 需要通过离线 validation、Yao Trust 报告、Registry hash 匹配、必要的来源再验证和 human approval；本地 `render`、`validate`、查看 HTML/PDF 和普通 Git 提交不需要真人 release 签署。
 
 它不适合快速事实查询、简单摘要、无证据角色扮演或个性化医疗、法律、投资建议。
 
@@ -258,6 +259,23 @@ Prompt 2 的每个 blind spot 和 resolver question 都必须写入 `resolution_
 
 材料性事实必须有可定位证据；推断必须指出已支持前提；建议必须写明适用条件和取舍。涉及阿伦特、福柯、康德、马克思、文化工业、生命政治等理论框架的 material claim，必须由 academic、book、expert、peer_reviewed_paper 或 secondary_synthesis 类型来源支撑，用户观后感、转录文本或百科页面不能单独闭合。full dossier 至少需要 5 个视角、10 个问题、6 个 evidence-planned sections 和 12 个 material claims。
 
+#### 证据层级与方法适配
+
+方法适配先看具体结论形态，再看来源能证明什么。官方说明可以证明已记录的功能、规则和立场，不能单独证明真实采用效果；用户或社区经历可以证明个案，不能推出发生率；新闻可以证明某事件或说法被报道，不能替代原始证据；调查和观察性研究通常支持样本与测量范围内的比例或关联，不能自动升级为因果；实验、准实验、系统综述和 Meta 分析仍受识别假设、测量、随访、异质性及适用范围约束。完整六类决策表见[来源与证据策略](references/source-and-evidence-policy.md)。
+
+- Tier、来源声望、论文数量和多个同向观察性结果都不能升级研究方法的证明能力。
+- 问题所需的多类证据可以由多个 Claim 共同完成，不要求每个 Claim 覆盖所有 evidence roles。
+- 已知 stale 或不适合当前事实的 historical 材料支撑明确当前结论时失败；发布日期或 freshness 未观察到时只产生非阻塞风险提示，由语义审查结合内容和版本信号判断。
+- 日期未知不要求 Claim 改为 `qualified`，也不要求作者添加“日期未知”等模板句。
+
+规则按影响分为三类：
+
+| 级别 | 适用问题 |
+|---|---|
+| 硬失败 | 假或不可检查的来源；material Claim 无证据；关键引用不支持；危险的方法越界；已知过期材料支撑明确当前事实；凭证、本地路径或网络安全泄漏 |
+| 警告、限定或语义判断 | 日期未知；样本、方法、地域或长期适用性信息不完整；观察性结论需要收窄为关联；用户经历需要收窄为个案；来源只能支持更窄的结论；问题层面的证据组合有缺口 |
+| 仅内部诊断 | pass 顺序、时间窗、Selection hash、ID、路径、timestamp 和 receipt 记账；不据此生成方法覆盖率或报告质量分数 |
+
 提交完整 evidence 前，可以先定位理论来源问题；该命令只诊断、不写 receipt：
 
 ```bash
@@ -316,7 +334,7 @@ sidecar 最小格式是一行一个段落映射，例如 `{"text_locator":"parag
   --author-context-id "$HOST_SESSION_ID"
 ```
 
-`review-prepare` 还会在同一冻结目录生成 `review-candidate/review-context.md`。它把用户问题、source plan 的 `can_prove/cannot_prove`、Claim 与来源、准确 capture excerpt、矛盾、不确定性和 P4 问题投影为可读材料；它不做方法分类或评分。将整个 `review-candidate/` 与 `research/review-request.json` 交给隔离的外部模型会话或人工 reviewer，不能只给哈希。reviewer 使用现有 `verdict`、`reason`、`allowable_scope`、`required_action` 和 `findings` 判断具体 Claim/句子的方法适配，不增加 reviewer 数量或 review 类型。reviewer provenance 必须绑定 request hash、review output hash、transcript hash、执行身份和时间窗口。
+`review-prepare` 还会在同一冻结目录生成 `review-candidate/review-context.md`。它把用户问题、source plan 的 `can_prove/cannot_prove`、Claim 与来源、准确 capture excerpt、矛盾、不确定性和 P4 问题投影为可读材料；它不做方法分类或评分。将整个 `review-candidate/` 与 `research/review-request.json` 交给隔离的外部模型会话或人工 reviewer，不能只给哈希。reviewer 使用现有 `verdict`、`reason`、`allowable_scope`、`required_action` 和 `findings` 判断具体 Claim/句子的方法适配，不增加 reviewer 数量或 review 类型。日期未知本身不能决定 verdict，P4 和 reviewer 也不能按“非学术”“新闻”或“用户来源”等类别整体否决。reviewer provenance 必须绑定 request hash、review output hash、transcript hash、执行身份和时间窗口。
 
 每个 material Claim 和正文段落仍必须有语义审查记录。material Claim 的非 `supported` verdict 继续阻止 review。对段落审查，`material=true` 只用于会改变核心答案、关键综合或行动建议，或者构成安全风险的实质性证据问题；这类目标的非 `supported` verdict 会阻止 review。局部措辞、可进一步限定但不改变核心判断的问题使用 `material=false`：记录和修复动作保留在 `peer-review.json`，review 命令输出 warning，但不阻止整份报告。不得为过 gate 把关键问题标成非 material。
 
@@ -424,9 +442,17 @@ full dossier 不接受 `self_review`。当前保证等级称为 `captured extern
 - `current/repair-plan.json`：失败后可选生成的结构化修复计划，不是权威 receipt。
 - `release/`：通过 Trust 和 human approval 后生成的严格 allowlist 发布投影。
 
-可查看 [历史格式示例](examples/validated-output/) 和 [PDF](examples/validated-output/exports/report.pdf)。该目录只用于说明旧版交付物布局，不代表 3.0.0 的 academic retrieval、bibliographic、screening、version-family 和 gap-fill 合同；3.0.0 成品必须以本次运行的 `validation-report.json` 为准。
+可查看 [历史格式示例](examples/validated-output/) 和 [PDF](examples/validated-output/exports/report.pdf)。该目录只用于说明旧版交付物布局，不代表 3.1.0 的 academic retrieval、bibliographic、screening、version-family、gap-fill 和 evidence-method-fit 合同；3.1.0 成品必须以本次运行的 `validation-report.json` 为准。
 
 ## 开发与发布门禁
+
+这里有三种不同的完成动作，不应混为一条流水线：
+
+| 动作 | 最小要求 | 是否需要 human release approval |
+|---|---|---|
+| 普通 Git commit / push | 审查 diff，运行与改动相关的最小离线测试 | 否 |
+| 构建并发布 Skill ZIP | `--all`、`--dist`、package verification；发布到 registry 时再做对应审计 | 否，除非目标平台另有要求 |
+| 公开某次研究报告包 | 该 run 已通过 review、render、validate，并完成 Trust、registry、必要的来源再验证和 release approval | 是 |
 
 ```bash
 .venv/bin/python -m unittest discover -s tests -v

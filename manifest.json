@@ -1,10 +1,10 @@
 {
   "name": "storm-deepresearch-skill",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Governed STORM research harness with tasklets, findings pool, receipt chains, evidence ledgers, validated Markdown/HTML/PDF, and trust-approved release.",
   "owner": "陈旭",
   "author": "陈旭",
-  "updated_at": "2026-07-03",
+  "updated_at": "2026-07-22",
   "review_due": "per-release",
   "review_cadence": "per-release",
   "status": "active",

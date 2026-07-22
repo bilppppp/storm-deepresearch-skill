@@ -1,11 +1,11 @@
 {
   "schema_version": "2.0",
-  "generated_at": "2026-07-03",
+  "generated_at": "2026-07-22",
   "package_count": 1,
   "packages": [
     {
       "name": "storm-deepresearch-skill",
-      "version": "3.0.0",
+      "version": "3.1.0",
       "maturity": "governed",
       "owner": "陈旭",
       "targets": [
@@ -16,7 +16,7 @@
         "generic"
       ],
       "package_metadata": "registry/packages/storm-deepresearch-skill.json",
-      "package_sha256": "731c17dcc1d6d8c6032cb566947ca85ce4cca326d78528619b748d3cbcf99bcf"
+      "package_sha256": "82c8a0f79c687302c6cfb2592f4314a06e5809c148fc7d5ae8c361279dc4bd7b"
     }
   ]
 }
