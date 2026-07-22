@@ -4,7 +4,7 @@
 - Package directory: `$SKILL_ROOT/dist`
 - Targets: `4 / 4` adapters present
 - Archive present: `True`
-- Archive SHA256: `a312f1a5e1078155648e07d5a02cebdfe8e1dab880bb37af767807ed8bdbec32`
+- Archive SHA256: `a76f9743bfab711c9946d226517a02b578f7c6c01b52aabc53291002af97cfa9`
 - Failures: `0`
 - Warnings: `0`
 

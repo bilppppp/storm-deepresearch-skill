@@ -11,13 +11,13 @@ from pathlib import Path
 from scripts.governed_release import (
     RELEASE_FILES,
     ReleaseGateError,
+    _source_register_markdown,
     required_reverification_sources,
     validate_reverification,
     yao_source_contract_hash,
 )
 from scripts.harness_io import compute_skill_package_hash, sha256_file
 from scripts.run_state import RunLayout, Stage, verify_receipt_chain
-from scripts.render_audit_views import render as render_audit_views
 from tests.test_validate_package import artifact_root, build_valid_governed_run
 
 
@@ -30,8 +30,14 @@ class GovernedReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             run = build_valid_governed_run(Path(tmp))
             artifacts = artifact_root(run)
-            render_audit_views(artifacts)
-            source_view = (artifacts / "research/source-register.md").read_text(encoding="utf-8")
+            sources = [
+                json.loads(line)
+                for line in (artifacts / "research/source-register.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+                if line.strip()
+            ]
+            source_view = _source_register_markdown(sources)
             self.assertIn("Bibliographic", source_view)
             self.assertIn("Version", source_view)
 

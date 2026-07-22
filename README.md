@@ -460,7 +460,9 @@ full dossier 不接受 `self_review`。当前保证等级称为 `captured extern
 .venv/bin/python scripts/run_checks.py --dist
 ```
 
-`--all` 运行单元测试、编译检查、schema 检查和 Yao Meta Skill 验证。`--dist` 是正式技能包构建入口：它调用 Yao package 生成 openai/claude/generic/vscode 四个平台 adapter，创建 `dist/storm-deepresearch-skill.zip`，净化归档中的本机路径，然后执行 package verification 并把报告写入 `dist/package_verification.json` 和 `dist/package_verification.md`。Yao 的 Output Lab、Trust、Conformance 和安装模拟证据保存在 `reports/`；最终 release 还必须运行 `storm_research.py release` 并绑定外部 trust、registry、re-verification 和 human approval。发布步骤见 [发布检查表](docs/release-checklist.md)。
+`--all` 运行单元测试、编译检查、schema 检查，以及 Yao 的 validate、lint、governance 和 resource-boundary 检查。这个项目明确采用 `2200` initial-load token 上限，以容纳 evidence-method-fit 等会改变执行行为的规则；当前实测约 `2062`，不会为了满足 Yao 的通用 `1300` 默认值而删掉关键安全和质量判断。`--dist` 是正式技能包构建入口：它调用 Yao package 生成 openai/claude/generic/vscode 四个平台 adapter，创建 `dist/storm-deepresearch-skill.zip`，净化归档中的本机路径，并把 ZIP 收窄为显式运行时 allowlist，然后执行 package verification。安装 ZIP 只保留 `SKILL.md`、README、LICENSE、manifest、运行依赖、`agents/interface.yaml`、权限策略、两个只读审查页、references、schemas、核心运行脚本和 HTML 模板；平台 adapter 位于 `dist/targets/` 并与 ZIP 一起验证。tests、evals、其余 reports、docs、examples、registry、release 工具及本地输出不会进入安装包。
+
+Yao 的 Output Lab、Trust、Conformance 和安装模拟证据仍保存在源码仓库的 `reports/`，用于开发与发布判断，而不是安装时运行。最终研究报告 release 仍须运行 `storm_research.py release` 并绑定外部 trust、registry、re-verification 和 human approval。发布步骤见 [发布检查表](docs/release-checklist.md)。
 
 如果手动调用 Yao package，执行 package verification 前仍需净化归档中的本机路径：
 
@@ -469,10 +471,11 @@ full dossier 不接受 `self_review`。当前保证等级称为 `captured extern
   dist/storm-deepresearch-skill.zip \
   --redact-root "$PWD" \
   --exclude-prefix storm-deepresearch-skill/output/ \
-  --exclude-name .DS_Store
+  --exclude-name .DS_Store \
+  --runtime-only
 ```
 
-该命令保留 ZIP 结构和二进制条目，将项目根路径替换为 `$SKILL_ROOT`、用户主目录替换为 `$HOME`，并排除本地运行产物与 Finder 元数据；存在不安全条目或未完成净化时非零退出。
+该命令保留 ZIP 结构和二进制条目，将项目根路径替换为 `$SKILL_ROOT`、用户主目录替换为 `$HOME`，并排除非运行时文件、本地运行产物与 Finder 元数据；存在不安全条目或未完成净化时非零退出。
 
 ## 版本迁移与回滚
 

@@ -29,7 +29,7 @@
 - [ ] Registry metadata package hash matches the current Yao source-contract hash.
 - [ ] `storm_research.py release` succeeds only with host-controlled Trust evidence, Yao Trust report, human approval, and required re-verification records.
 - [ ] `release/` contains only the allowlisted public files and excludes `work/`, `state/`, raw retrieval inputs, claim updates, and amendment inputs.
-- [ ] `scripts/sanitize_release_archive.py` has redacted the current skill root and user home from the generated ZIP before package verification.
+- [ ] `scripts/sanitize_release_archive.py --runtime-only` has reduced the ZIP to the installable allowlist and redacted the current skill root and user home before package verification.
 - [ ] Package verification passes and hashes correspond to the current source; verification artifacts are in `dist/package_verification.*`.
 - [ ] A clean temporary install simulation passes without relying on the source `.venv`.
 - [ ] `dist/` contains only release artifacts; temporary renders and caches are removed.

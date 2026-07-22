@@ -9,6 +9,8 @@ from pathlib import Path
 
 import yaml
 
+from scripts import run_checks
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -44,10 +46,16 @@ class LibraryContractTests(unittest.TestCase):
         estimated_tokens = len(re.findall(r"\S+", text)) * 4 // 3
         self.assertLessEqual(estimated_tokens, 1300)
 
-    def test_yao_resource_boundary_accepts_library_budget(self) -> None:
+    def test_yao_resource_boundary_accepts_project_budget(self) -> None:
         script = Path.home() / ".agents" / "skills" / "yao-meta-skill" / "scripts" / "resource_boundary_check.py"
         result = subprocess.run(
-            [sys.executable, str(script), str(ROOT)],
+            [
+                sys.executable,
+                str(script),
+                str(ROOT),
+                "--max-initial-tokens",
+                str(run_checks.PROJECT_INITIAL_LOAD_BUDGET),
+            ],
             capture_output=True,
             text=True,
             check=False,

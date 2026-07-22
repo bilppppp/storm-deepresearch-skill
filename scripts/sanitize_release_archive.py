@@ -10,9 +10,72 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 
+RUNTIME_ROOT_FILES = {
+    "LICENSE",
+    "README.md",
+    "SKILL.md",
+    "manifest.json",
+    "requirements.lock",
+}
+RUNTIME_EXACT_FILES = {
+    "agents/interface.yaml",
+    "reports/review-studio.html",
+    "reports/skill-overview.html",
+    "security/permission_policy.json",
+    "templates/report.html.j2",
+}
+RUNTIME_SCRIPT_FILES = {
+    "agent_run_guard.py",
+    "contract_io.py",
+    "export_report.py",
+    "governed_release.py",
+    "harness_io.py",
+    "merge_claim_ledger.py",
+    "normalize_retrieval.py",
+    "output_paths.py",
+    "report_traceability.py",
+    "run_state.py",
+    "source_evidence.py",
+    "storm_research.py",
+    "validate_evidence.py",
+    "validate_package.py",
+}
+RUNTIME_DIRECTORY_PREFIXES = ("references/", "schemas/", "targets/")
+
+
 def safe_member(name: str) -> bool:
     path = PurePosixPath(name)
     return not path.is_absolute() and ".." not in path.parts
+
+
+def package_relative_member(name: str) -> str:
+    """Return a member path without the archive's optional package-root directory."""
+    parts = PurePosixPath(name).parts
+    if not parts:
+        return ""
+    candidate = "/".join(parts)
+    known_roots = {
+        "agents",
+        "references",
+        "reports",
+        "schemas",
+        "scripts",
+        "security",
+        "targets",
+        "templates",
+    }
+    if parts[0] in RUNTIME_ROOT_FILES or parts[0] in known_roots:
+        return candidate
+    return "/".join(parts[1:])
+
+
+def runtime_member_allowed(name: str) -> bool:
+    relative = package_relative_member(name)
+    if relative in RUNTIME_ROOT_FILES or relative in RUNTIME_EXACT_FILES:
+        return True
+    if relative.startswith("scripts/"):
+        return relative in {f"scripts/{name}" for name in RUNTIME_SCRIPT_FILES}
+    return any(relative.startswith(prefix) for prefix in RUNTIME_DIRECTORY_PREFIXES)
 
 
 def replacements(redact_roots: list[Path]) -> list[tuple[bytes, bytes]]:
@@ -45,6 +108,7 @@ def sanitize_archive(
     *,
     exclude_prefixes: list[str] | None = None,
     exclude_names: list[str] | None = None,
+    runtime_only: bool = False,
 ) -> dict[str, object]:
     archive = archive.expanduser().resolve()
     if not archive.is_file():
@@ -72,6 +136,9 @@ def sanitize_archive(
             temp_path = Path(raw_temp)
             with zipfile.ZipFile(temp_path, "w") as target:
                 for info in infos:
+                    if runtime_only and not runtime_member_allowed(info.filename):
+                        removed_entries.append(info.filename)
+                        continue
                     if any(info.filename.startswith(prefix) for prefix in normalized_prefixes):
                         removed_entries.append(info.filename)
                         continue
@@ -117,6 +184,7 @@ def sanitize_archive(
         "changed_entries": changed_entries,
         "removed_entry_count": len(removed_entries),
         "removed_entries": removed_entries,
+        "runtime_only": runtime_only,
         "markers": [marker.decode("utf-8") for _, marker in pairs],
     }
 
@@ -143,6 +211,11 @@ def main() -> int:
         default=[],
         help="Archive member basename to remove; may be repeated.",
     )
+    parser.add_argument(
+        "--runtime-only",
+        action="store_true",
+        help="Keep only the installable runtime allowlist and generated target adapters.",
+    )
     args = parser.parse_args()
     try:
         report = sanitize_archive(
@@ -150,6 +223,7 @@ def main() -> int:
             args.redact_root,
             exclude_prefixes=args.exclude_prefix,
             exclude_names=args.exclude_name,
+            runtime_only=args.runtime_only,
         )
     except (FileNotFoundError, ValueError, zipfile.BadZipFile) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False, indent=2))

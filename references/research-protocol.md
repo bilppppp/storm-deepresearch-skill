@@ -53,6 +53,8 @@ In strict mode, register `research/storm-lens-perspectives.json` with `lens-pers
 ## Phase 3 — Research through tasklets
 For each perspective, generate at least two concrete research questions for a full dossier. Search for answers. Every question records `planned`, `answered`, `unresolved`, or `out_of_scope`; answered questions link claim IDs, while unresolved questions enter the uncertainty ledger.
 
+Use the host, provider, and closed-corpus boundaries in [Retrieval Adapters](retrieval-adapters.md). Search snippets identify candidates but cannot close material Claims; bundled scripts do not initiate research network requests.
+
 For film reviews or essay prompts, do not search only the film's background page. Turn the user's concepts, comparisons, and named theorists into separate research questions, then retrieve sources that can actually prove or challenge those claims.
 
 In 1.1, `plan` automatically creates `research/storm-tasklets.jsonl`. After `ingest`, run `storm_research.py findings` to register `research/storm-findings-pool.jsonl` and `research/finding-coverage.json`. A full external dossier cannot advance to evidence unless every tasklet has at least one usable finding. A `needs_more_evidence` finding requires a later gap-fill search; if it remains unresolved, bind its tasklet to exactly one uncertainty record.
@@ -80,6 +82,8 @@ Every blind spot and resolver question must have a `resolution_action`. `new_ret
 ## Phase 6 — Build the synthesis outline
 Run the synthesis outline prompt only after findings, contradiction mapping, and any resolver search. Complete `research-plan.report_outline` before prose. Allocate the full length budget across distinct sections. Each section must resolve named perspective questions, use material claim IDs, and specify evidence-led expansion elements. This is the article's third prompt turned into an auditable synthesis plan rather than a short briefing.
 
+Draft sections with the evidence-led expansion, length, confidence, and recommendation rules in [Report Writing Rules](report-writing.md). Those rules protect depth without using repetition, oversized quotation, or source lists as padding.
+
 In strict mode, register `research/storm-lens-outline.json` with `lens-outline` after `lens-conflicts` and before evidence. The evidence receipt must bind that artifact.
 
 ## Phase 7 — Peer review
@@ -93,5 +97,7 @@ Material absence claims require an `absence-search-ledger.jsonl`. Full dossiers 
 
 ## Phase 8 — Export and validate
 Generate final Markdown, HTML, and PDF-ready outputs. Run validation.
+
+Follow [Export Workflow](export-workflow.md) for renderer dependencies, reduced-output boundaries, render-manifest checks, and local `collect` handoff.
 
 In governed runs, every major phase after init maps to a stage receipt: `plan`, `ingest`, `evidence`, `draft`, `review`, `render`, `validate`, and optionally `release`. `findings`, `lens-perspectives`, `lens-conflicts`, `lens-outline`, `lens-review`, `review-prepare`, and `repair-plan` are governed helper commands. Harness-owned timestamps and strictly increasing receipts prove phase causality. If any phase has missing evidence, do not continue to the next stage. Use `status`, `explain`, `repair-plan`, and `retry` to inspect or repair the chain; use `amend` only to create a new generation.

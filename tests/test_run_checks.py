@@ -16,6 +16,18 @@ SCRIPT = ROOT / "scripts/run_checks.py"
 
 
 class RunChecksTests(unittest.TestCase):
+    def test_yao_validation_uses_explicit_project_budget(self) -> None:
+        with mock.patch.object(run_checks.Path, "is_file", return_value=True):
+            with mock.patch.object(run_checks, "run", return_value=0) as runner:
+                self.assertEqual(run_checks.run_yao_validation(sys.executable), 0)
+        commands = [call.args[0] for call in runner.call_args_list]
+        self.assertEqual(len(commands), 4)
+        self.assertTrue(any(item.endswith("validate_skill.py") for item in commands[0]))
+        self.assertTrue(any(item.endswith("lint_skill.py") for item in commands[1]))
+        self.assertIn("--require-manifest", commands[2])
+        self.assertIn("--max-initial-tokens", commands[3])
+        self.assertIn(str(run_checks.PROJECT_INITIAL_LOAD_BUDGET), commands[3])
+
     def test_schema_gate_includes_output_eval_schema(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -61,6 +73,7 @@ class RunChecksTests(unittest.TestCase):
         self.assertIn("storm-deepresearch-skill.zip", commands[1][2])
         self.assertIn("--exclude-prefix", commands[1])
         self.assertIn("storm-deepresearch-skill/output/", commands[1])
+        self.assertIn("--runtime-only", commands[1])
         verify_command = commands[2]
         self.assertIn("package-verify", verify_command)
         self.assertIn("--require-zip", verify_command)

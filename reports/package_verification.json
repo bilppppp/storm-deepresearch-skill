@@ -8,8 +8,8 @@
     "target_count": 4,
     "adapter_count": 4,
     "archive_present": true,
-    "archive_sha256": "a312f1a5e1078155648e07d5a02cebdfe8e1dab880bb37af767807ed8bdbec32",
-    "archive_entry_count": 289,
+    "archive_sha256": "a76f9743bfab711c9946d226517a02b578f7c6c01b52aabc53291002af97cfa9",
+    "archive_entry_count": 55,
     "failure_count": 0,
     "warning_count": 0
   },

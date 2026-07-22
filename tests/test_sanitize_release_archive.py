@@ -124,6 +124,61 @@ class SanitizeReleaseArchiveTests(unittest.TestCase):
             self.assertIn("skill/evals/output/schema.json", names)
             self.assertIn("skill/SKILL.md", names)
 
+    def test_runtime_only_keeps_installable_allowlist(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_temp:
+            temp = Path(raw_temp)
+            archive = temp / "release.zip"
+            with zipfile.ZipFile(archive, "w") as target:
+                target.writestr("skill/SKILL.md", "# Skill")
+                target.writestr("skill/LICENSE", "MIT-0")
+                target.writestr("skill/agents/interface.yaml", "interface: {}")
+                target.writestr("skill/reports/review-studio.html", "<html>review</html>")
+                target.writestr("skill/reports/skill-overview.html", "<html>overview</html>")
+                target.writestr("skill/references/policy.md", "policy")
+                target.writestr("skill/schemas/brief.schema.json", "{}")
+                target.writestr("skill/security/permission_policy.json", "{}")
+                target.writestr("skill/scripts/storm_research.py", "print('ok')")
+                target.writestr("skill/scripts/run_checks.py", "print('dev only')")
+                target.writestr("skill/templates/report.html.j2", "<html></html>")
+                target.writestr("skill/templates/report.md", "# unused")
+                target.writestr("skill/reports/trust.json", "{}")
+                target.writestr("skill/tests/test_runtime.py", "pass")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    str(archive),
+                    "--redact-root",
+                    str(temp),
+                    "--runtime-only",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            report = json.loads(result.stdout)
+            self.assertTrue(report["runtime_only"])
+            with zipfile.ZipFile(archive, "r") as source:
+                names = set(source.namelist())
+            self.assertEqual(
+                names,
+                {
+                    "skill/SKILL.md",
+                    "skill/LICENSE",
+                    "skill/agents/interface.yaml",
+                    "skill/reports/review-studio.html",
+                    "skill/reports/skill-overview.html",
+                    "skill/references/policy.md",
+                    "skill/schemas/brief.schema.json",
+                    "skill/security/permission_policy.json",
+                    "skill/scripts/storm_research.py",
+                    "skill/templates/report.html.j2",
+                },
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

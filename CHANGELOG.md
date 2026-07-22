@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Changed
+
+- `run_checks.py --dist` now rewrites the generated ZIP to an explicit installable-runtime allowlist instead of shipping the entire development repository.
+- Project checks now apply an explicit `2200` initial-load budget while retaining Yao validate, lint, governance, and resource-boundary checks; this preserves execution-critical evidence-method-fit rules without changing the global Yao installation.
+- Reconnected retrieval, report-writing, and export guidance from the main research protocol so deferred references remain discoverable without expanding `SKILL.md`.
+
+### Removed
+
+- Removed tracked Superpowers session/design artifacts, duplicate Skill Atlas directories, unused world-class intake placeholders, and obsolete registry examples.
+- Removed two obsolete helper scripts, five Markdown templates that runtime code never read, and a duplicate STORM workflow mapping document.
+
 ## 3.1.0 - 2026-07-22
 
 ### Added

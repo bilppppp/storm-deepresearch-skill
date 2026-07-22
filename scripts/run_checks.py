@@ -11,6 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_TARGETS = ("openai", "claude", "generic", "vscode")
+PROJECT_INITIAL_LOAD_BUDGET = 2200
 
 
 def run(command: list[str]) -> int:
@@ -46,6 +47,30 @@ def validate_schema_files() -> int:
     return 0 if not failures else 4
 
 
+def run_yao_validation(python: str) -> int:
+    yao_scripts = Path.home() / ".agents" / "skills" / "yao-meta-skill" / "scripts"
+    commands = (
+        [python, str(yao_scripts / "validate_skill.py"), str(ROOT)],
+        [python, str(yao_scripts / "lint_skill.py"), str(ROOT)],
+        [python, str(yao_scripts / "governance_check.py"), str(ROOT), "--require-manifest"],
+        [
+            python,
+            str(yao_scripts / "resource_boundary_check.py"),
+            str(ROOT),
+            "--max-initial-tokens",
+            str(PROJECT_INITIAL_LOAD_BUDGET),
+        ],
+    )
+    for command in commands:
+        if not Path(command[1]).is_file():
+            print(f"Yao Meta Skill check is unavailable: {command[1]}", file=sys.stderr)
+            return 3
+        code = run(command)
+        if code:
+            return code
+    return 0
+
+
 def run_all() -> int:
     python = project_python()
     commands = [
@@ -59,11 +84,7 @@ def run_all() -> int:
     code = validate_schema_files()
     if code:
         return code
-    yao = Path.home() / ".agents" / "skills" / "yao-meta-skill" / "scripts" / "yao.py"
-    if not yao.is_file():
-        print("Yao Meta Skill CLI is unavailable.", file=sys.stderr)
-        return 3
-    return run([python, str(yao), "validate", str(ROOT)])
+    return run_yao_validation(python)
 
 
 def run_dist() -> int:
@@ -99,6 +120,7 @@ def run_dist() -> int:
             "storm-deepresearch-skill/output/",
             "--exclude-name",
             ".DS_Store",
+            "--runtime-only",
         ],
         [
             python,
