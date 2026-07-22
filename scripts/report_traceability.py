@@ -470,6 +470,6 @@ def validate_review_set(
         review = reviews_by_paragraph.get(paragraph.locator)
         if review is None:
             errors.append(f"report paragraph lacks assertion audit: {paragraph.locator}")
-        elif review.get("verdict") != "supported":
+        elif review.get("material") and review.get("verdict") != "supported":
             errors.append(f"material review did not pass: {paragraph.locator}")
     return list(dict.fromkeys(errors))

@@ -318,6 +318,8 @@ sidecar 最小格式是一行一个段落映射，例如 `{"text_locator":"parag
 
 `review-prepare` 还会在同一冻结目录生成 `review-candidate/review-context.md`。它把用户问题、source plan 的 `can_prove/cannot_prove`、Claim 与来源、准确 capture excerpt、矛盾、不确定性和 P4 问题投影为可读材料；它不做方法分类或评分。将整个 `review-candidate/` 与 `research/review-request.json` 交给隔离的外部模型会话或人工 reviewer，不能只给哈希。reviewer 使用现有 `verdict`、`reason`、`allowable_scope`、`required_action` 和 `findings` 判断具体 Claim/句子的方法适配，不增加 reviewer 数量或 review 类型。reviewer provenance 必须绑定 request hash、review output hash、transcript hash、执行身份和时间窗口。
 
+每个 material Claim 和正文段落仍必须有语义审查记录。material Claim 的非 `supported` verdict 继续阻止 review。对段落审查，`material=true` 只用于会改变核心答案、关键综合或行动建议，或者构成安全风险的实质性证据问题；这类目标的非 `supported` verdict 会阻止 review。局部措辞、可进一步限定但不改变核心判断的问题使用 `material=false`：记录和修复动作保留在 `peer-review.json`，review 命令输出 warning，但不阻止整份报告。不得为过 gate 把关键问题标成非 material。
+
 ```bash
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" review "$RUN_DIR" \
   --claim-reviews claim-reviews.jsonl \

@@ -128,6 +128,53 @@ class ReviewStageTests(unittest.TestCase):
             self.assertIn("material review did not pass", result.stderr)
             self.assertFalse((run / "state/generations/g0001/receipts/50-review.json").exists())
 
+    def test_not_supported_material_paragraph_blocks_review(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.drafted_run(workspace)
+            self.register_lens_review(run, workspace)
+            inputs = self.write_review_inputs(run, workspace)
+            reviews = [json.loads(line) for line in inputs[1].read_text(encoding="utf-8").splitlines()]
+            reviews[0]["verdict"] = "not_supported"
+            reviews[0]["required_action"] = "add_evidence"
+            inputs[1].write_text(
+                "".join(json.dumps(item) + "\n" for item in reviews), encoding="utf-8"
+            )
+            result = self.invoke_review(run, inputs)
+            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+            self.assertIn("material review did not pass: paragraph:1", result.stderr)
+            self.assertFalse((run / "state/generations/g0001/receipts/50-review.json").exists())
+
+    def test_nonmaterial_paragraph_finding_is_retained_without_blocking_review(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.drafted_run(workspace)
+            self.register_lens_review(run, workspace)
+            inputs = self.write_review_inputs(run, workspace)
+            reviews = [json.loads(line) for line in inputs[1].read_text(encoding="utf-8").splitlines()]
+            reviews[0]["material"] = False
+            reviews[0]["verdict"] = "not_supported"
+            reviews[0]["required_action"] = "remove"
+            reviews[0]["reason"] = "A local assertion lacks support but does not affect a key conclusion."
+            inputs[1].write_text(
+                "".join(json.dumps(item) + "\n" for item in reviews), encoding="utf-8"
+            )
+            result = self.invoke_review(run, inputs)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn(
+                "WARNING: non-material semantic finding retained: paragraph:1 (not_supported)",
+                result.stderr,
+            )
+            peer_review = json.loads(
+                (run / "work/generations/g0001/artifacts/research/peer-review.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            retained = peer_review["paragraph_reviews"][0]
+            self.assertFalse(retained["material"])
+            self.assertEqual(retained["verdict"], "not_supported")
+            self.assertTrue((run / "state/generations/g0001/receipts/50-review.json").exists())
+
     def test_changed_revised_paragraph_invalidates_review(self) -> None:
         report = "# T\n\nOriginal paragraph."
         paragraph = extract_paragraphs(report)[0]

@@ -19,6 +19,7 @@ Run `python3 scripts/storm_research.py validate "$RUN_DIR"` or `python3 scripts/
 - Known stale or historical evidence cannot close an explicit current fact. An unknown publication date or freshness status emits a non-blocking semantic-review warning and does not fail closure by itself.
 - Contested claims retain contradicting evidence.
 - No unsupported material claim reaches the report.
+- Every material Claim and paragraph retains a semantic review record. A paragraph finding hard-fails only when the reviewed target is material to the core answer, synthesis, action guidance, or safety; non-material findings remain visible warnings and required actions in peer review.
 - Every perspective question has a disposition; every answered question is used by `report_outline`.
 - Full external dossiers require `storm-tasklets`, `storm-findings-pool`, and `finding-coverage` before evidence; every material Claim must link to a usable finding that shares its supporting source.
 - External full dossiers pass an academic baseline across at least two scholarly surfaces; briefings verify every academic source they cite.

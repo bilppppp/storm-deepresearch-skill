@@ -3091,6 +3091,16 @@ def command_review(args: argparse.Namespace) -> int:
     ))
     if errors:
         raise ReviewGateError("; ".join(dict.fromkeys(errors)))
+    advisory_reviews = [
+        review for review in [*claim_reviews, *paragraph_reviews, *fact_checks, *draft_audits]
+        if review.get("material") is False and review.get("verdict") != "supported"
+    ]
+    for review in advisory_reviews:
+        print(
+            f"WARNING: non-material semantic finding retained: {review.get('target_id')} "
+            f"({review.get('verdict')})",
+            file=sys.stderr,
+        )
     reviewer_ids = sorted({
         str(review["reviewer_run_id"])
         for review in [*claim_reviews, *paragraph_reviews, *fact_checks, *draft_audits, *conflict_reviews]
