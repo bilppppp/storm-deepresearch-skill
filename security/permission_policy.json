@@ -12,7 +12,7 @@
         "agents/interface.yaml",
         "references/output-path-policy.md",
         "scripts/sanitize_release_archive.py",
-        "reports/security_trust_report.md"
+        "reports/security_trust_report.json"
       ],
       "target_enforcement": {
         "openai": "adapter metadata and host approval",

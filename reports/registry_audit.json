@@ -21,8 +21,7 @@
     "trust_level": "local",
     "license": "MIT-0",
     "checksums": {
-      "package_sha256": "67a0eee43128fde753efc7e122f7a82e3fa6ee10196142924e0ec6d388b354c3",
-      "archive_sha256": "a76f9743bfab711c9946d226517a02b578f7c6c01b52aabc53291002af97cfa9"
+      "package_sha256": "c728ebeee045ab98e2b47121f39e03e8cfcd31a29b8710bd7fef944ee800fac1"
     },
     "compatibility": {
       "openai": "pass",
@@ -33,35 +32,21 @@
     },
     "source": {
       "skill_dir": "$SKILL_ROOT",
-      "skill_ir": "reports/skill-ir.json",
-      "ir_schema_version": "2.0.0",
       "canonical_metadata": "agents/interface.yaml"
     },
     "artifacts": {
-      "overview_html": "reports/skill-overview.html",
-      "review_studio_html": "reports/review-studio.html",
-      "trust_report": "reports/security_trust_report.md",
-      "conformance_matrix": "reports/conformance_matrix.md",
-      "compiled_targets": "reports/compiled_targets.md",
-      "package_verification": "reports/package_verification.md",
-      "install_simulation": "reports/install_simulation.md",
-      "adoption_drift": "reports/adoption_drift_report.md",
-      "review_waivers": "reports/review_waivers.md",
-      "review_annotations": "reports/review_annotations.md",
+      "trust_report": "reports/security_trust_report.json",
+      "registry_audit": "reports/registry_audit.json",
       "package_metadata": "registry/packages/storm-deepresearch-skill.json"
     },
     "distribution": {
-      "archive_verified": true,
-      "archive_sha256": "a76f9743bfab711c9946d226517a02b578f7c6c01b52aabc53291002af97cfa9",
-      "package_verification": "reports/package_verification.json",
-      "install_simulated": true,
-      "install_simulation": "reports/install_simulation.json"
+      "package_verification": "dist/package_verification.json"
     },
-    "generated_at": "2026-07-22"
+    "generated_at": "2026-07-23"
   },
   "index": {
     "schema_version": "2.0",
-    "generated_at": "2026-07-22",
+    "generated_at": "2026-07-23",
     "package_count": 1,
     "packages": [
       {
@@ -77,7 +62,7 @@
           "generic"
         ],
         "package_metadata": "registry/packages/storm-deepresearch-skill.json",
-        "package_sha256": "67a0eee43128fde753efc7e122f7a82e3fa6ee10196142924e0ec6d388b354c3"
+        "package_sha256": "c728ebeee045ab98e2b47121f39e03e8cfcd31a29b8710bd7fef944ee800fac1"
       }
     ]
   },
@@ -86,7 +71,6 @@
   "artifacts": {
     "index": "$SKILL_ROOT/registry/index.json",
     "package": "$SKILL_ROOT/registry/packages/storm-deepresearch-skill.json",
-    "json": "$SKILL_ROOT/reports/registry_audit.json",
-    "markdown": "$SKILL_ROOT/reports/registry_audit.md"
+    "json": "$SKILL_ROOT/reports/registry_audit.json"
   }
 }

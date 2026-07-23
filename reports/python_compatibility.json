@@ -1,11 +1,11 @@
 {
   "schema_version": "1.0",
   "ok": true,
-  "generated_at": "2026-06-22",
-  "root": "/Users/gravity/Desktop/AI/公众号/第五十二期/storm-deepresearch-skill",
+  "generated_at": "2026-07-23",
+  "root": "$SKILL_ROOT",
   "summary": {
     "target_python": "3.11",
-    "file_count": 23,
+    "file_count": 43,
     "issue_count": 0,
     "syntax_error_count": 0,
     "fstring_311_violation_count": 0,
@@ -23,6 +23,12 @@
   ],
   "files": [
     {
+      "path": "scripts/agent_run_guard.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
       "path": "scripts/contract_io.py",
       "ok": true,
       "issue_count": 0,
@@ -30,6 +36,18 @@
     },
     {
       "path": "scripts/export_report.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "scripts/governed_release.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "scripts/harness_io.py",
       "ok": true,
       "issue_count": 0,
       "issues": []
@@ -47,6 +65,12 @@
       "issues": []
     },
     {
+      "path": "scripts/merge_claim_ledger.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
       "path": "scripts/normalize_retrieval.py",
       "ok": true,
       "issue_count": 0,
@@ -59,7 +83,7 @@
       "issues": []
     },
     {
-      "path": "scripts/render_audit_views.py",
+      "path": "scripts/report_traceability.py",
       "ok": true,
       "issue_count": 0,
       "issues": []
@@ -71,13 +95,25 @@
       "issues": []
     },
     {
+      "path": "scripts/run_state.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
       "path": "scripts/sanitize_release_archive.py",
       "ok": true,
       "issue_count": 0,
       "issues": []
     },
     {
-      "path": "scripts/validate_contracts.py",
+      "path": "scripts/source_evidence.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "scripts/storm_research.py",
       "ok": true,
       "issue_count": 0,
       "issues": []
@@ -95,7 +131,25 @@
       "issues": []
     },
     {
+      "path": "tests/governed_fixtures.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_agent_run_guard.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
       "path": "tests/test_contracts.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_evidence_stage.py",
       "ok": true,
       "issue_count": 0,
       "issues": []
@@ -108,6 +162,24 @@
     },
     {
       "path": "tests/test_export_report.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_governed_release.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_harness_io.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_incident_regressions.py",
       "ok": true,
       "issue_count": 0,
       "issues": []
@@ -131,6 +203,12 @@
       "issues": []
     },
     {
+      "path": "tests/test_merge_claim_ledger.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
       "path": "tests/test_normalize_retrieval.py",
       "ok": true,
       "issue_count": 0,
@@ -143,13 +221,55 @@
       "issues": []
     },
     {
+      "path": "tests/test_recovery_commands.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_render_stage.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_report_traceability.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_review_stage.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
       "path": "tests/test_run_checks.py",
       "ok": true,
       "issue_count": 0,
       "issues": []
     },
     {
+      "path": "tests/test_run_state.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
       "path": "tests/test_sanitize_release_archive.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_source_evidence.py",
+      "ok": true,
+      "issue_count": 0,
+      "issues": []
+    },
+    {
+      "path": "tests/test_storm_research_cli.py",
       "ok": true,
       "issue_count": 0,
       "issues": []
@@ -163,7 +283,6 @@
   ],
   "issues": [],
   "artifacts": {
-    "json": "reports/python_compatibility.json",
-    "markdown": "reports/python_compatibility.md"
+    "json": "reports/python_compatibility.json"
   }
 }

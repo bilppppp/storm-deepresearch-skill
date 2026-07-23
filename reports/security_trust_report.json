@@ -23,7 +23,7 @@
     "interactive_script_count": 0,
     "package_hash_scope": "source-contract-without-generated-reports",
     "package_hash_file_count": 54,
-    "package_sha256": "67a0eee43128fde753efc7e122f7a82e3fa6ee10196142924e0ec6d388b354c3"
+    "package_sha256": "c728ebeee045ab98e2b47121f39e03e8cfcd31a29b8710bd7fef944ee800fac1"
   },
   "failures": [],
   "warnings": [],
@@ -504,7 +504,7 @@
           "agents/interface.yaml",
           "references/output-path-policy.md",
           "scripts/sanitize_release_archive.py",
-          "reports/security_trust_report.md"
+          "reports/security_trust_report.json"
         ],
         "target_enforcement": {
           "openai": "adapter metadata and host approval",
@@ -548,7 +548,6 @@
     "remote_metadata_policy": "allow-metadata-only"
   },
   "artifacts": {
-    "json": "$SKILL_ROOT/reports/security_trust_report.json",
-    "markdown": "$SKILL_ROOT/reports/security_trust_report.md"
+    "json": "reports/security_trust_report.json"
   }
 }

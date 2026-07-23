@@ -132,8 +132,6 @@ class SanitizeReleaseArchiveTests(unittest.TestCase):
                 target.writestr("skill/SKILL.md", "# Skill")
                 target.writestr("skill/LICENSE", "MIT-0")
                 target.writestr("skill/agents/interface.yaml", "interface: {}")
-                target.writestr("skill/reports/review-studio.html", "<html>review</html>")
-                target.writestr("skill/reports/skill-overview.html", "<html>overview</html>")
                 target.writestr("skill/references/policy.md", "policy")
                 target.writestr("skill/schemas/brief.schema.json", "{}")
                 target.writestr("skill/security/permission_policy.json", "{}")
@@ -169,8 +167,6 @@ class SanitizeReleaseArchiveTests(unittest.TestCase):
                     "skill/SKILL.md",
                     "skill/LICENSE",
                     "skill/agents/interface.yaml",
-                    "skill/reports/review-studio.html",
-                    "skill/reports/skill-overview.html",
                     "skill/references/policy.md",
                     "skill/schemas/brief.schema.json",
                     "skill/security/permission_policy.json",

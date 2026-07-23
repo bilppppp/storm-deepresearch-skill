@@ -1,48 +1,96 @@
 {
   "schema_version": "1.0",
   "ok": true,
-  "generated_at": "2026-06-22",
+  "generated_at": "2026-07-23",
   "skill_dir": ".",
   "summary": {
-    "python_file_count": 23,
-    "script_file_count": 12,
-    "test_file_count": 11,
-    "internal_module_count": 2,
-    "cli_script_count": 10,
+    "python_file_count": 43,
+    "script_file_count": 18,
+    "test_file_count": 25,
+    "internal_module_count": 7,
+    "cli_script_count": 11,
     "command_handler_count": 0,
     "entrypoint_command_handler_count": 0,
     "command_module_count": 0,
-    "warn_line_threshold": 900,
-    "watch_line_threshold": 720,
+    "warn_line_threshold": 4500,
+    "watch_line_threshold": 3600,
     "early_watch_line_threshold": 600,
-    "block_line_threshold": 1500,
-    "largest_file_lines": 456,
-    "watchlist_count": 0,
-    "early_watchlist_count": 0,
+    "block_line_threshold": 6000,
+    "largest_file_lines": 3935,
+    "watchlist_count": 1,
+    "early_watchlist_count": 4,
     "hotspot_count": 0,
     "blocker_count": 0,
     "decision": "pass"
   },
   "largest_files": [
     {
-      "path": "scripts/validate_package.py",
-      "lines": 456,
+      "path": "scripts/storm_research.py",
+      "lines": 3935,
       "kind": "cli-script",
       "severity": "pass",
-      "early_watch": false,
+      "early_watch": true,
       "recommendation": "Watch this file before adding new responsibilities; extract a helper module when one concern dominates."
     },
     {
       "path": "scripts/contract_io.py",
-      "lines": 374,
+      "lines": 1265,
+      "kind": "internal-module",
+      "severity": "pass",
+      "early_watch": true,
+      "recommendation": "Watch this file before adding new responsibilities; extract a helper module when one concern dominates."
+    },
+    {
+      "path": "scripts/validate_package.py",
+      "lines": 1170,
+      "kind": "cli-script",
+      "severity": "pass",
+      "early_watch": true,
+      "recommendation": "Watch this file before adding new responsibilities; extract a helper module when one concern dominates."
+    },
+    {
+      "path": "tests/test_storm_research_cli.py",
+      "lines": 978,
+      "kind": "test",
+      "severity": "pass",
+      "early_watch": true,
+      "recommendation": "Break broad integration assertions into focused verifier helpers when the next behavior change lands."
+    },
+    {
+      "path": "tests/governed_fixtures.py",
+      "lines": 632,
+      "kind": "test",
+      "severity": "pass",
+      "early_watch": true,
+      "recommendation": "Break broad integration assertions into focused verifier helpers when the next behavior change lands."
+    },
+    {
+      "path": "tests/test_evidence_stage.py",
+      "lines": 544,
+      "kind": "test",
+      "severity": "pass",
+      "early_watch": false,
+      "recommendation": "Break broad integration assertions into focused verifier helpers when the next behavior change lands."
+    },
+    {
+      "path": "scripts/governed_release.py",
+      "lines": 534,
       "kind": "internal-module",
       "severity": "pass",
       "early_watch": false,
       "recommendation": "Watch this file before adding new responsibilities; extract a helper module when one concern dominates."
     },
     {
-      "path": "tests/test_validate_package.py",
-      "lines": 248,
+      "path": "scripts/report_traceability.py",
+      "lines": 475,
+      "kind": "internal-module",
+      "severity": "pass",
+      "early_watch": false,
+      "recommendation": "Watch this file before adding new responsibilities; extract a helper module when one concern dominates."
+    },
+    {
+      "path": "tests/test_review_stage.py",
+      "lines": 474,
       "kind": "test",
       "severity": "pass",
       "early_watch": false,
@@ -50,83 +98,76 @@
     },
     {
       "path": "scripts/normalize_retrieval.py",
-      "lines": 241,
+      "lines": 450,
       "kind": "cli-script",
+      "severity": "pass",
+      "early_watch": false,
+      "recommendation": "Watch this file before adding new responsibilities; extract a helper module when one concern dominates."
+    },
+    {
+      "path": "scripts/run_state.py",
+      "lines": 417,
+      "kind": "internal-module",
       "severity": "pass",
       "early_watch": false,
       "recommendation": "Watch this file before adding new responsibilities; extract a helper module when one concern dominates."
     },
     {
       "path": "scripts/export_report.py",
-      "lines": 239,
+      "lines": 345,
       "kind": "cli-script",
       "severity": "pass",
       "early_watch": false,
       "recommendation": "Watch this file before adding new responsibilities; extract a helper module when one concern dominates."
-    },
+    }
+  ],
+  "watchlist": [
     {
-      "path": "tests/test_contracts.py",
-      "lines": 224,
-      "kind": "test",
-      "severity": "pass",
-      "early_watch": false,
-      "recommendation": "Break broad integration assertions into focused verifier helpers when the next behavior change lands."
-    },
-    {
-      "path": "scripts/init_research_package.py",
-      "lines": 191,
+      "path": "scripts/storm_research.py",
+      "lines": 3935,
       "kind": "cli-script",
       "severity": "pass",
-      "early_watch": false,
+      "early_watch": true,
+      "recommendation": "Watch this file before adding new responsibilities; extract a helper module when one concern dominates."
+    }
+  ],
+  "early_watchlist": [
+    {
+      "path": "scripts/contract_io.py",
+      "lines": 1265,
+      "kind": "internal-module",
+      "severity": "pass",
+      "early_watch": true,
       "recommendation": "Watch this file before adding new responsibilities; extract a helper module when one concern dominates."
     },
     {
-      "path": "tests/test_normalize_retrieval.py",
-      "lines": 137,
-      "kind": "test",
-      "severity": "pass",
-      "early_watch": false,
-      "recommendation": "Break broad integration assertions into focused verifier helpers when the next behavior change lands."
-    },
-    {
-      "path": "tests/test_init_research_package.py",
-      "lines": 132,
-      "kind": "test",
-      "severity": "pass",
-      "early_watch": false,
-      "recommendation": "Break broad integration assertions into focused verifier helpers when the next behavior change lands."
-    },
-    {
-      "path": "scripts/sanitize_release_archive.py",
-      "lines": 122,
+      "path": "scripts/validate_package.py",
+      "lines": 1170,
       "kind": "cli-script",
       "severity": "pass",
-      "early_watch": false,
+      "early_watch": true,
       "recommendation": "Watch this file before adding new responsibilities; extract a helper module when one concern dominates."
     },
     {
-      "path": "tests/test_library_contract.py",
-      "lines": 115,
+      "path": "tests/test_storm_research_cli.py",
+      "lines": 978,
       "kind": "test",
       "severity": "pass",
-      "early_watch": false,
+      "early_watch": true,
       "recommendation": "Break broad integration assertions into focused verifier helpers when the next behavior change lands."
     },
     {
-      "path": "tests/test_export_report.py",
-      "lines": 111,
+      "path": "tests/governed_fixtures.py",
+      "lines": 632,
       "kind": "test",
       "severity": "pass",
-      "early_watch": false,
+      "early_watch": true,
       "recommendation": "Break broad integration assertions into focused verifier helpers when the next behavior change lands."
     }
   ],
-  "watchlist": [],
-  "early_watchlist": [],
   "hotspots": [],
   "actions": [],
   "artifacts": {
-    "json": "reports/architecture_maintainability.json",
-    "markdown": "reports/architecture_maintainability.md"
+    "json": "reports/architecture_maintainability.json"
   }
 }

@@ -19,8 +19,6 @@ RUNTIME_ROOT_FILES = {
 }
 RUNTIME_EXACT_FILES = {
     "agents/interface.yaml",
-    "reports/review-studio.html",
-    "reports/skill-overview.html",
     "security/permission_policy.json",
     "templates/report.html.j2",
 }
