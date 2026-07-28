@@ -18,6 +18,7 @@ from scripts.harness_io import sha256_file
 from tests.governed_fixtures import (
     valid_candidate_record,
     valid_capture_input,
+    valid_crossref_response,
     valid_search_run_record,
     valid_source_v2,
 )
@@ -149,7 +150,9 @@ class RetrievalNormalizationTests(unittest.TestCase):
             encoding="utf-8",
         )
         (cache / "search-1.json").write_text('{"results":["K001"]}\n', encoding="utf-8")
-        (cache / "crossref-1.json").write_text('{"doi":"10.5555/storm.1"}\n', encoding="utf-8")
+        (cache / "crossref-1.json").write_text(
+            json.dumps(valid_crossref_response()) + "\n", encoding="utf-8"
+        )
         search = valid_search_run_record()
         candidate = valid_candidate_record()
         capture = valid_capture_input()

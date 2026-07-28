@@ -12,6 +12,7 @@ from tests.governed_fixtures import (
     valid_adapter_record,
     valid_candidate_record,
     valid_capture_input,
+    valid_crossref_response,
     valid_research_plan_v2,
     valid_source_plan,
     valid_search_run_record,
@@ -812,7 +813,7 @@ class StormResearchCLITests(unittest.TestCase):
                 encoding="utf-8",
             )
             (cache / f"crossref-{index}.json").write_text(
-                json.dumps({"doi": candidate["identifiers"]["doi"]}) + "\n",
+                json.dumps(valid_crossref_response(index)) + "\n",
                 encoding="utf-8",
             )
             search["snapshot_sha256"] = sha256_file(cache / f"search-{index}.json")

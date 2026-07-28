@@ -217,7 +217,7 @@ RUN_DIR="$WORKSPACE/output/storm-deepresearch/research-run"
 
 `host` 是默认检索模式；`provider` 只在用户明确配置凭证时使用；`closed_corpus` 只使用指定文件或 URL。占位符域名、`.internal` 伪来源、无快照、secondary-as-primary、Wikipedia 伪装成 primary/Tier A 和 blanket Tier A 会在 ingest 阶段失败。full dossier 的外部研究至少需要 `6` 个非用户、非百科的外部来源；Wikipedia 可作背景线索，但不能替代 deep research。
 
-成功 ingest 会生成内部、receipt-bound 的 `research/retrieval-audit.jsonl`，保留 search run、候选筛选、resolver、版本家族和快照哈希；它不会进入公开 release。`unreachable` 表示检索面不可达，不等于 `unmatched`。同一论文的预印本、会议版和期刊版会合并进一个 version family，不能冒充多个独立来源。零结果只证明该次查询没有返回候选，不能直接证明某事实不存在。
+成功 ingest 会生成内部、receipt-bound 的 `research/retrieval-audit.jsonl`，保留 search run、候选筛选、resolver、版本家族和快照哈希；它不会进入公开 release。academic resolver 标为 `matched` 时，快照必须是可解析的 Crossref、OpenAlex、Semantic Scholar、PubMed 或 arXiv 提供方原始响应，identifier、title、authors 和 year 必须与 outcome 一致；模型整理的 DOI/title/year 小对象不能充当响应。`unreachable` 表示检索面不可达，不等于 `unmatched`。同一论文的预印本、会议版和期刊版会合并进一个 version family，不能冒充多个独立来源。零结果只证明该次查询没有返回候选，不能直接证明某事实不存在。
 
 ### 4. Findings
 
@@ -331,29 +331,36 @@ sidecar 最小格式是一行一个段落映射，例如 `{"text_locator":"parag
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" review-prepare "$RUN_DIR" \
   --candidate-md report.md \
   --candidate-map reviewed-paragraph-map.jsonl \
-  --revision-map revision-map.json \
-  --author-context-id "$HOST_SESSION_ID"
+  --revision-map revision-map.json
 ```
 
-`review-prepare` 还会在同一冻结目录生成 `review-candidate/review-context.md`，并输出机器可读的 `review_handoff_required=true`、`author_may_continue=false`。它把用户问题、source plan 的 `can_prove/cannot_prove`、Claim 与来源、准确 capture excerpt、矛盾、不确定性和 P4 问题投影为可读材料；它不做方法分类或评分。宿主必须把整个 `review-candidate/` 与 `research/review-request.json` 交给真正隔离的外部模型会话或人工 reviewer，不能只给哈希，也不能由作者会话通过改写 context ID、时间或 attestation 自行制造 review records、transcript 和 provenance。若宿主不能启动独立上下文，应向用户报告外审等待，而不是伪造通过。reviewer 使用现有 `verdict`、`reason`、`allowable_scope`、`required_action` 和 `findings` 判断具体 Claim/句子的方法适配，不增加 reviewer 数量或 review 类型。日期未知本身不能决定 verdict，P4 和 reviewer 也不能按“非学术”“新闻”或“用户来源”等类别整体否决。reviewer provenance 必须绑定 request hash、review output hash、transcript hash、执行身份和时间窗口。
+`review-prepare` 还会在同一冻结目录生成 `review-candidate/review-context.md`，并输出机器可读的 `review_handoff_required=true`、`author_may_continue=false`。它把用户问题、source plan 的 `can_prove/cannot_prove`、Claim 与来源、准确 capture excerpt、矛盾、不确定性和 P4 问题投影为可读材料；它不做方法分类或评分。宿主必须把整个 `review-candidate/` 与 `research/review-request.json` 交给真正隔离的外部模型入口或人工 reviewer，不能只给哈希。若宿主不能启动独立 actor，应报告外审等待。
+
+reviewer 把所有语义审阅 JSONL、transcript 和一个最小执行元数据文件写入同一目录；该目录必须同时位于 run 和 Skill 之外。执行元数据只需要 `execution_kind`、`reviewer_identity`、`execution_id`，外部模型再加 `provider`、`model`、`runner`。不得让作者在 run 的 `_build/reviewer/` 中伪造提交。`review` 在回收时生成 context/session ID、绑定哈希、时间窗和 attestation；调用者不填写这些字段。例如：
+
+```json
+{"execution_kind":"external_model","reviewer_identity":"external reviewer","execution_id":"provider-run-42","provider":"configured-provider","model":"configured-model","runner":"host-review-adapter"}
+```
+
+reviewer 使用现有 `verdict`、`reason`、`allowable_scope`、`required_action` 和 `findings` 判断具体 Claim/句子的方法适配。日期未知本身不能决定 verdict，也不能按“非学术”“新闻”或“用户来源”等类别整体否决。
 
 每个 material Claim 和正文段落仍必须有语义审查记录。material Claim 的非 `supported` verdict 继续阻止 review。对段落审查，`material=true` 只用于会改变核心答案、关键综合或行动建议，或者构成安全风险的实质性证据问题；这类目标的非 `supported` verdict 会阻止 review。局部措辞、可进一步限定但不改变核心判断的问题使用 `material=false`：记录和修复动作保留在 `peer-review.json`，review 命令输出 warning，但不阻止整份报告。不得为过 gate 把关键问题标成非 material。
 
 ```bash
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" review "$RUN_DIR" \
-  --claim-reviews claim-reviews.jsonl \
-  --report-audit report-audit.jsonl \
-  --fact-checks fact-checks.jsonl \
-  --conflict-reviews conflict-reviews.jsonl \
-  --draft-audit draft-audit.jsonl \
+  --claim-reviews "$REVIEW_SUBMISSION/claim-reviews.jsonl" \
+  --report-audit "$REVIEW_SUBMISSION/report-audit.jsonl" \
+  --fact-checks "$REVIEW_SUBMISSION/fact-checks.jsonl" \
+  --conflict-reviews "$REVIEW_SUBMISSION/conflict-reviews.jsonl" \
+  --draft-audit "$REVIEW_SUBMISSION/draft-audit.jsonl" \
   --revised-md report.md \
   --revised-paragraph-map-jsonl reviewed-paragraph-map.jsonl \
   --revision-map revision-map.json \
-  --review-provenance reviewer-provenance.json \
-  --review-transcript reviewer-transcript.txt
+  --review-provenance "$REVIEW_SUBMISSION/reviewer-execution.json" \
+  --review-transcript "$REVIEW_SUBMISSION/reviewer-transcript.txt"
 ```
 
-full dossier 不接受 `self_review`。当前保证等级称为 `captured external review`；没有供应商签名时不宣称 provider-signed。
+full dossier 不接受 `self_review`。当前保证等级是“外部提交边界已捕获并绑定”；它不是供应商签名，也不把自报 context ID 或 attestation 当作隔离证明。
 
 ### 8. Render
 
@@ -434,7 +441,7 @@ full dossier 不接受 `self_review`。当前保证等级称为 `captured extern
 - `work/generations/g0001/artifacts/research/reviewed-paragraph-map.jsonl`：公共报告段落到内部 claim/source/citation 的映射。
 - `work/generations/g0001/artifacts/research/review-request.json`：冻结候选报告、输入哈希和 author context 的外部审查 handoff。
 - `work/generations/g0001/artifacts/review-candidate/review-context.md`：供 reviewer 直接阅读的冻结问题、证据边界、Claim、capture、反证和 P4 上下文。
-- `work/generations/g0001/artifacts/research/reviewer-provenance.json`：外部 reviewer 执行与 transcript 的可重算证明。
+- `work/generations/g0001/artifacts/research/reviewer-provenance.json`：harness 从外部提交边界生成的执行身份、时间窗、transcript 和审阅输出绑定；不是 provider signature。
 - `work/generations/g0001/artifacts/report.md`：唯一内容真源。
 - `work/generations/g0001/artifacts/exports/report.html`、`report.pdf`：确定性派生物。
 - `work/generations/g0001/artifacts/validation/render-manifest.json`：跨格式哈希和章节指纹。

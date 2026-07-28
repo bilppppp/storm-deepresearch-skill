@@ -4,6 +4,8 @@
 
 ### Changed
 
+- Matched academic resolver snapshots are now parsed as provider-native Crossref, OpenAlex, Semantic Scholar, or PubMed responses and bound to the declared identifier and returned metadata.
+- Independent review now imports one submission directory outside the run and Skill; the harness generates review context/session IDs, hashes, timestamps, and attestation from that handoff instead of accepting author-filled provenance claims.
 - Full dossiers now expose an explicit validation completion boundary: intermediate states are not deliverable, `review-prepare` marks the external-actor handoff, and validated local output must use `collect` rather than direct writes to `current/`.
 - Validation reports are accepted on repeat offline inspection, so `doctor` remains clean after a successful validation receipt.
 - `run_checks.py --dist` now rewrites the generated ZIP to an explicit installable-runtime allowlist instead of shipping the entire development repository.

@@ -195,6 +195,28 @@ class ReviewStageTests(unittest.TestCase):
             self.assertTrue((artifacts / "research/peer-review.json").is_file())
             self.assertTrue((artifacts / "research/peer-review.md").is_file())
             self.assertTrue((run / "state/generations/g0001/receipts/50-review.json").is_file())
+            execution = json.loads((workspace / "reviewer-provenance.json").read_text(encoding="utf-8"))
+            provenance = json.loads(
+                (artifacts / "research/reviewer-provenance.json").read_text(encoding="utf-8")
+            )
+            self.assertNotIn("author_context_id", execution)
+            self.assertNotIn("started_at", execution)
+            self.assertNotIn("isolation_attestation", execution)
+            self.assertTrue(str(provenance["author_context_id"]).startswith("ACTX-"))
+            self.assertTrue(str(provenance["review_session_id"]).startswith("RSESSION-"))
+            self.assertTrue(provenance["isolation_attestation"])
+
+    def test_review_rejects_submission_created_inside_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = self.drafted_run(workspace)
+            self.register_lens_review(run, workspace)
+            submission = run / "_build/reviewer"
+            submission.mkdir(parents=True)
+            inputs = self.write_review_inputs(run, submission)
+            result = self.invoke_review(run, inputs)
+            self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+            self.assertIn("review submission directory must be outside the run and Skill", result.stderr)
 
     def test_review_prepare_is_immutable(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -205,7 +227,7 @@ class ReviewStageTests(unittest.TestCase):
             command = [
                 sys.executable, str(CLI), "review-prepare", str(run),
                 "--candidate-md", str(inputs[5]), "--candidate-map", str(inputs[6]),
-                "--revision-map", str(inputs[7]), "--author-context-id", "author-run-1",
+                "--revision-map", str(inputs[7]),
             ]
             first = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
             self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
@@ -227,7 +249,7 @@ class ReviewStageTests(unittest.TestCase):
             command = [
                 sys.executable, str(CLI), "review-prepare", str(run),
                 "--candidate-md", str(inputs[5]), "--candidate-map", str(inputs[6]),
-                "--revision-map", str(inputs[7]), "--author-context-id", "author-run-1",
+                "--revision-map", str(inputs[7]),
             ]
             prepared = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
             self.assertEqual(prepared.returncode, 0, prepared.stdout + prepared.stderr)
@@ -275,7 +297,7 @@ class ReviewStageTests(unittest.TestCase):
                 [
                     sys.executable, str(CLI), "review-prepare", str(run),
                     "--candidate-md", str(inputs[5]), "--candidate-map", str(inputs[6]),
-                    "--revision-map", str(inputs[7]), "--author-context-id", "author-run-1",
+                    "--revision-map", str(inputs[7]),
                 ],
                 cwd=ROOT, capture_output=True, text=True, check=False,
             )
@@ -440,41 +462,18 @@ class ReviewStageTests(unittest.TestCase):
                     [
                         sys.executable, str(CLI), "review-prepare", str(run),
                         "--candidate-md", str(revised), "--candidate-map", str(revised_map),
-                        "--revision-map", str(revision_map), "--author-context-id", "author-run-1",
+                        "--revision-map", str(revision_map),
                     ],
                     cwd=ROOT, capture_output=True, text=True, check=False,
                 )
                 self.assertEqual(prepare.returncode, 0, prepare.stdout + prepare.stderr)
-            request = json.loads((run / "work/generations/g0001/artifacts/research/review-request.json").read_text(encoding="utf-8"))
-            reviewed_at = request["created_at"]
-            for path in (claims, audit, fact_checks, conflict_reviews, draft_audit):
-                rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
-                for row in rows:
-                    row["author_run_id"] = "author-run-1"
-                    row["reviewer_run_id"] = "reviewer-run-1"
-                    row["reviewed_at"] = reviewed_at
-                path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
-            output_payload = {
-                "claim_reviews": [json.loads(line) for line in claims.read_text(encoding="utf-8").splitlines()],
-                "paragraph_reviews": [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()],
-                "fact_checks": [json.loads(line) for line in fact_checks.read_text(encoding="utf-8").splitlines()],
-                "conflict_reviews": [json.loads(line) for line in conflict_reviews.read_text(encoding="utf-8").splitlines()],
-                "draft_audits": [json.loads(line) for line in draft_audit.read_text(encoding="utf-8").splitlines()],
-            }
             transcript = revised.parent / "reviewer-transcript.txt"
             transcript.write_text("Captured external reviewer transcript.", encoding="utf-8")
             provenance = revised.parent / "reviewer-provenance.json"
             provenance.write_text(json.dumps({
-                "schema_version": "2.0", "provenance_id": "RPROV-test",
-                "review_session_id": "reviewer-run-1", "execution_kind": "external_model",
-                "author_context_id": "author-run-1", "reviewer_context_id": "reviewer-context-1",
+                "execution_kind": "external_model",
                 "reviewer_identity": "test reviewer", "provider": "test-provider",
                 "model": "test-model", "runner": "test-runner", "execution_id": "exec-1",
-                "request_sha256": request["request_sha256"],
-                "review_output_sha256": canonical_json_sha256(output_payload),
-                "transcript_ref": "artifacts/research/reviewer-transcript.txt",
-                "transcript_sha256": sha256_file(transcript), "started_at": reviewed_at,
-                "completed_at": reviewed_at, "isolation_attestation": True,
             }), encoding="utf-8")
             command.extend(["--review-provenance", str(provenance), "--review-transcript", str(transcript)])
         return subprocess.run(

@@ -2814,7 +2814,7 @@ def command_review_prepare(args: argparse.Namespace) -> int:
         "request_id": f"RREQ-{uuid.uuid4().hex}",
         "run_id": layout.root.name,
         "generation": generation,
-        "author_context_id": args.author_context_id,
+        "author_context_id": f"ACTX-{uuid.uuid4().hex}",
         "created_at": _utc_now(),
         "input_artifacts": {key: sha256_file(path) for key, path in sorted(input_paths.items())},
         "candidate_artifacts": {key: sha256_file(path) for key, path in sorted(destinations.items())},
@@ -2828,11 +2828,13 @@ def command_review_prepare(args: argparse.Namespace) -> int:
         "review_handoff_required": True,
         "author_may_continue": False,
         "required_actor": "external_model_or_human",
+        "submission_policy": "single_directory_outside_run_and_skill",
         "review_request": str(request_path),
         "review_candidate": str(candidate_root),
         "instruction": (
-            "Transfer the frozen request and candidate to a genuinely separate reviewer context. "
-            "The author context must not create review records, transcript, or provenance."
+            "Launch a genuinely separate reviewer or hand the bundle to a human. Collect every "
+            "review output, transcript, and execution metadata file in one submission directory outside "
+            "both the run and Skill; in-run author-created review files are rejected."
         ),
     })
     return EXIT_OK
@@ -2840,6 +2842,37 @@ def command_review_prepare(args: argparse.Namespace) -> int:
 
 def _review_output_digest(payload: dict[str, list[dict[str, object]]]) -> str:
     return canonical_json_sha256(payload)
+
+
+def _capture_review_provenance(
+    execution: dict[str, object], request: dict[str, object], output_sha256: str,
+    transcript_path: Path, completed_at: str, review_session_id: str,
+) -> dict[str, object]:
+    execution_kind = execution.get("execution_kind")
+    required = ("reviewer_identity", "execution_id")
+    if execution_kind not in {"external_model", "human"} or any(
+        not isinstance(execution.get(field), str) or not execution.get(field) for field in required
+    ):
+        raise CLIContractError("review execution metadata requires execution_kind, reviewer_identity, and execution_id")
+    if execution_kind == "external_model" and any(
+        not isinstance(execution.get(field), str) or not execution.get(field)
+        for field in ("provider", "model", "runner")
+    ):
+        raise CLIContractError("external model review metadata requires provider, model, and runner")
+    return {
+        "schema_version": "2.0", "provenance_id": f"RPROV-{uuid.uuid4().hex}",
+        "review_session_id": review_session_id, "execution_kind": execution_kind,
+        "author_context_id": request["author_context_id"],
+        "reviewer_context_id": f"RCTX-{uuid.uuid4().hex}",
+        "reviewer_identity": execution["reviewer_identity"],
+        "provider": execution.get("provider"), "model": execution.get("model"),
+        "runner": execution.get("runner"), "execution_id": execution["execution_id"],
+        "request_sha256": request["request_sha256"], "review_output_sha256": output_sha256,
+        "transcript_ref": "artifacts/research/reviewer-transcript.txt",
+        "transcript_sha256": sha256_file(transcript_path),
+        "started_at": request["created_at"], "completed_at": completed_at,
+        "isolation_attestation": True,
+    }
 
 
 def _parse_datetime(value: object) -> datetime | None:
@@ -2967,6 +3000,27 @@ def _require_full_review_inputs(args: argparse.Namespace, brief: dict[str, objec
         raise CLIContractError("full_dossier review requires " + ", ".join(missing))
 
 
+def _validate_review_submission_boundary(
+    args: argparse.Namespace, run_root: Path
+) -> list[str]:
+    paths = [
+        value for value in (
+            args.claim_reviews, args.report_audit, args.fact_checks, args.conflict_reviews,
+            args.draft_audit, args.review_provenance, args.review_transcript,
+        ) if value is not None
+    ]
+    if any(path.is_symlink() for path in paths):
+        return ["review submission files cannot be symlinks"]
+    parents = {path.resolve().parent for path in paths}
+    if len(parents) != 1:
+        return ["review outputs must come from one external submission directory"]
+    submission_root = next(iter(parents))
+    forbidden = (run_root.resolve(), ROOT.resolve())
+    if any(submission_root == root or submission_root.is_relative_to(root) for root in forbidden):
+        return ["review submission directory must be outside the run and Skill"]
+    return []
+
+
 def _peer_review_markdown(summary: dict[str, object]) -> str:
     return (
         "# Peer Review\n\n"
@@ -3029,6 +3083,9 @@ def command_review(args: argparse.Namespace) -> int:
     verify_stage_precondition(layout, generation, Stage.REVIEW, package_hash)
     brief = verify_current_brief_view(layout, generation)
     _require_full_review_inputs(args, brief)
+    boundary_errors = _validate_review_submission_boundary(args, layout.root)
+    if boundary_errors:
+        raise ReviewGateError("; ".join(boundary_errors))
     report = args.revised_md.read_text(encoding="utf-8")
     paragraph_map = load_jsonl(args.revised_paragraph_map_jsonl)
     claim_reviews = load_jsonl(args.claim_reviews)
@@ -3039,7 +3096,7 @@ def command_review(args: argparse.Namespace) -> int:
     revision_map = load_json(args.revision_map)
     if args.review_provenance is None or args.review_transcript is None:
         raise CLIContractError("full_dossier review requires --review-provenance and --review-transcript")
-    provenance = load_json(args.review_provenance)
+    execution = load_json(args.review_provenance)
     claim_path = layout.artifact(generation, "research/claim-evidence-ledger.jsonl")
     source_path = layout.artifact(generation, "research/source-register.jsonl")
     contradiction_path = layout.artifact(generation, "research/contradiction-ledger.json")
@@ -3054,6 +3111,14 @@ def command_review(args: argparse.Namespace) -> int:
     request = load_json(request_path)
     if request.get("request_sha256") != _review_request_digest(request):
         raise ReviewGateError("review request hash mismatch")
+    completed_at = _utc_now()
+    review_session_id = f"RSESSION-{uuid.uuid4().hex}"
+    all_reviews = [*claim_reviews, *paragraph_reviews, *fact_checks, *draft_audits, *conflict_reviews]
+    for review in all_reviews:
+        review["author_run_id"] = request["author_context_id"]
+        review["reviewer_run_id"] = review_session_id
+        review["reviewed_at"] = completed_at
+        review["independent"] = True
     candidate_paths = {
         "artifacts/review-candidate/report.md": args.revised_md,
         "artifacts/review-candidate/paragraph-map.jsonl": args.revised_paragraph_map_jsonl,
@@ -3096,7 +3161,10 @@ def command_review(args: argparse.Namespace) -> int:
         "conflict_reviews": conflict_reviews,
         "draft_audits": draft_audits,
     }
-    all_reviews = [*claim_reviews, *paragraph_reviews, *fact_checks, *draft_audits, *conflict_reviews]
+    provenance = _capture_review_provenance(
+        execution, request, _review_output_digest(review_output_payload),
+        args.review_transcript, completed_at, review_session_id,
+    )
     errors.extend(_validate_review_provenance(
         provenance, request, _review_output_digest(review_output_payload),
         args.review_transcript, all_reviews,
@@ -3848,7 +3916,6 @@ def build_parser() -> argparse.ArgumentParser:
     review_prepare.add_argument("--candidate-md", type=Path, required=True)
     review_prepare.add_argument("--candidate-map", type=Path, required=True)
     review_prepare.add_argument("--revision-map", type=Path, required=True)
-    review_prepare.add_argument("--author-context-id", required=True)
     review_prepare.set_defaults(handler=command_review_prepare)
 
     review = subparsers.add_parser("review", help="Apply independent semantic review.")
@@ -3861,7 +3928,10 @@ def build_parser() -> argparse.ArgumentParser:
     review.add_argument("--revised-md", type=Path, required=True)
     review.add_argument("--revised-paragraph-map-jsonl", type=Path, required=True)
     review.add_argument("--revision-map", type=Path, required=True)
-    review.add_argument("--review-provenance", type=Path)
+    review.add_argument(
+        "--review-provenance", type=Path,
+        help="External execution metadata; the harness generates bound provenance.",
+    )
     review.add_argument("--review-transcript", type=Path)
     review.set_defaults(handler=command_review)
 

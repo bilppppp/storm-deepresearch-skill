@@ -55,6 +55,8 @@ For each perspective, generate at least two concrete research questions for a fu
 
 Use the host, provider, and closed-corpus boundaries in [Retrieval Adapters](retrieval-adapters.md). Search snippets identify candidates but cannot close material Claims; bundled scripts do not initiate research network requests.
 
+When a bibliographic resolver reports a match, save its provider-native response before constructing the candidate outcome. Bad: synthesize `{"doi": ..., "title": ..., "year": ...}` from model memory or search cards. Good: retain the native Crossref/OpenAlex/Semantic Scholar/PubMed JSON or arXiv Atom response and let ingest parse and bind it. If no native response was captured, do not mark the resolver `matched`.
+
 For film reviews or essay prompts, do not search only the film's background page. Turn the user's concepts, comparisons, and named theorists into separate research questions, then retrieve sources that can actually prove or challenge those claims.
 
 In 1.1, `plan` automatically creates `research/storm-tasklets.jsonl`. After `ingest`, run `storm_research.py findings` to register `research/storm-findings-pool.jsonl` and `research/finding-coverage.json`. A full external dossier cannot advance to evidence unless every tasklet has at least one usable finding. A `needs_more_evidence` finding requires a later gap-fill search; if it remains unresolved, bind its tasklet to exactly one uncertainty record.
@@ -91,7 +93,7 @@ Run the red-team prompt after `draft`. Score finding confidence, identify the we
 
 Full dossiers require three explicit review tracks in addition to the base semantic review: fact checks for material Claims, conflict review for the contradiction ledger, and draft audit for paragraph assertions. These records must come from a captured external-model execution or human reviewer, not from self-attested string IDs.
 
-In strict mode, register `research/storm-lens-red-team.json` with `lens-review` after draft. Close every repair action in `revision-map.json`, freeze the candidate with `review-prepare`, then hand the immutable request to the external reviewer. `review-prepare` is an actor boundary: the author context must not create the review records, transcript, or provenance by assigning itself different IDs. If the host cannot launch a separate context, report that external review is waiting. The review receipt binds P4, the candidate, request, provenance, transcript, and final review artifacts.
+In strict mode, register `research/storm-lens-red-team.json` with `lens-review` after draft. Close every repair action in `revision-map.json`, freeze the candidate with `review-prepare`, then launch a real external-model entry or hand the immutable request to a human. The author actor stops here. The reviewer writes semantic records, transcript, and minimal execution metadata into one submission directory outside both the run and Skill. `review` rejects in-run or scattered submissions and generates context IDs, session ID, hashes, handoff timestamps, and isolation attestation itself. If the host cannot launch a separate actor, report that external review is waiting. The review receipt binds P4, the candidate, request, generated provenance, transcript, and final review artifacts.
 
 Material absence claims require an `absence-search-ledger.jsonl`. Full dossiers use at least two discovery surfaces; high-stakes medical absence claims also require a trial registry, bibliographic database, and at least three aliases. Closed-corpus runs may only claim absence inside the supplied corpus.
 

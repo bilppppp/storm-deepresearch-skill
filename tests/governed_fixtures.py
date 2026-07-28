@@ -447,6 +447,21 @@ def valid_candidate_record(index: int = 1) -> dict[str, object]:
     }
 
 
+def valid_crossref_response(index: int = 1) -> dict[str, object]:
+    """A compact provider-native Crossref work response for offline tests."""
+    return {
+        "status": "ok",
+        "message-type": "work",
+        "message-version": "1.0.0",
+        "message": {
+            "DOI": f"10.5555/storm.{index}",
+            "title": [f"Governed Research Source {index}"],
+            "author": [{"given": "A.", "family": "Researcher"}],
+            "published": {"date-parts": [[2026]]},
+        },
+    }
+
+
 def valid_adapter_record(index: int = 1) -> dict[str, object]:
     return {
         "record_kind": "capture",

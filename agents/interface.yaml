@@ -1,7 +1,7 @@
 interface:
   display_name: "STORM DeepResearch"
   short_description: "STORM research with evidence and review provenance"
-  default_prompt: "Use $storm-deepresearch-skill. Ask research_profile; recommend default_full_dossier. Require the academic baseline and retrieval-audit.jsonl. Continue until status.local_delivery_ready=true; do not deliver intermediate states or write current/. Stop for missing evidence or an external-review handoff, and never self-attest reviewer provenance."
+  default_prompt: "Use $storm-deepresearch-skill. Ask research_profile; recommend default_full_dossier. Require academic baseline, provider-native matched resolver responses, and retrieval-audit.jsonl. Continue to local_delivery_ready; stop on missing evidence or review handoff. Launch a separate reviewer and import one outside-run submission; never self-attest provenance."
 compatibility:
   canonical_format: "agent-skills"
   adapter_targets: ["openai", "claude", "agent-skills", "vscode", "generic"]
@@ -46,11 +46,11 @@ contract:
     state_model: "generation artifacts plus immutable receipt chain"
     research_pool_policy: "tasklets need usable findings before evidence"
     release_policy: "validation-plus-trust-plus-human-approval"
-    review_policy: "review-prepare is an actor boundary; full dossiers require frozen candidate and genuinely separate external/human provenance"
+    review_policy: "review-prepare hands one external submission to harness-owned provenance"
     local_delivery_policy: "only status.local_delivery_ready=true may be collected and presented as final"
     current_view_policy: "harness-owned; never write directly"
     absence_claim_policy: "material absence needs multi-surface audit"
-    academic_retrieval_policy: "full dossiers require verified academic baseline, screening, version families, and gap-fill"
+    academic_retrieval_policy: "verified baseline plus provider-native resolver snapshots, screening, version families, and gap-fill"
   permissions: ["read approved inputs", "write inside output root", "use approved host network", "run validators"]
   stop_conditions: ["required evidence or provenance missing", "P2 retrieval or P4 repair open", "a gate fails", "release lacks Trust or human approval"]
   non_goals: ["quick lookup", "unsupported role-play", "personalized professional advice"]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,7 +13,12 @@ from scripts.source_evidence import (
     validate_public_url,
     validate_retrieval_evidence,
 )
-from tests.governed_fixtures import valid_candidate_record, valid_search_run_record
+from scripts.harness_io import sha256_file
+from tests.governed_fixtures import (
+    valid_candidate_record,
+    valid_crossref_response,
+    valid_search_run_record,
+)
 
 
 class SourceEvidenceTests(unittest.TestCase):
@@ -30,6 +36,48 @@ class SourceEvidenceTests(unittest.TestCase):
         candidate["resolver_outcomes"][0]["raw_artifact"] = "missing.json"
         errors = validate_candidate_snapshots(candidate, self.cache)
         self.assertTrue(any("snapshot file is missing" in item for item in errors))
+
+    def test_matched_resolver_rejects_caller_authored_summary(self) -> None:
+        candidate = valid_candidate_record()
+        snapshot = self.cache / "crossref.json"
+        snapshot.write_text('{"doi":"10.5555/storm.1","title":"Governed Research Source 1"}\n')
+        candidate["resolver_outcomes"][0].update({
+            "raw_artifact": snapshot.name, "snapshot_sha256": sha256_file(snapshot),
+        })
+        errors = validate_candidate_snapshots(candidate, self.cache)
+        self.assertTrue(any("not a recognized provider response" in item for item in errors))
+
+    def test_matched_resolver_parses_and_binds_provider_response(self) -> None:
+        candidate = valid_candidate_record()
+        snapshot = self.cache / "crossref.json"
+        snapshot.write_text(json.dumps(valid_crossref_response()) + "\n", encoding="utf-8")
+        candidate["resolver_outcomes"][0].update({
+            "raw_artifact": snapshot.name, "snapshot_sha256": sha256_file(snapshot),
+        })
+        self.assertEqual(validate_candidate_snapshots(candidate, self.cache), [])
+
+        candidate["resolver_outcomes"][0]["returned_title"] = "Invented title"
+        self.assertIn(
+            "resolver returned_title does not match the provider response",
+            validate_candidate_snapshots(candidate, self.cache),
+        )
+
+    def test_matched_arxiv_resolver_parses_native_atom_response(self) -> None:
+        candidate = valid_candidate_record()
+        snapshot = self.cache / "arxiv.xml"
+        snapshot.write_text(
+            '<feed xmlns="http://www.w3.org/2005/Atom"><entry>'
+            '<id>https://arxiv.org/abs/2601.00001v1</id><title>Auditable Research</title>'
+            '<author><name>A. Researcher</name></author><published>2026-01-02T00:00:00Z</published>'
+            '</entry></feed>', encoding="utf-8",
+        )
+        candidate["resolver_outcomes"][0].update({
+            "resolver": "arxiv", "query_basis": "arxiv_id",
+            "matched_identifier": "2601.00001v1", "returned_title": "Auditable Research",
+            "returned_authors": ["A. Researcher"], "raw_artifact": snapshot.name,
+            "snapshot_sha256": sha256_file(snapshot),
+        })
+        self.assertEqual(validate_candidate_snapshots(candidate, self.cache), [])
 
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()

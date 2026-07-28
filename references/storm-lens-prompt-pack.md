@@ -21,6 +21,8 @@ In `storm_lens_mode=strict`, each prompt must also produce a `schemas/storm-lens
 
 The helper artifacts are not final research evidence. They prove phase order and bind prompt outputs to later receipts.
 
+Before ingest, apply this resolver instruction: a matched academic resolver needs the provider-native raw response, not a model-created metadata card. For example, `{"doi":"...","title":"..."}` is insufficient; a Crossref match retains the `status`, `message-type`, and `message` envelope so ingest can parse the DOI and returned metadata.
+
 ## Prompt 1 — Perspective Discovery
 
 Run before search. Output perspective briefs, research questions, evidence needs, likely sources, and blind spots. Do not answer factual questions from memory.
@@ -167,6 +169,11 @@ If the evidence supports a narrower conclusion, qualify or rewrite it. If it sup
 material conclusion, remove it or route it to additional evidence. Use the existing output
 fields and repair paths; do not invent a method score or coverage field.
 
+Examples:
+- Claim says “the national curriculum requires these courses,” while the excerpt only lists one school's departments: `not_supported` + `add_evidence`.
+- Claim says “this user encountered the problem,” and the cited first-person account says exactly that: `supported` within individual scope; do not promote it to prevalence.
+- A resolver snapshot is a hand-written DOI/title/year object rather than the provider response: treat the academic identity as unverified and return to retrieval.
+
 Route each problem to one repair path:
 - retrieval
 - findings
@@ -177,6 +184,8 @@ Route each problem to one repair path:
 - render/validation
 
 Each repair action must include `action_id`, target kind/ID, the target's before SHA-256, action, `required` or `waived` disposition, and reason. Do not mark an action applied inside Prompt 4; application is proven later by `revision-map.json` before `review-prepare` freezes the candidate.
+
+After `review-prepare`, do not simulate the reviewer in the author context. Launch a separate model execution or hand the frozen bundle to a human. The reviewer submission must be one directory outside the run and Skill; the harness, not the author or reviewer prose, assigns context/session IDs, hashes, timestamps, and attestation during import.
 ```
 
 Output target:

@@ -26,6 +26,20 @@ Submit one JSONL containing a typed union defined by `schemas/retrieval-record.s
 
 Search and resolver snapshots are required audit evidence. Search snippets can identify candidates but cannot close material Claims. A zero-result search cannot prove absence by itself.
 
+For every `status=matched` academic resolver outcome, store the unmodified provider response and bind its SHA-256. The ingest worker parses recognized Crossref, OpenAlex, Semantic Scholar, PubMed, or arXiv response shapes and compares the identifier, title, authors, and year with the declared outcome. A model-written metadata summary is not a resolver response.
+
+```json
+{"doi":"10.1234/paper","title":"A paper","year":2025}
+```
+
+The summary above must fail. A compact valid Crossref snapshot retains the provider envelope and work record:
+
+```json
+{"status":"ok","message-type":"work","message":{"DOI":"10.1234/paper","title":["A paper"],"author":[{"given":"A.","family":"Author"}],"published":{"date-parts":[[2025]]}}}
+```
+
+Do not reconstruct this shape from search results. If the provider response is unavailable or unrecognized, record `unreachable`, `unmatched`, or `needs_review`; do not claim `matched`.
+
 Commit records with:
 
 ```bash

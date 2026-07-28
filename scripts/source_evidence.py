@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import ipaddress
+import json
 import re
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from xml.etree import ElementTree
 
 from pypdf import PdfReader
 
@@ -134,8 +136,144 @@ def validate_candidate_snapshots(record: dict[str, Any], cache_root: Path) -> li
     for outcome in outcomes:
         if not isinstance(outcome, dict) or outcome.get("status") == "skipped":
             continue
-        errors.extend(validate_audit_snapshot(outcome, cache_root))
+        snapshot_errors = validate_audit_snapshot(outcome, cache_root)
+        errors.extend(snapshot_errors)
+        if outcome.get("status") == "matched" and not snapshot_errors:
+            errors.extend(_validate_matched_resolver_payload(outcome, cache_root))
     return _unique(errors)
+
+
+def _normalized_identifier(value: object) -> str:
+    text = str(value or "").strip().casefold()
+    for prefix in (
+        "https://doi.org/", "http://doi.org/", "doi:", "https://openalex.org/",
+        "https://arxiv.org/abs/", "http://arxiv.org/abs/", "arxiv:",
+    ):
+        if text.startswith(prefix):
+            text = text[len(prefix):]
+    return text
+
+
+def _resolver_payload_record(
+    outcome: dict[str, Any], payload: dict[str, Any]
+) -> dict[str, object] | None:
+    resolver = str(outcome.get("resolver", "")).casefold().replace("-", "_")
+    basis = str(outcome.get("query_basis", ""))
+    if resolver == "crossref":
+        if payload.get("status") != "ok" or not isinstance(payload.get("message"), dict):
+            return None
+        record = payload["message"]
+        date = record.get("published") or record.get("published-print") or {}
+        parts = date.get("date-parts", []) if isinstance(date, dict) else []
+        authors = record.get("author", [])
+        titles = record.get("title", [])
+        return {
+            "identifier": record.get("DOI"),
+            "title": titles[0] if isinstance(titles, list) and titles else "",
+            "authors": [
+                " ".join(filter(None, (item.get("given"), item.get("family"))))
+                for item in (authors if isinstance(authors, list) else []) if isinstance(item, dict)
+            ],
+            "year": parts[0][0] if parts and parts[0] else None,
+        }
+    if resolver == "openalex":
+        if not str(payload.get("id", "")).startswith("https://openalex.org/"):
+            return None
+        return {
+            "identifier": payload.get("doi") if basis == "doi" else payload.get("id"),
+            "title": payload.get("title"),
+            "authors": [
+                item.get("author", {}).get("display_name", "")
+                for item in (payload.get("authorships") or []) if isinstance(item, dict)
+            ],
+            "year": payload.get("publication_year"),
+        }
+    if resolver in {"semantic_scholar", "semanticscholar"}:
+        if not payload.get("paperId") or not isinstance(payload.get("externalIds"), dict):
+            return None
+        keys = {"doi": "DOI", "pmid": "PubMed", "arxiv_id": "ArXiv"}
+        return {
+            "identifier": payload["externalIds"].get(keys.get(basis), payload.get("paperId")),
+            "title": payload.get("title"),
+            "authors": [item.get("name", "") for item in (payload.get("authors") or []) if isinstance(item, dict)],
+            "year": payload.get("year"),
+        }
+    if resolver in {"pubmed", "ncbi_pubmed"}:
+        result = payload.get("result")
+        if not isinstance(result, dict) or not isinstance(result.get("uids"), list):
+            return None
+        uid = str(result["uids"][0]) if result["uids"] else ""
+        record = result.get(uid)
+        if not isinstance(record, dict):
+            return None
+        year_match = re.search(r"\b(?:19|20)\d{2}\b", str(record.get("pubdate", "")))
+        article_ids = record.get("articleids") or []
+        identifier = uid
+        if basis != "pmid":
+            id_type = {"doi": "doi", "arxiv_id": "arxiv"}.get(basis)
+            identifier = next((
+                item.get("value") for item in article_ids
+                if isinstance(item, dict) and item.get("idtype") == id_type
+            ), None)
+        return {
+            "identifier": identifier,
+            "title": record.get("title"),
+            "authors": [item.get("name", "") for item in (record.get("authors") or []) if isinstance(item, dict)],
+            "year": int(year_match.group()) if year_match else None,
+        }
+    return None
+
+
+def _validate_matched_resolver_payload(
+    outcome: dict[str, Any], cache_root: Path
+) -> list[str]:
+    snapshot = resolve_snapshot(cache_root, str(outcome.get("raw_artifact", "")))
+    resolver = str(outcome.get("resolver", "")).casefold().replace("-", "_")
+    observed: dict[str, object] | None
+    if resolver in {"arxiv", "arxiv_api"}:
+        try:
+            root = ElementTree.fromstring(snapshot.read_text(encoding="utf-8"))
+        except (UnicodeDecodeError, ElementTree.ParseError):
+            return ["matched arXiv resolver snapshot must be a parseable Atom response"]
+        namespace = {"a": "http://www.w3.org/2005/Atom"}
+        entry = root.find("a:entry", namespace)
+        if entry is None:
+            observed = None
+        else:
+            published = entry.findtext("a:published", default="", namespaces=namespace)
+            observed = {
+                "identifier": entry.findtext("a:id", default="", namespaces=namespace),
+                "title": entry.findtext("a:title", default="", namespaces=namespace),
+                "authors": [node.findtext("a:name", default="", namespaces=namespace) for node in entry.findall("a:author", namespace)],
+                "year": int(published[:4]) if re.fullmatch(r"\d{4}", published[:4]) else None,
+            }
+    else:
+        try:
+            payload = json.loads(snapshot.read_text(encoding="utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return ["matched resolver snapshot must be a parseable provider JSON response"]
+        observed = _resolver_payload_record(outcome, payload) if isinstance(payload, dict) else None
+    if observed is None:
+        return [
+            f"matched {outcome.get('resolver')} resolver snapshot is not a recognized provider response"
+        ]
+    expected = _normalized_identifier(outcome.get("matched_identifier"))
+    errors: list[str] = []
+    if expected and _normalized_identifier(observed.get("identifier")) != expected:
+        errors.append("matched resolver identifier is not present in the provider response")
+    if _normalize_whitespace(str(observed.get("title") or "")).casefold() != _normalize_whitespace(
+        str(outcome.get("returned_title") or "")
+    ).casefold():
+        errors.append("resolver returned_title does not match the provider response")
+    if observed.get("year") != outcome.get("returned_year"):
+        errors.append("resolver returned_year does not match the provider response")
+    raw_authors = {_normalize_whitespace(str(item)).casefold() for item in observed.get("authors", [])}
+    claimed_authors = {
+        _normalize_whitespace(str(item)).casefold() for item in outcome.get("returned_authors", [])
+    }
+    if raw_authors != claimed_authors:
+        errors.append("resolver returned_authors do not match the provider response")
+    return errors
 
 
 def normalized_snapshot_text(path: Path, content_type: str) -> str:
