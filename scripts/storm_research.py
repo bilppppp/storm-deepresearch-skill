@@ -2822,7 +2822,19 @@ def command_review_prepare(args: argparse.Namespace) -> int:
     request["request_sha256"] = _review_request_digest(request)
     atomic_write_json(request_path, request)
     atomic_write_json(package_child(layout.root, "current/research/review-request.json"), request)
-    print(f"Prepared external review request: {request_path}")
+    _print_json({
+        "ok": True,
+        "state": "review_handoff_required",
+        "review_handoff_required": True,
+        "author_may_continue": False,
+        "required_actor": "external_model_or_human",
+        "review_request": str(request_path),
+        "review_candidate": str(candidate_root),
+        "instruction": (
+            "Transfer the frozen request and candidate to a genuinely separate reviewer context. "
+            "The author context must not create review records, transcript, or provenance."
+        ),
+    })
     return EXIT_OK
 
 
@@ -3337,13 +3349,25 @@ def _status_payload(run_dir: Path) -> dict[str, object]:
             "error": None,
             "invalidated_artifacts": [],
             "receipts": [],
+            "completion_boundary": "validation",
+            "local_delivery_ready": False,
+            "review_handoff_required": False,
         }
     package_hash = compute_skill_package_hash(ROOT)
     status = receipt_chain_status(layout, generation, package_hash)
+    review_request = layout.artifact(generation, "research/review-request.json")
+    review_handoff_required = (
+        review_request.is_file()
+        and not review_request.is_symlink()
+        and not layout.receipt(generation, Stage.REVIEW).is_file()
+    )
     return {
         "schema_version": "2.0",
         "run_dir": str(layout.root),
         **status,
+        "completion_boundary": "validation",
+        "local_delivery_ready": status.get("state") in {"validated", "released"},
+        "review_handoff_required": review_handoff_required,
     }
 
 

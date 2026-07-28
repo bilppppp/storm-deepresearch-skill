@@ -9,6 +9,7 @@ description: Use for source-grounded deep research, literature review, or comple
 
 - Vague `run ... research X`: ask `research_profile`; recommend `default_full_dossier` (strict P1-P4), not briefing.
 - Full dossiers: strict P1-P4, external/human review provenance, no self-review.
+- Full dossiers are deliverable only when `status.local_delivery_ready=true`; otherwise continue or report a concrete blocker.
 - Preserve at least five genuinely different STORM perspectives; do not rename near-duplicates to satisfy the count.
 - External full dossiers: run an academic baseline; corpus-seeded search cannot replace it.
 - Ingest search runs, screened candidates, and captures; bind `retrieval-audit.jsonl` internally.
@@ -26,15 +27,14 @@ description: Use for source-grounded deep research, literature review, or comple
 - Unknown publication date or freshness is a non-blocking risk for semantic review. Do not require template disclaimers or `qualified` status. A known stale or unsuitable historical source cannot support an explicit current fact.
 - Hard-fail fake or uncheckable evidence, unsupported material Claims, material citation mismatch, dangerous method overreach, known-stale evidence for current facts, and credential/path/network leakage.
 - When evidence supports a narrower statement, warn and qualify, rewrite, remove, or add evidence. Every blocking finding must identify a concrete Claim, sentence, source, or dangerous output; never reject a source category wholesale.
-- Give independent reviewers readable `review-context.md` content, not hashes alone. It projects existing brief, source, Claim, contradiction, uncertainty, and P4 material; it is not a second authority system.
-- Apply the canonical boundaries in [source and evidence policy](references/source-and-evidence-policy.md) and the P1/P4 instructions in [lens prompts](references/storm-lens-prompt-pack.md).
+- Give reviewers readable `review-context.md`, not hashes; it projects existing governed artifacts without creating a second authority system.
 
 ## Compact Workflow
 
 1. `init` + `plan`: profile evidence, STORM tasklets, `report_outline`.
 2. `ingest` + `findings` + `evidence`: close bibliography, gaps, sources, and Claims without exceeding capture or method limits.
-3. `draft` + P4 + `review-prepare` + `review`: repair material evidence problems; retain non-material findings as advisory.
-4. `render` + `validate`: derive local Markdown/HTML/PDF. Use `release` only for a public research package.
+3. `draft` + P4 + `review-prepare`: freeze and hand off to a separate model context or human; the author must not manufacture review provenance.
+4. `review` + `render` + `validate` + `collect`: finish local delivery. Use `release` only for a public research package.
 
 ## Decision Points
 
@@ -45,7 +45,7 @@ description: Use for source-grounded deep research, literature review, or comple
 
 ## Output Contract
 
-Produce plans, findings, ledgers, readable review context, independent review, Markdown/HTML/PDF, and receipts. Produce a release package only when requested. Follow [workflow](references/research-protocol.md), [gates](references/quality-gates.md), and [paths](references/output-path-policy.md).
+Produce governed research, independent review, Markdown/HTML/PDF, and receipts; release only when requested. Follow [workflow](references/research-protocol.md), [gates](references/quality-gates.md), and [paths](references/output-path-policy.md).
 
 ## Failure Policy
 
@@ -53,6 +53,7 @@ Produce plans, findings, ledgers, readable review context, independent review, M
 - Never reinitialize or truncate ledgers.
 - Never edit receipts or validators to pass.
 - Never mark P4 repairs applied without matching before/after hashes.
+- Never write or copy files into harness-owned `current/`, or present `_build` files as final. Use `collect` only after validation.
 - Evidence review blocks only key, material failures; warnings remain visible and non-blocking. Operational contract violations may still fail non-zero.
 - Local render/validation and ordinary Git commits need no human release signature. Public research-package release needs Trust, registry, re-verification, and human approval.
 

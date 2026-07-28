@@ -4,6 +4,8 @@
 
 ### Changed
 
+- Full dossiers now expose an explicit validation completion boundary: intermediate states are not deliverable, `review-prepare` marks the external-actor handoff, and validated local output must use `collect` rather than direct writes to `current/`.
+- Validation reports are accepted on repeat offline inspection, so `doctor` remains clean after a successful validation receipt.
 - `run_checks.py --dist` now rewrites the generated ZIP to an explicit installable-runtime allowlist instead of shipping the entire development repository.
 - Project checks now apply an explicit `2200` initial-load budget while retaining Yao validate, lint, governance, and resource-boundary checks; this preserves execution-critical evidence-method-fit rules without changing the global Yao installation.
 - Reconnected retrieval, report-writing, and export guidance from the main research protocol so deferred references remain discoverable without expanding `SKILL.md`.

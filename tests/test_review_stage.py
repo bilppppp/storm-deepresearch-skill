@@ -231,6 +231,11 @@ class ReviewStageTests(unittest.TestCase):
             ]
             prepared = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
             self.assertEqual(prepared.returncode, 0, prepared.stdout + prepared.stderr)
+            handoff = json.loads(prepared.stdout)
+            self.assertEqual(handoff["state"], "review_handoff_required")
+            self.assertTrue(handoff["review_handoff_required"])
+            self.assertFalse(handoff["author_may_continue"])
+            self.assertEqual(handoff["required_actor"], "external_model_or_human")
             artifacts = run / "work/generations/g0001/artifacts"
             context_path = artifacts / "review-candidate/review-context.md"
             request = json.loads((artifacts / "research/review-request.json").read_text(encoding="utf-8"))
@@ -247,6 +252,14 @@ class ReviewStageTests(unittest.TestCase):
                 "artifacts/review-candidate/review-context.md",
                 request["candidate_artifacts"],
             )
+            status = subprocess.run(
+                [sys.executable, str(CLI), "status", str(run)],
+                cwd=ROOT, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(status.returncode, 0, status.stdout + status.stderr)
+            status_payload = json.loads(status.stdout)
+            self.assertTrue(status_payload["review_handoff_required"])
+            self.assertFalse(status_payload["local_delivery_ready"])
 
             context_path.write_text(context_path.read_text(encoding="utf-8") + "tampered\n", encoding="utf-8")
             result = self.invoke_review(run, inputs, prepare_candidate=False)

@@ -98,6 +98,51 @@ class ValidatePackageTests(unittest.TestCase):
                 sha256_file(target / "report.md"),
             )
 
+    def test_status_and_collect_enforce_validation_delivery_boundary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            run = build_valid_governed_run(workspace)
+            before = subprocess.run(
+                [sys.executable, str(CLI), "status", str(run)],
+                cwd=ROOT, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(before.returncode, 0, before.stdout + before.stderr)
+            before_payload = json.loads(before.stdout)
+            self.assertEqual(before_payload["completion_boundary"], "validation")
+            self.assertFalse(before_payload["local_delivery_ready"])
+
+            target = workspace / "premature-delivery"
+            blocked = subprocess.run(
+                [sys.executable, str(CLI), "collect", str(run), "--to", str(target)],
+                cwd=ROOT, capture_output=True, text=True, check=False,
+            )
+            self.assertNotEqual(blocked.returncode, 0, blocked.stdout + blocked.stderr)
+            self.assertIn("missing validation receipt", blocked.stderr)
+            self.assertFalse(target.exists())
+
+            validated = self.validate(run)
+            self.assertEqual(validated.returncode, 0, validated.stdout + validated.stderr)
+            after = subprocess.run(
+                [sys.executable, str(CLI), "status", str(run)],
+                cwd=ROOT, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(after.returncode, 0, after.stdout + after.stderr)
+            self.assertTrue(json.loads(after.stdout)["local_delivery_ready"])
+
+    def test_doctor_is_clean_after_validation_reports_exist(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run = build_valid_governed_run(Path(tmp))
+            validated = self.validate(run)
+            self.assertEqual(validated.returncode, 0, validated.stdout + validated.stderr)
+            doctor = subprocess.run(
+                [sys.executable, str(CLI), "doctor", str(run)],
+                cwd=ROOT, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(doctor.returncode, 0, doctor.stdout + doctor.stderr)
+            payload = json.loads(doctor.stdout)
+            self.assertEqual(payload["validation_exit_code"], 0)
+            self.assertEqual(payload["failed_checks"], [])
+
     def test_validator_rejects_forged_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             run = build_valid_governed_run(Path(tmp))

@@ -101,6 +101,8 @@ RENDER_ARTIFACTS = {
     "validation/render-manifest.json",
 }
 OPTIONAL_ARTIFACTS = {
+    "validation/validation-report.json",
+    "validation/validation-report.md",
     "research/absence-search-ledger.jsonl",
     "research/finding-coverage.json",
     "research/storm-findings-pool.jsonl",

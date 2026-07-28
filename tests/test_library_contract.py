@@ -40,6 +40,9 @@ class LibraryContractTests(unittest.TestCase):
         self.assertIn("report_outline", body)
         self.assertIn("output-path-policy.md", body)
         self.assertIn("Never reinitialize", body)
+        self.assertIn("status.local_delivery_ready=true", body)
+        self.assertIn("Never write or copy files into harness-owned `current/`", body)
+        self.assertIn("must not manufacture review provenance", body)
 
     def test_skill_initial_load_stays_within_library_budget(self) -> None:
         text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
@@ -125,6 +128,8 @@ class LibraryContractTests(unittest.TestCase):
         self.assertEqual(defaults["output_collision_policy"], "fail")
         self.assertEqual(defaults["ledger_update_policy"], "monotonic-merge")
         self.assertEqual(defaults["release_policy"], "validation-plus-trust-plus-human-approval")
+        self.assertIn("local_delivery_ready=true", defaults["local_delivery_policy"])
+        self.assertEqual(defaults["current_view_policy"], "harness-owned; never write directly")
 
     def test_docs_name_academic_retrieval_contract(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

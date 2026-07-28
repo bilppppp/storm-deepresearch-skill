@@ -24,6 +24,7 @@
 - 默认在用户工作区的 `output/storm-deepresearch/` 下创建独立运行目录；已存在目标、路径逃逸和符号链接逃逸都会失败。
 - 初始化不会覆盖既有研究包；来源登记采用保留既有 ID 的原子合并，研究账本不能被重新初始化截断。
 - 公开研究包 release 需要通过离线 validation、Yao Trust 报告、Registry hash 匹配、必要的来源再验证和 human approval；本地 `render`、`validate`、查看 HTML/PDF 和普通 Git 提交不需要真人 release 签署。
+- `default_full_dossier` 的正常本地终点是 `status.local_delivery_ready=true`。`evidence_ready`、`drafted`、`reviewed` 和 `rendered` 都是中间状态，不能宣告最终交付。
 
 它不适合快速事实查询、简单摘要、无证据角色扮演或个性化医疗、法律、投资建议。
 
@@ -334,7 +335,7 @@ sidecar 最小格式是一行一个段落映射，例如 `{"text_locator":"parag
   --author-context-id "$HOST_SESSION_ID"
 ```
 
-`review-prepare` 还会在同一冻结目录生成 `review-candidate/review-context.md`。它把用户问题、source plan 的 `can_prove/cannot_prove`、Claim 与来源、准确 capture excerpt、矛盾、不确定性和 P4 问题投影为可读材料；它不做方法分类或评分。将整个 `review-candidate/` 与 `research/review-request.json` 交给隔离的外部模型会话或人工 reviewer，不能只给哈希。reviewer 使用现有 `verdict`、`reason`、`allowable_scope`、`required_action` 和 `findings` 判断具体 Claim/句子的方法适配，不增加 reviewer 数量或 review 类型。日期未知本身不能决定 verdict，P4 和 reviewer 也不能按“非学术”“新闻”或“用户来源”等类别整体否决。reviewer provenance 必须绑定 request hash、review output hash、transcript hash、执行身份和时间窗口。
+`review-prepare` 还会在同一冻结目录生成 `review-candidate/review-context.md`，并输出机器可读的 `review_handoff_required=true`、`author_may_continue=false`。它把用户问题、source plan 的 `can_prove/cannot_prove`、Claim 与来源、准确 capture excerpt、矛盾、不确定性和 P4 问题投影为可读材料；它不做方法分类或评分。宿主必须把整个 `review-candidate/` 与 `research/review-request.json` 交给真正隔离的外部模型会话或人工 reviewer，不能只给哈希，也不能由作者会话通过改写 context ID、时间或 attestation 自行制造 review records、transcript 和 provenance。若宿主不能启动独立上下文，应向用户报告外审等待，而不是伪造通过。reviewer 使用现有 `verdict`、`reason`、`allowable_scope`、`required_action` 和 `findings` 判断具体 Claim/句子的方法适配，不增加 reviewer 数量或 review 类型。日期未知本身不能决定 verdict，P4 和 reviewer 也不能按“非学术”“新闻”或“用户来源”等类别整体否决。reviewer provenance 必须绑定 request hash、review output hash、transcript hash、执行身份和时间窗口。
 
 每个 material Claim 和正文段落仍必须有语义审查记录。material Claim 的非 `supported` verdict 继续阻止 review。对段落审查，`material=true` 只用于会改变核心答案、关键综合或行动建议，或者构成安全风险的实质性证据问题；这类目标的非 `supported` verdict 会阻止 review。局部措辞、可进一步限定但不改变核心判断的问题使用 `material=false`：记录和修复动作保留在 `peer-review.json`，review 命令输出 warning，但不阻止整份报告。不得为过 gate 把关键问题标成非 material。
 
@@ -379,7 +380,7 @@ full dossier 不接受 `self_review`。当前保证等级称为 `captured extern
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" repair-plan "$RUN_DIR"
 ```
 
-本地使用可把已验证成品收集到浅层目录；`collect` 需要通过 validation，只复制 `report.md`、HTML、PDF 和 validation report，不替代 public `release`：
+本地使用可把已验证成品收集到浅层目录；`collect` 需要通过 validation，只复制 `report.md`、HTML、PDF 和 validation report，不替代 public `release`。`current/` 是 harness-owned 便利视图，宿主不得用 `cp`、重定向或编辑器直接写入，也不得把 `_build` 或 validation 前的文件作为最终交付。只有 `status.local_delivery_ready=true` 后成功执行 `collect`，才可以向用户宣告本地 full dossier 完成：
 
 ```bash
 "$PY" "$SKILL_ROOT/scripts/storm_research.py" collect "$RUN_DIR" \
